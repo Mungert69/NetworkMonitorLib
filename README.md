@@ -1,6 +1,3 @@
-# NetworkMonitorLib
-
-
 # NetworkMonitorLLM Technical Documentation
 
 ## Core Purpose
