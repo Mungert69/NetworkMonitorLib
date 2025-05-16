@@ -29,25 +29,43 @@ public class HuggingFaceImageData
     public string image_type { get; set; } = "";
 }
 
+public class HuggingFaceImageRequest
+{
+    public string response_image_type { get; set; } = "png";
+    public string prompt { get; set; } = "";
+    public uint seed { get; set; } = 1234567890;
+    public int steps { get; set; } = 4;
+    public int width { get; set; } = 512;
+    public int height { get; set; } = 512;
+    public int image_num { get; set; } = 1;
+}
+
+
 
 public class HuggingFaceImageResponse
 {
-    public List<HuggingFaceImageData> images { get; set; } = new ();
+    public List<HuggingFaceImageData> images { get; set; } = new();
 
 }
 
 
-public class HuggingFaceImageRequest
-{
-    public int steps { get; set; } = 20;
-    public string response_image_type { get; set; } = "png";
-    //public string model_name { get; set; } = "";
-    public uint seed { get; set; } =1234567890;
-    public string prompt { get; set; } = "";
-    public int image_num { get; set; } = 1;
-    public int width { get; set; } = 1024;
-    public int height { get; set; } = 1024;
 
+
+public class HuggingFaceAsyncTaskResponse
+{
+    public HuggingFaceTask task { get; set; }
+    public List<HuggingFaceImageData> images { get; set; }
+}
+
+public class HuggingFaceTask
+{
+    public string task_id { get; set; }
+}
+
+public class HuggingFaceAsyncResult
+{
+    public string status { get; set; }
+    public List<HuggingFaceImageData> images { get; set; }
 }
 
 public class NovitaImageRequest
@@ -71,19 +89,48 @@ public class NovitaImageRequestRoot
     public NovitaImageRequest request { get; set; }
 }
 
-// Novita API response classes
 public class NovitaTaskResponse
 {
     public string task_id { get; set; }
 }
 
-public class NovitaResultImage
+// Full Novita response structure
+public class NovitaFullResponse
 {
-    public string url { get; set; }
+    public NovitaExtra extra { get; set; }
+    public NovitaTask task { get; set; }
+    public List<NovitaImage> images { get; set; }
+    public List<object> videos { get; set; }
+    public List<object> audios { get; set; }
 }
 
-public class NovitaResultResponse
+public class NovitaExtra
 {
+    public string seed { get; set; }
+    public bool enable_nsfw_detection { get; set; }
+    public NovitaDebugInfo debug_info { get; set; }
+}
+
+public class NovitaDebugInfo
+{
+    public string request_info { get; set; }
+    public string submit_time_ms { get; set; }
+    public string execute_time_ms { get; set; }
+    public string complete_time_ms { get; set; }
+}
+
+public class NovitaTask
+{
+    public string task_id { get; set; }
+    public string task_type { get; set; }
     public string status { get; set; }
-    public List<NovitaResultImage> images { get; set; }
+    public string reason { get; set; }
+    public int eta { get; set; }
+    public int progress_percent { get; set; }
+}
+
+public class NovitaImage
+{
+    public string image_url { get; set; }
+    // Add other fields if present
 }
