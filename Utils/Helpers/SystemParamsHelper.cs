@@ -72,9 +72,16 @@ namespace NetworkMonitor.Utils.Helpers
         {
             _config = config;
             _logger = logger;
-	    if (File.Exists(".env"))
+            string envFilePath = Environment.GetEnvironmentVariable("EnvPath") ?? ".env";
+
+            if (File.Exists(envFilePath))
             {
-               DotNetEnv.Env.Load();
+                DotNetEnv.Env.Load(envFilePath); // Load from custom path
+                _logger.LogInformation($"Loaded environment variables from: {envFilePath}");
+            }
+            else
+            {
+                _logger.LogWarning($"No .env file found at: {envFilePath}");
             }
         }
         public string GetPublicIP()
@@ -130,15 +137,16 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.LLMEncryptKey = GetConfigValue("LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.ServiceAuthKey = GetConfigValue("ServiceAuthKey");
-            string rabbitPassword = GetConfigValue("RabbitPassword","");
+            string rabbitPassword = GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigValue("REDIS_PASSWORD");
 
             systemParams.PublicIPAddress = GetPublicIP();
             systemParams.IsSingleSystem = true;
             if (systemParams.SystemUrls != null && systemParams.SystemUrls.Count > 1) systemParams.IsSingleSystem = false;
             systemParams.ThisSystemUrl = _config.GetSection("LocalSystemUrl").Get<SystemUrl>() ?? throw new Exception(" Check config no LocalSystemUrl found");
-            if (!string.IsNullOrEmpty(rabbitPassword)){
-                systemParams.ThisSystemUrl.RabbitPassword=rabbitPassword;
+            if (!string.IsNullOrEmpty(rabbitPassword))
+            {
+                systemParams.ThisSystemUrl.RabbitPassword = rabbitPassword;
             }
             _logger.LogInformation(" Info : Config ExtermalUrl = " + systemParams.ThisSystemUrl.ExternalUrl + " Config IP address = " + systemParams.ThisSystemUrl.IPAddress + " Found public IP address " + systemParams.PublicIPAddress);
 
