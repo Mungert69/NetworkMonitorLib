@@ -72,7 +72,7 @@ namespace NetworkMonitor.Utils.Helpers
         {
             _config = config;
             _logger = logger;
-            string envFilePath = Environment.GetEnvironmentVariable("EnvPath") ?? ".env";
+            string envFilePath = config["EnvPath"] ?? ".env";
 
             if (File.Exists(envFilePath))
             {
