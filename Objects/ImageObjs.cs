@@ -49,3 +49,41 @@ public class HuggingFaceImageRequest
     public int height { get; set; } = 1024;
 
 }
+
+public class NovitaImageRequest
+{
+    public string model_name { get; set; }
+    public string prompt { get; set; }
+    public string negative_prompt { get; set; }
+    public int width { get; set; }
+    public int height { get; set; }
+    public string sampler_name { get; set; }
+    public double guidance_scale { get; set; }
+    public int steps { get; set; }
+    public int image_num { get; set; }
+    public int clip_skip { get; set; }
+    public int seed { get; set; }
+}
+
+// Root object for Novita API request
+public class NovitaImageRequestRoot
+{
+    public NovitaImageRequest request { get; set; }
+}
+
+// Novita API response classes
+public class NovitaTaskResponse
+{
+    public string task_id { get; set; }
+}
+
+public class NovitaResultImage
+{
+    public string url { get; set; }
+}
+
+public class NovitaResultResponse
+{
+    public string status { get; set; }
+    public List<NovitaResultImage> images { get; set; }
+}

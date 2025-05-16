@@ -53,6 +53,12 @@ namespace NetworkMonitor.Objects
   [JsonSerializable(typeof(ImageData))]
   [JsonSerializable(typeof(List<ImageData>))]
   [JsonSerializable(typeof(ImageResponse))]
+  // Novita image API types
+  [JsonSerializable(typeof(NetworkMonitor.Service.Services.OpenAI.NovitaImageRequest))]
+  [JsonSerializable(typeof(NetworkMonitor.Service.Services.OpenAI.NovitaImageRequestRoot))]
+  [JsonSerializable(typeof(NetworkMonitor.Service.Services.OpenAI.NovitaTaskResponse))]
+  [JsonSerializable(typeof(NetworkMonitor.Service.Services.OpenAI.NovitaResultImage))]
+  [JsonSerializable(typeof(NetworkMonitor.Service.Services.OpenAI.NovitaResultResponse))]
   [JsonSerializable(typeof(HuggingFaceRequest))]
   [JsonSerializable(typeof(CreateIndexRequest))]
   [JsonSerializable(typeof(QueryIndexRequest))]
