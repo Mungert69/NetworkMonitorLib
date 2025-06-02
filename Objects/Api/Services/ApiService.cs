@@ -20,7 +20,7 @@ namespace NetworkMonitor.Api.Services
 
         Task<List<TResultObj<DataObj>>> CheckConnections(List<IConnectionObject> connectionObjects);
 
-        string? OpenAIPluginServiceKey { get; set; }
+        string? RapidApiKey { get; set; }
     }
 
     public class ApiService : IApiService
@@ -30,9 +30,9 @@ namespace NetworkMonitor.Api.Services
         private readonly PingParams _pingParams;
         private readonly NetConnectCollection _netConnectCollection;
         private ISystemParamsHelper _systemParamsHelper;
-              private string? _openAIPluginServiceKey;
+              private string? _rapidApiKey;
         private ICmdProcessorProvider _cmdProcessorProvider;
-        public string? OpenAIPluginServiceKey { get => _openAIPluginServiceKey; set => _openAIPluginServiceKey = value; }
+        public string? RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
 
 #pragma warning disable CS8618
         public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "")
@@ -46,10 +46,10 @@ namespace NetworkMonitor.Api.Services
                 if (_systemParamsHelper == null) throw new ArgumentNullException(" Error _systemParamsHelper is null");
                 if (_systemParamsHelper.GetSystemParams() == null) throw new ArgumentNullException(" Error _systemParamsHelper.GetSystemParams() is null");
 
-                OpenAIPluginServiceKey = _systemParamsHelper.GetSystemParams().OpenAIPluginServiceKey;
-                if (OpenAIPluginServiceKey == null)
+                RapidApiKey = _systemParamsHelper.GetSystemParams().RapidApiKey;
+                if (RapidApiKey == null)
                 {
-                    throw new ArgumentException(" Fatal error could not load OpenAIPluginServiceKey from appsettings.json");
+                    throw new ArgumentException(" Fatal error could not load RapidApiKey from appsettings.json");
                 }
 
                 _pingParams = _systemParamsHelper.GetPingParams();

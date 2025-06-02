@@ -34,6 +34,7 @@ namespace NetworkMonitor.Objects
         private ManagementToken _managementToken=new ManagementToken();
         private bool sendTrustPilot;
         private string? _openAIPluginServiceKey;
+        private string? _rapidApiKey;
         private string? _serviceID;
         private string? _serviceAuthKey;
         private int _expireMonths;
@@ -73,5 +74,6 @@ namespace NetworkMonitor.Objects
         public global::System.String RedisSecret { get => _redisSecret; set => _redisSecret = value; }
         public global::System.String RedisUrl { get => _redisUrl; set => _redisUrl = value; }
         public global::System.String LLMEncryptKey { get => _lLMEncryptKey; set => _lLMEncryptKey = value; }
+        public global::System.String RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
     }
 }
