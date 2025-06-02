@@ -136,6 +136,8 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.EmailEncryptKey = GetConfigValue("EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigValue("LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigValue("OpenAIPluginServiceKey", "Missing");
+            systemParams.RapidApiKey = GetConfigValue("RapidApiKey", "Missing");
+            
             systemParams.ServiceAuthKey = GetConfigValue("ServiceAuthKey");
             string rabbitPassword = GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigValue("REDIS_PASSWORD");
