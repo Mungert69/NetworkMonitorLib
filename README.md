@@ -1,7 +1,7 @@
 # NetworkMonitorLib Technical Documentation
 
 ## Core Purpose
-Provides a class library for the suit of NetworkMonitor tools.
+Provides a class library for the Free Network Monitor Service Components.
 
 ### Building from Source
 
