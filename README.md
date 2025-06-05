@@ -3,7 +3,9 @@
 ## Core Purpose
 Provides a class library for the Free Network Monitor Service Components.
 
-### Building from Source
+### Build this Library when building Components Like NetworkMonitorLLM, NetworkMonitorBlazor etc. 
+
+To build the NetworkMonitor.dll that can be used with other Free Network Monitor Service Components
 
 ```bash
 # Clone repository
@@ -20,7 +22,6 @@ dotnet build -c Release
 
 * Follow existing architectural patterns
 * Maintain interface compatibility
-* Include unit tests for new features
 * Document configuration changes
 
 
