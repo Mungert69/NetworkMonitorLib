@@ -1,0 +1,100 @@
+#!/bin/bash
+set -e  # Exit immediately if any command fails
+
+# Log file for debugging
+LOG_FILE="script_debug.log"
+echo "Script started at $(date)" > $LOG_FILE
+
+# Function to log messages
+log() {
+    echo "$(date): $1" >> $LOG_FILE
+}
+
+# Publish NetworkMonitor for linux-x64
+log "Publishing NetworkMonitor for linux-x64"
+dotnet publish NetworkMonitor.csproj -c Release -r linux-x64 --self-contained true >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to publish NetworkMonitor for linux-x64"
+    exit 1
+fi
+log "Successfully published NetworkMonitor for linux-x64"
+
+# Publish NetworkMonitor-Maui-Android for android
+log "Publishing NetworkMonitor-Maui-Android for android"
+dotnet publish NetworkMonitor-Maui-Android.csproj -c Release -r android --self-contained true >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to publish NetworkMonitor-Maui-Android for android"
+    exit 1
+fi
+log "Successfully published NetworkMonitor-Maui-Android for android"
+
+# Copy files from linux-x64 to android publish directory
+log "Copying files from linux-x64 to android publish directory"
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/System* ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/PuppeteerSharp.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/RestSharp.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Nito* ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Nanoid.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/mscorlib.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/netstandard.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/HtmlAgilityPack.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/FluentFTP.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Betalgo.Ranul.OpenAI.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/BouncyCastle.Cryptography.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Microsoft.Extensions* ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Microsoft.IdentityModel* ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Microsoft.Bcl.AsyncInterfaces.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Microsoft.CodeAnalysis.CSharp.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Microsoft.CodeAnalysis.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Microsoft.CSharp.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitor/bin/Release/net9.0/linux-x64/publish/Markdig.dll ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+
+rm ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish/_Microsoft.Android.Resource.Designer.dll
+log "Successfully copied files to android publish directory"
+
+log "Copying files to NetworkMonitorProcessor"
+cp ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish/* ~/code/NetworkMonitorProcessor/openssl-3.4.2/bin/dlls >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to copy files to NetworkMonitorProcessor"
+    exit 1
+fi
+log "Successfully copied files to NetworkMonitorProcessor"
+
+# Copy files to NetworkMonitorQuantumSecure
+log "Copying files to NetworkMonitorQuantumSecure"
+cp ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish/* ~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to copy files to NetworkMonitorQuantumSecure"
+    exit 1
+fi
+log "Successfully copied files to NetworkMonitorQuantumSecure"
+
+# Run create-manifest for NetworkMonitorQuantumSecure
+log "Running create-manifest for NetworkMonitorQuantumSecure"
+~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls/create-manifest >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to run create-manifest for NetworkMonitorQuantumSecure"
+    exit 1
+fi
+log "Successfully ran create-manifest for NetworkMonitorQuantumSecure"
+
+# Copy files to FreeNetworkMonitorAgent
+log "Copying files to FreeNetworkMonitorAgent"
+cp ~/code/NetworkMonitor/bin/Release/net9.0-android/android/publish/* ~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to copy files to FreeNetworkMonitorAgent"
+    exit 1
+fi
+log "Successfully copied files to FreeNetworkMonitorAgent"
+
+# Run create-manifest for FreeNetworkMonitorAgent
+log "Running create-manifest for FreeNetworkMonitorAgent"
+~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls/create-manifest >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to run create-manifest for FreeNetworkMonitorAgent"
+    exit 1
+fi
+log "Successfully ran create-manifest for FreeNetworkMonitorAgent"
+
+log "Script completed successfully"
+echo "Script completed successfully. Check $LOG_FILE for details."
