@@ -54,6 +54,8 @@ log "Successfully copied files to android publish directory"
 
 log "Copying files to NetworkMonitorProcessor"
 cp ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish/* ~/code/NetworkMonitorProcessor/openssl-3.4.2/bin/dlls >> $LOG_FILE 2>&1
+log "Successfully copied files to android publish directory"
+
 if [ $? -ne 0 ]; then
     log "Failed to copy files to NetworkMonitorProcessor"
     exit 1

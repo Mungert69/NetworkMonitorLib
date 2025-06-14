@@ -79,10 +79,15 @@ namespace NetworkMonitor.Objects.Repository
             {
                 foreach (var rabbitMQObj in _rabbitMQObjs)
                 {
-                    if (rabbitMQObj.ConnectChannel != null)
+                     if (rabbitMQObj.ConnectChannel != null)
                     {
-                          rabbitMQObj.Consumer = new AsyncEventingBasicConsumer(rabbitMQObj.ConnectChannel);
-                  
+
+                        rabbitMQObj.Consumer = new AsyncEventingBasicConsumer(rabbitMQObj.ConnectChannel);
+                        await rabbitMQObj.ConnectChannel.BasicConsumeAsync(
+                                queue: rabbitMQObj.QueueName,
+                                autoAck: false,
+                                consumer: rabbitMQObj.Consumer
+                            );
                         switch (rabbitMQObj.FuncName)
                         {
                             case "addProcessor":
