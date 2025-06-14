@@ -11,7 +11,7 @@ using NetworkMonitor.Utils;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
 
-namespace NetworkMonitor.Service.CommandProcessors
+namespace NetworkMonitor.Connection
 {
     public class SearchEngageCmdProcessor : CmdProcessor
     {
