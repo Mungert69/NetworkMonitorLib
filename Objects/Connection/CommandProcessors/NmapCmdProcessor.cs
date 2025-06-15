@@ -130,7 +130,7 @@ namespace NetworkMonitor.Connection
                     processorDataObj.MonitorIPs = selectedDevices;
                     await _rabbitRepo.PublishAsync<ProcessorDataObj>("saveMonitorIPs", processorDataObj);
 
-                    _cmdProcessorStates.CompletedMessage += $"\nSent {selectedDevices.Count} host services to Free Network Monitor Service. Please wait 2 mins for hosts to become live. You can view the in the Host Data menu or visit {_frontendUrl}/dashboard and login using the same email address you registered your agent with.\n";
+                    _cmdProcessorStates.CompletedMessage += $"\nSent {selectedDevices.Count} host services to Quantum Network Monitor Service. Please wait 2 mins for hosts to become live. You can view the in the Host Data menu or visit {_frontendUrl}/dashboard and login using the same email address you registered your agent with.\n";
                 }
             }
             catch (Exception e)

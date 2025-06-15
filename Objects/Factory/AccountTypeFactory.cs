@@ -453,7 +453,7 @@ public class AccountTypeFactory
             string extraMessage = "";
             if (freeAvailableFuncs != null && freeAvailableFuncs.Any(a => a == funcName))
             {
-                extraMessage = $"  Ask the user to login. Visit [Free Network Monitor]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)and click login top right. They will gain access to this function along with many other benefits.";
+                extraMessage = $"  Ask the user to login. Visit [Quantum Network Monitor]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)and click login top right. They will gain access to this function along with many other benefits.";
             }
             else
             {
@@ -461,7 +461,7 @@ public class AccountTypeFactory
                 if (lowestAccountType!=null) {
                      extraMessage = $" If they wish to use this advanced feature they will need to [Login]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)and upgrade to the {lowestAccountType} plan. Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details";
                    
-                   if (lowestAccountType=="Standard") extraMessage+=" . You can get a 'Free' upgrade to a Standard Plan if you Download and install the Free Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade";
+                   if (lowestAccountType=="Standard") extraMessage+=" . You can get a 'Free' upgrade to a Standard Plan if you Download and install the Quantum Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade";
 
                    
                 }else extraMessage = $" Error : could not find an account type or plan that has access to the functon {funcName}";
@@ -470,7 +470,7 @@ public class AccountTypeFactory
 
             accountType = "Default";
         }
-        else message = $"User does not have access to the `{funcName}` function. Explain to the user they have several options: 1: Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details. Or they can get a 'Free' upgrade to a Standard Plan if you Download and install the Free Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade.";
+        else message = $"User does not have access to the `{funcName}` function. Explain to the user they have several options: 1: Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details. Or they can get a 'Free' upgrade to a Standard Plan if you Download and install the Quantum Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade.";
 
         var availableFuncs = GetFunctionNamesForAccountType(accountType);
         if (availableFuncs != null && availableFuncs.Any(a => a == funcName))

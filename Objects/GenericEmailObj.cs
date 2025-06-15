@@ -31,7 +31,7 @@ public class GenericEmailObj : IGenericEmailObj
     public string HeaderImageUri { get; set; } = $"https://{AppConstants.ServiceServerName }.{AppConstants.AppDomain}/";
     public string HeaderImageFile { get; set; } = "logo.jpg";
     public string HeaderImageUrl { get; set; }=$"{AppConstants.FrontendUrl}/img/logo.jpg";
-    public string HeaderImageAlt { get; set; } = "Free Network Monitor Logo";
+    public string HeaderImageAlt { get; set; } = "Quantum Network Monitor Logo";
     public string ExtraMessage { get; set; }
     public UserInfo UserInfo { get; set; } = new UserInfo();
     
