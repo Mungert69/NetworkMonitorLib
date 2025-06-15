@@ -1,11 +1,11 @@
 # NetworkMonitorLib Technical Documentation
 
 ## Core Purpose
-Provides a class library for the Free Network Monitor Service Components.
+Provides a class library for the Quantum Network Monitor Service Components.
 
 ### Build this Library when building Components Like NetworkMonitorLLM, NetworkMonitorBlazor etc. 
 
-To build the NetworkMonitor.dll that can be used with other Free Network Monitor Service Components
+To build the NetworkMonitor.dll that can be used with other Quantum Network Monitor Service Components
 
 ```bash
 # Clone repository

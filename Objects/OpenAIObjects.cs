@@ -39,7 +39,7 @@ namespace NetworkMonitor.Service.Services.OpenAI
                 IsMainFeatured = false,
                 IsVideo = true,
                 VideoUrl = "/img/how-to-login.webm",
-                VideoTitle = "How to login to free network monitor",
+                VideoTitle = "How to login to Quantum Network Monitor",
                 IsImage = false,
                 IsOnBlogSite = false
             });
@@ -53,7 +53,7 @@ namespace NetworkMonitor.Service.Services.OpenAI
                 IsMainFeatured = false,
                 IsVideo = true,
                 VideoUrl = "/img/how-to-charts.webm",
-                VideoTitle = "How to use charts in free network monitor",
+                VideoTitle = "How to use charts in Quantum Network Monitor",
                 IsImage = false,
                 IsOnBlogSite = false
             });

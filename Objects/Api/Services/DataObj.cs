@@ -30,7 +30,7 @@ namespace NetworkMonitor.Api.Services
         public bool ResultSuccess { get => _resultSuccess; set => _resultSuccess = value; }
 
         /// <summary>
-        /// Instructions for setting up a free network monitor.
+        /// Instructions for setting up a Quantum Network Monitor.
         /// </summary>  
         public string ResultStatus { get => _resultStatus; set => _resultStatus = value; }
 
@@ -50,7 +50,7 @@ namespace NetworkMonitor.Api.Services
         public int? ResponseTime { get => responseTime; set => responseTime = value; }
 
         /// <summary>
-        /// Instructions for setting up a free network monitor.
+        /// Instructions for setting up a Quantum Network Monitor.
         /// </summary>  
         public string SetupFreeNetworkMonitor { get => _setupFreeNetworkMonitor; set => _setupFreeNetworkMonitor = value; }
 

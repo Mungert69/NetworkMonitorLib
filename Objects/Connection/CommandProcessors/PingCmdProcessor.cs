@@ -83,7 +83,7 @@ public class PingCmdProcessor : CmdProcessor
             processorDataObj.RabbitPassword = _netConfig.LocalSystemUrl.RabbitPassword;
             processorDataObj.MonitorIPs = monitorIPs;
             await _rabbitRepo.PublishAsync<ProcessorDataObj>("saveMonitorIPs", processorDataObj);
-            message = $"\nSent {monitorIPs.Count} hosts to Free Network Monitor Service. Please wait 2 mins for hosts to become live. You can view the in the Host Data menu or visit {_frontendUrl}/dashboard and login using the same email address you registered your agent with.\n";
+            message = $"\nSent {monitorIPs.Count} hosts to Quantum Network Monitor Service. Please wait 2 mins for hosts to become live. You can view the in the Host Data menu or visit {_frontendUrl}/dashboard and login using the same email address you registered your agent with.\n";
             _logger.LogInformation(message);
             _cmdProcessorStates.RunningMessage += message;
         }
