@@ -13,10 +13,10 @@ public class AccountTypeFactory
         {
             { "Default", (10,100000, 25000, 12000) },
             { "Free", (10,100000, 25000, 12000) },
-            { "Standard", (50,500000, 100000, 12000) },
-            { "Professional", (300, 2000000, 500000, 32000) },
-            { "Enterprise", (500,10000000, 1000000, 64000) },
-            { "God", (1000,50000000, 5000000,128000) }
+            { "Standard", (50,200000, 50000, 12000) },
+            { "Professional", (300,750000, 250000, 32000) },
+            { "Enterprise", (500,2000000, 500000, 64000) },
+            { "God", (1000,10000000, 1000000,128000) }
         };
 
     public static List<T> GetFunctionsForAccountType<T>(string accountType,
@@ -221,26 +221,19 @@ public class AccountTypeFactory
             "get_user_info",
             "get_agents",
             "call_security_expert",
-            "call_penetration_expert",
-            "call_cmd_processor_expert",
             "call_monitor_sys",
-            "call_quantum_expert",
-            "run_busybox",
             "call_search_expert",
+            "call_cmd_processor_expert",
+            "call_quantum_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
             "run_nmap",
             "run_openssl",
-            "search_metasploit_modules",
-            "get_metasploit_module_info",
-            "run_metasploit",
-            "run_busybox_command",
+            "run_cmd_processor",
             "add_cmd_processor",
             "update_cmd_processor",
-            "run_cmd_processor",
             "delete_cmd_processor",
-            "add_cmd_processor",
             "get_cmd_processor_help",
             "get_cmd_processor_list",
             "get_cmd_processor_source_code",
@@ -263,9 +256,8 @@ public class AccountTypeFactory
             "call_penetration_expert",
             "call_cmd_processor_expert",
             "call_monitor_sys",
-            "call_quantum_expert",
-            "run_busybox",
             "call_search_expert",
+            "call_quantum_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -274,12 +266,46 @@ public class AccountTypeFactory
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",
-            "run_busybox_command",
+            "run_cmd_processor",
             "add_cmd_processor",
             "update_cmd_processor",
-            "run_cmd_processor",
             "delete_cmd_processor",
+            "get_cmd_processor_help",
+            "get_cmd_processor_list",
+            "get_cmd_processor_source_code",
+            "test_quantum_safety",
+            "scan_quantum_ports",
+            "get_quantum_algorithm_info",
+            "validate_quantum_config"
+        },
+            "Professional-Old" => new List<string>
+        {
+            "are_functions_running",
+            "cancel_functions",
+            "add_host",
+            "edit_host",
+            "get_host_data",
+            "get_host_list",
+            "get_user_info",
+            "get_agents",
+            "call_security_expert",
+            "call_penetration_expert",
+            "call_search_expert",
+            "call_cmd_processor_expert",
+            "call_monitor_sys",
+            "call_quantum_expert",
+            "run_search_web",
+            "run_crawl_page",
+            "run_crawl_site",
+            "run_nmap",
+            "run_openssl",
+            "search_metasploit_modules",
+            "get_metasploit_module_info",
+            "run_metasploit",
+            "run_cmd_processor",
             "add_cmd_processor",
+            "update_cmd_processor",
+            "delete_cmd_processor",
             "get_cmd_processor_help",
             "get_cmd_processor_list",
             "get_cmd_processor_source_code",
@@ -433,8 +459,10 @@ public class AccountTypeFactory
             {
                 string? lowestAccountType = GetLowestAccountTypeForFunction(funcName) ?? "";
                 if (lowestAccountType!=null) {
-                     extraMessage = $" If they wish to use this advanced feature they will need to [Login]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)";
+                     extraMessage = $" If they wish to use this advanced feature they will need to [Login]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)and upgrade to the {lowestAccountType} plan. Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details";
                    
+                   if (lowestAccountType=="Standard") extraMessage+=" . You can get a 'Free' upgrade to a Standard Plan if you Download and install the Free Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade";
+
                    
                 }else extraMessage = $" Error : could not find an account type or plan that has access to the functon {funcName}";
             }
@@ -442,7 +470,7 @@ public class AccountTypeFactory
 
             accountType = "Default";
         }
-        else message = $"User with account type {accountType} does not have access to the `{funcName}` function. Please contact support@readyforquantum.com";
+        else message = $"User does not have access to the `{funcName}` function. Explain to the user they have several options: 1: Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details. Or they can get a 'Free' upgrade to a Standard Plan if you Download and install the Free Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade.";
 
         var availableFuncs = GetFunctionNamesForAccountType(accountType);
         if (availableFuncs != null && availableFuncs.Any(a => a == funcName))
