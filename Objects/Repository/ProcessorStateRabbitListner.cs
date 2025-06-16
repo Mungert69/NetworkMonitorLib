@@ -79,7 +79,7 @@ namespace NetworkMonitor.Objects.Repository
             {
                 foreach (var rabbitMQObj in _rabbitMQObjs)
                 {
-                     if (rabbitMQObj.ConnectChannel != null)
+                    if (rabbitMQObj.ConnectChannel != null)
                     {
 
                         rabbitMQObj.Consumer = new AsyncEventingBasicConsumer(rabbitMQObj.ConnectChannel);
