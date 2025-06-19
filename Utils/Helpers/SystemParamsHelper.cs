@@ -132,14 +132,14 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;
             systemParams.RedisUrl = _config.GetValue<string?>("RedisUrl") ?? $"redis.{AppConstants.AppDomain}";
             systemParams.RabbitRoutingKey = _config.GetValue<string?>("RabbitRoutingKey") ?? "";
-            systemParams.RabbitExhangeType = _config.GetValue<string?>("RabbitExhangeType") ?? "fanout";
+            systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExhangeType") ?? "fanout";
 
             systemParams.SystemPassword = GetConfigValue("SystemPassword", "Missing");
             systemParams.EmailEncryptKey = GetConfigValue("EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigValue("LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.RapidApiKey = GetConfigValue("RapidApiKey", "Missing");
-
+            systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
             systemParams.ServiceAuthKey = GetConfigValue("ServiceAuthKey");
             string rabbitPassword = GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigValue("REDIS_PASSWORD");

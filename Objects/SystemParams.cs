@@ -43,7 +43,9 @@ namespace NetworkMonitor.Objects
         private string _redisSecret = "";
         private string _redisUrl = "";
         private string _rabbitRoutingKey = "";
-        private string _rabbitExhangeType = "fanout";
+        private string _rabbitExchangeType = "fanout";
+
+        private  Dictionary<string, string> _exchangeTypes = new();
 
         public List<SystemUrl>? SystemUrls { get => _systemUrls; set => _systemUrls = value; }
         public string? SystemPassword { get => _systemPassword; set => _systemPassword = value; }
@@ -78,6 +80,7 @@ namespace NetworkMonitor.Objects
         public global::System.String LLMEncryptKey { get => _lLMEncryptKey; set => _lLMEncryptKey = value; }
         public global::System.String RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
         public global::System.String RabbitRoutingKey { get => _rabbitRoutingKey; set => _rabbitRoutingKey = value; }
-        public global::System.String RabbitExhangeType { get => _rabbitExhangeType; set => _rabbitExhangeType = value; }
+        public global::System.String RabbitExchangeType { get => _rabbitExchangeType; set => _rabbitExchangeType = value; }
+        public Dictionary<global::System.String, global::System.String> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
     }
 }

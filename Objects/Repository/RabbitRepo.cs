@@ -19,10 +19,10 @@ namespace NetworkMonitor.Objects.Repository
         SystemUrl SystemUrl { get; set; }
         Task Shutdown();
 
-        Task PublishAsync<T>(string exchangeName, T obj,string routingKey = "") where T : class;
-        Task PublishAsync(string exchangeName, object? obj,string routingKey = "");
-        Task<string> PublishJsonZAsync<T>(string exchangeName, T obj,string routingKey = "") where T : class;
-        Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id,string routingKey = "") where T : class;
+        Task PublishAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class;
+        Task PublishAsync(string exchangeName, object? obj, string routingKey = "");
+        Task<string> PublishJsonZAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class;
+        Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class;
         Task<ResultObj> ConnectAndSetUp();
         Task<ResultObj> ShutdownRepo();
     }
@@ -47,6 +47,8 @@ namespace NetworkMonitor.Objects.Repository
         private readonly object _isRunningLock = new();
         private bool _isReconnecting = false;
         private readonly object _reconnectLock = new();
+        private readonly Dictionary<string, string> _exchangeTypes;
+
 
         public bool IsRunning
         {
@@ -75,7 +77,8 @@ namespace NetworkMonitor.Objects.Repository
         public RabbitRepo(ILogger<RabbitRepo> logger, ISystemParamsHelper systemParamsHelper)
         : this(logger, systemParamsHelper.GetSystemParams().ThisSystemUrl)
         {
-            // Additional initialization if needed
+            _exchangeTypes = systemParamsHelper.GetSystemParams().ExchangeTypes ?? new Dictionary<string, string>();
+
         }
 #pragma warning disable CS8618
         public RabbitRepo(ILogger<RabbitRepo> logger, NetConnectConfig netConfig)
@@ -118,7 +121,24 @@ namespace NetworkMonitor.Objects.Repository
             }
 
         }
-#pragma warning restore     CS8618
+#pragma warning restore CS8618
+        private string GetExchangeType(string exchangeName)
+        {
+            if (_exchangeTypes != null)
+            {
+                // Match the longest key that is a prefix of exchangeName
+                var match = _exchangeTypes.Keys
+                    .Where(key => exchangeName.StartsWith(key, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(k => k.Length) // Longest match wins
+                    .FirstOrDefault();
+
+                if (match != null)
+                    return _exchangeTypes[match];
+            }
+            return ExchangeType.Fanout; // default fallback
+        }
+
+
         private async Task HandleSystemUrlChangedAsync(SystemUrl newSystemUrl)
         {
             IsRunning = false;
@@ -278,7 +298,8 @@ namespace NetworkMonitor.Objects.Repository
             await exchangeLock.WaitAsync();
             try
             {
-                await _publishChannel!.ExchangeDeclareAsync(exchangeName, ExchangeType.Fanout, durable: true);
+                string exchangeType = GetExchangeType(exchangeName);
+                await _publishChannel!.ExchangeDeclareAsync(exchangeName, exchangeType, durable: true);
                 state = true;
             }
             catch (Exception ex)

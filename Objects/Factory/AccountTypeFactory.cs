@@ -128,7 +128,7 @@ public class AccountTypeFactory
         {
             "TestLLM" => GetFunctionCommandMapTestLLM(),
             "TurboLLM" => GetFunctionCommandMapTurboLLM(),
-            "FreeLLM" => GetFunctionCommandMapFreeLLM(),
+            "HugLLM" => GetFunctionCommandMapHugLLM(),
             _ => new Dictionary<string, string>()
         };
 
@@ -145,7 +145,7 @@ public class AccountTypeFactory
                     { "run_busybox_command", "busybox" }
                 };
     }
-    public static Dictionary<string, string> GetFunctionCommandMapFreeLLM()
+    public static Dictionary<string, string> GetFunctionCommandMapHugLLM()
     {
         return new Dictionary<string, string>
                 {

@@ -96,7 +96,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private FunctionState functionState;
         private string functionName = "";
         private string functionCallId = "";
-        private string llmRunnerType = "FreeLLM";
+        private string llmRunnerType = "TurboLLM";
         private string chatAgentLocation="";
         private string sourceLlm = "";
         private string destinationLlm = "";
