@@ -49,6 +49,8 @@ public class MLParams
     private string _hFToken="";
     private bool _addSystemRag=false;
      private bool _addFunctionRag=false;
+     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
+
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
 
     public int PredictWindow { get => _predictWindow; set => _predictWindow = value; }
@@ -100,4 +102,5 @@ public class MLParams
     public string DataRepoId { get => _dataRepoId; set => _dataRepoId = value; }
     public string HFToken { get => _hFToken; set => _hFToken = value; }
     public bool LlmNoThink { get => _llmNoThink; set => _llmNoThink = value; }
+    public Dictionary<global::System.String, global::System.String> LlmRunnerRoutingKeys { get => _llmRunnerRoutingKeys; set => _llmRunnerRoutingKeys = value; }
 }

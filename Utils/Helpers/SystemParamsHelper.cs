@@ -131,13 +131,15 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.AudioServiceOutputDir = _config.GetValue<string?>("AudioServiceOutputDir") ?? "/home/audioservice/code/securefiles/mail/output_audio";
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;
             systemParams.RedisUrl = _config.GetValue<string?>("RedisUrl") ?? $"redis.{AppConstants.AppDomain}";
+            systemParams.RabbitRoutingKey = _config.GetValue<string?>("RabbitRoutingKey") ?? "";
+            systemParams.RabbitExhangeType = _config.GetValue<string?>("RabbitExhangeType") ?? "fanout";
 
             systemParams.SystemPassword = GetConfigValue("SystemPassword", "Missing");
             systemParams.EmailEncryptKey = GetConfigValue("EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigValue("LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.RapidApiKey = GetConfigValue("RapidApiKey", "Missing");
-            
+
             systemParams.ServiceAuthKey = GetConfigValue("ServiceAuthKey");
             string rabbitPassword = GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigValue("REDIS_PASSWORD");
@@ -216,6 +218,13 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmSystemPromptTimeout = int.TryParse(_config["LlmSystemPromptTimeout"], out int llmSystemPromptTimeout) ? llmSystemPromptTimeout : 10;
             mlParams.LlmCtxSize = int.TryParse(_config["LlmCtxSize"], out int llmCtxSize) ? llmCtxSize : 12000;
             mlParams.LlmResponseTokens = int.TryParse(_config["LlmResponseTokens"], out int llmResponseTokens) ? llmCtxSize : 4000;
+            mlParams.LlmRunnerRoutingKeys = _config.GetSection("LlmRunnerRoutingKeys").Get<Dictionary<string, string>>()
+                ?? new Dictionary<string, string>
+                {
+                    { "TurboLLM", "execute.api" },
+                    { "HugLLM",   "execute.api" },
+                    { "TestLLM",  "execute.local" }
+                };
 
             mlParams.LlmTemp = _config.GetValue<string>("LlmTemp") ?? "0.1";
 

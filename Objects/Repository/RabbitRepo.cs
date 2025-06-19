@@ -19,10 +19,10 @@ namespace NetworkMonitor.Objects.Repository
         SystemUrl SystemUrl { get; set; }
         Task Shutdown();
 
-        Task PublishAsync<T>(string exchangeName, T obj) where T : class;
-        Task PublishAsync(string exchangeName, object? obj);
-        Task<string> PublishJsonZAsync<T>(string exchangeName, T obj) where T : class;
-        Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id) where T : class;
+        Task PublishAsync<T>(string exchangeName, T obj,string routingKey = "") where T : class;
+        Task PublishAsync(string exchangeName, object? obj,string routingKey = "");
+        Task<string> PublishJsonZAsync<T>(string exchangeName, T obj,string routingKey = "") where T : class;
+        Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id,string routingKey = "") where T : class;
         Task<ResultObj> ConnectAndSetUp();
         Task<ResultObj> ShutdownRepo();
     }
@@ -42,7 +42,7 @@ namespace NetworkMonitor.Objects.Repository
         private bool _isTls = false;
         private bool _isRestrictedPublishPerm = false;
         private int _maxRetries; // Maximum number of retries
-        private int _retryDelayMilliseconds; 
+        private int _retryDelayMilliseconds;
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _exchangeLocks = new();
         private readonly object _isRunningLock = new();
         private bool _isReconnecting = false;
@@ -297,11 +297,11 @@ namespace NetworkMonitor.Objects.Repository
 
         public async Task IsConnectionAndChannelOkAsync(string exchangeName)
         {
-           
+
             // Create a random instance for all randomization
             Random rand = new Random();
 
-            int randomOffsetMs = rand.Next(0, RetryDelayMilliseconds); 
+            int randomOffsetMs = rand.Next(0, RetryDelayMilliseconds);
 
             int finalTimeoutMs = RetryDelayMilliseconds + randomOffsetMs;
 
@@ -355,7 +355,7 @@ namespace NetworkMonitor.Objects.Repository
 
         }
 #pragma warning disable CS1998
-        public async Task PublishAsync<T>(string exchangeName, T obj) where T : class
+        public async Task PublishAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class
         {
             await _publishSemaphore.WaitAsync();
             try
@@ -385,7 +385,7 @@ namespace NetworkMonitor.Objects.Repository
                 var body = Encoding.UTF8.GetBytes(message);
                 if (_publishChannel != null)
                     await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                         routingKey: string.Empty,
+                                         routingKey: routingKey,
                                          body: body);
             }
             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException ex)
@@ -409,7 +409,7 @@ namespace NetworkMonitor.Objects.Repository
             }
 
         }
-        public async Task PublishAsync(string exchangeName, object? obj)
+        public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
         {
             await _publishSemaphore.WaitAsync();
             try
@@ -436,7 +436,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 var body = Encoding.UTF8.GetBytes(message);
                 if (_publishChannel != null) await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                    routingKey: string.Empty,
+                                    routingKey: routingKey,
                                     body: body);
 
             }
@@ -461,13 +461,13 @@ namespace NetworkMonitor.Objects.Repository
             }
         }
 #pragma warning restore CS1998
-        public async Task<string> PublishJsonZAsync<T>(string exchangeName, T obj) where T : class
+        public async Task<string> PublishJsonZAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class
         {
             await _publishSemaphore.WaitAsync();
             string result = "";
             try
             {
-                result = await PublishJsonZInternalAsync<T>(exchangeName, obj);
+                result = await PublishJsonZInternalAsync<T>(exchangeName, obj, routingKey);
             }
             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException ex)
             {
@@ -491,7 +491,7 @@ namespace NetworkMonitor.Objects.Repository
             return result;
         }
 
-        public async Task<string> PublishJsonZInternalAsync<T>(string exchangeName, T obj) where T : class
+        public async Task<string> PublishJsonZInternalAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class
         {
 
             await IsConnectionAndChannelOkAsync(exchangeName);
@@ -519,19 +519,19 @@ namespace NetworkMonitor.Objects.Repository
                cloudEvent, typeof(CloudEvent), SourceGenerationContext.Default);
             var body = Encoding.UTF8.GetBytes(message);
             if (_publishChannel != null) await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                routingKey: string.Empty,
+                                routingKey: routingKey,
                                 // body: formatter.EncodeBinaryModeEventData(cloudEvent));
                                 body: body);
             return datajsonZ;
         }
 
-        public async Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id) where T : class
+        public async Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class
         {
             await _publishSemaphore.WaitAsync();
             string result = "";
             try
             {
-                result = await PublishJsonZWithIDInternalAsync<T>(exchangeName, obj, id);
+                result = await PublishJsonZWithIDInternalAsync<T>(exchangeName, obj, id, routingKey);
             }
             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException ex)
             {
@@ -555,7 +555,7 @@ namespace NetworkMonitor.Objects.Repository
             return result;
         }
 
-        public async Task<string> PublishJsonZWithIDInternalAsync<T>(string exchangeName, T obj, string id) where T : class
+        public async Task<string> PublishJsonZWithIDInternalAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class
         {
             await IsConnectionAndChannelOkAsync(exchangeName);
             await IsExchangeOk(exchangeName);
@@ -583,7 +583,7 @@ namespace NetworkMonitor.Objects.Repository
                cloudEvent, typeof(CloudEvent), SourceGenerationContext.Default);
             var body = Encoding.UTF8.GetBytes(message);
             if (_publishChannel != null) await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                routingKey: string.Empty,
+                                routingKey: routingKey,
                                 body: body);
             return datajsonZ;
         }

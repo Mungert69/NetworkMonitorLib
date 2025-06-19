@@ -7,31 +7,31 @@ namespace NetworkMonitor.Objects
 {
     public class SystemParams
     {
-        public SystemParams(){}
-        private List<SystemUrl>? _systemUrls=new List<SystemUrl>();
+        public SystemParams() { }
+        private List<SystemUrl>? _systemUrls = new List<SystemUrl>();
 
-        private SystemUrl _thisSystemUrl=new SystemUrl();
-        private string? _systemPassword="";
+        private SystemUrl _thisSystemUrl = new SystemUrl();
+        private string? _systemPassword = "";
         private bool _isSingleSystem;
-        private string _emailEncryptKey="";
-        private string _lLMEncryptKey="";
-        private string? _systemUser="";
-        private string? _mailServer="";
+        private string _emailEncryptKey = "";
+        private string _lLMEncryptKey = "";
+        private string? _systemUser = "";
+        private string? _mailServer = "";
         private int _mailServerPort;
         private bool _mailServerUseSSL;
-        private string? _emailSendServerName="";
-        private string? _trustPilotReviewEmail="";
-        private string? _systemEmail=""; 
-        private string? _publicIPAddress="";
+        private string? _emailSendServerName = "";
+        private string? _trustPilotReviewEmail = "";
+        private string? _systemEmail = "";
+        private string? _publicIPAddress = "";
         private List<string> _enabledRegions = new List<string>();
         private string _defaultRegion = "";
-        private int _sendReportsTimeSpan=48;
-            private string _audioServiceUrl;
-    private string _audioServiceOutputDir;
+        private int _sendReportsTimeSpan = 48;
+        private string _audioServiceUrl;
+        private string _audioServiceOutputDir;
 
         //private string? _rabbitHostName="";
         //private string? _rabbitInstanceName="";
-        private ManagementToken _managementToken=new ManagementToken();
+        private ManagementToken _managementToken = new ManagementToken();
         private bool sendTrustPilot;
         private string? _openAIPluginServiceKey;
         private string? _rapidApiKey;
@@ -40,9 +40,11 @@ namespace NetworkMonitor.Objects
         private int _expireMonths;
         private string _frontEndUrl;
         private ushort _givenAgentPort;
-        private string _redisSecret="";
-        private string _redisUrl="";
-    
+        private string _redisSecret = "";
+        private string _redisUrl = "";
+        private string _rabbitRoutingKey = "";
+        private string _rabbitExhangeType = "fanout";
+
         public List<SystemUrl>? SystemUrls { get => _systemUrls; set => _systemUrls = value; }
         public string? SystemPassword { get => _systemPassword; set => _systemPassword = value; }
         public SystemUrl ThisSystemUrl { get => _thisSystemUrl; set => _thisSystemUrl = value; }
@@ -59,7 +61,7 @@ namespace NetworkMonitor.Objects
 
         public bool SendTrustPilot { get => sendTrustPilot; set => sendTrustPilot = value; }
 
-        public string? OpenAIPluginServiceKey { get => _openAIPluginServiceKey; set => _openAIPluginServiceKey =value ;}
+        public string? OpenAIPluginServiceKey { get => _openAIPluginServiceKey; set => _openAIPluginServiceKey = value; }
         public string? EmailSendServerName { get => _emailSendServerName; set => _emailSendServerName = value; }
         public string? ServiceID { get => _serviceID; set => _serviceID = value; }
         public string? ServiceAuthKey { get => _serviceAuthKey; set => _serviceAuthKey = value; }
@@ -75,5 +77,7 @@ namespace NetworkMonitor.Objects
         public global::System.String RedisUrl { get => _redisUrl; set => _redisUrl = value; }
         public global::System.String LLMEncryptKey { get => _lLMEncryptKey; set => _lLMEncryptKey = value; }
         public global::System.String RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
+        public global::System.String RabbitRoutingKey { get => _rabbitRoutingKey; set => _rabbitRoutingKey = value; }
+        public global::System.String RabbitExhangeType { get => _rabbitExhangeType; set => _rabbitExhangeType = value; }
     }
 }

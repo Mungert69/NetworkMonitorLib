@@ -146,7 +146,7 @@ namespace NetworkMonitor.Objects.Repository
 
             await Task.WhenAll(channelTasks);
 
-           
+
             var results = new List<ResultObj>();
             results.Add(await DeclareQueues());
             results.Add(await DeclareConsumers());
@@ -239,7 +239,7 @@ namespace NetworkMonitor.Objects.Repository
                         // Sequential operations for this queue (must be in this order)
                         await rabbitMQObj.ConnectChannel.ExchangeDeclareAsync(
                             exchange: rabbitMQObj.ExchangeName,
-                            type: ExchangeType.Fanout,
+                            type: rabbitMQObj.Type,
                             durable: true);
 
                         await rabbitMQObj.ConnectChannel.QueueDeclareAsync(
@@ -249,12 +249,23 @@ namespace NetworkMonitor.Objects.Repository
                             autoDelete: true,
                             arguments: args);
 
-                        await rabbitMQObj.ConnectChannel.QueueBindAsync(
-                            queue: rabbitMQObj.QueueName,
-                            exchange: rabbitMQObj.ExchangeName,
-                            routingKey: string.Empty);
+                        // Bind to each routing key
+                        List<string> routingKeys = rabbitMQObj.RoutingKeys;
+                        if (routingKeys == null || routingKeys.Count == 0 || rabbitMQObj.Type == "fanout")
+                            routingKeys = new List<string> { "" }; // Default/fanout
 
-                        declaredQueues.Add(rabbitMQObj.QueueName);
+                        foreach (var routingKey in routingKeys)
+                        {
+                            await rabbitMQObj.ConnectChannel.QueueBindAsync(
+                                queue: rabbitMQObj.QueueName,
+                                exchange: rabbitMQObj.ExchangeName,
+                                routingKey: routingKey
+                            );
+                            if (routingKey != "") declaredQueues.Add(rabbitMQObj.QueueName + "-" + routingKey);
+                            else declaredQueues.Add(rabbitMQObj.QueueName);
+                        }
+
+
                     }
                     catch (Exception ex)
                     {
@@ -298,7 +309,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 foreach (var rabbitMQObj in _rabbitMQObjs)
                 {
-                    if (rabbitMQObj.ConnectChannel != null &&  rabbitMQObj.Consumer!=null)
+                    if (rabbitMQObj.ConnectChannel != null && rabbitMQObj.Consumer != null)
                         await rabbitMQObj.ConnectChannel.BasicConsumeAsync(queue: rabbitMQObj.QueueName,
                             autoAck: false,
                             consumer: rabbitMQObj.Consumer
