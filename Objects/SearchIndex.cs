@@ -22,7 +22,8 @@ public class QueryIndexRequest
     public string MessageID { get; set; } = "";
     public List<QueryResultObj> QueryResults { get; set; } = new();
     public bool Success { get; set; }
-    public string Message { get; set; }="";
+    public string Message { get; set; } = "";
+    public string RoutingKey { get; set; } = "";
 }
 
 public class QueryResultObj
