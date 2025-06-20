@@ -228,7 +228,22 @@ namespace NetworkMonitor.Objects.Repository
                             args.Add("x-message-ttl", rabbitMQObj.MessageTimeout);
                         }
 
-                        rabbitMQObj.QueueName = _instanceName + "-" + rabbitMQObj.ExchangeName;
+                        // --- Queue Naming ---
+                        string queueName;
+                        List<string>? routingKeys = rabbitMQObj.RoutingKeys;
+                        if (routingKeys == null || routingKeys.Count == 0)
+                        {
+                            // No routing keys: treat as fanout (single queue, no suffix)
+                            routingKeys = new List<string> { "" };
+                            queueName = $"{_instanceName}-{rabbitMQObj.ExchangeName}";
+                        }
+                        else
+                        {
+                            // Routing key(s): queue name includes routing key(s)
+                            string routingKeyPart = string.Join("-", routingKeys.OrderBy(r => r));
+                            queueName = $"{_instanceName}-{rabbitMQObj.ExchangeName}-{routingKeyPart}";
+                        }
+                        rabbitMQObj.QueueName = queueName;
 
                         if (rabbitMQObj.ConnectChannel == null)
                         {
@@ -249,10 +264,6 @@ namespace NetworkMonitor.Objects.Repository
                             autoDelete: true,
                             arguments: args);
 
-                        // Bind to each routing key
-                        List<string> routingKeys = rabbitMQObj.RoutingKeys;
-                        if (routingKeys == null || routingKeys.Count == 0 || rabbitMQObj.Type == "fanout")
-                            routingKeys = new List<string> { "" }; // Default/fanout
 
                         foreach (var routingKey in routingKeys)
                         {
@@ -261,7 +272,7 @@ namespace NetworkMonitor.Objects.Repository
                                 exchange: rabbitMQObj.ExchangeName,
                                 routingKey: routingKey
                             );
-                            if (routingKey != "") declaredQueues.Add(rabbitMQObj.QueueName + " route " + routingKey+ " , ");
+                            if (routingKey != "") declaredQueues.Add(rabbitMQObj.QueueName + " route " + routingKey + " , ");
                             else declaredQueues.Add(rabbitMQObj.QueueName);
                         }
 
