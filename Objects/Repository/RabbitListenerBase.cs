@@ -261,7 +261,7 @@ namespace NetworkMonitor.Objects.Repository
                                 exchange: rabbitMQObj.ExchangeName,
                                 routingKey: routingKey
                             );
-                            if (routingKey != "") declaredQueues.Add(rabbitMQObj.QueueName + "-" + routingKey);
+                            if (routingKey != "") declaredQueues.Add(rabbitMQObj.QueueName + " route " + routingKey+ " , ");
                             else declaredQueues.Add(rabbitMQObj.QueueName);
                         }
 
