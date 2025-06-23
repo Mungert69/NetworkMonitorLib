@@ -20,7 +20,7 @@ $publishOutput | Out-File -Append $LOG_FILE
 Log "Publish completed with output: $publishOutput"
 
 # Define source path
-$windowsSourcePath = "C:\co..\NetworkMonitorLib\bin\Release\net9.0\win-x64\publish"
+$windowsSourcePath = "C:\code\NetworkMonitorLib\bin\Release\net9.0\win-x64\publish"
 if (!(Test-Path $windowsSourcePath)) {
     Log "ERROR: Source path '$windowsSourcePath' does not exist!"
     exit 1
