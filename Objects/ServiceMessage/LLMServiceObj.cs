@@ -280,7 +280,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public bool IsSystemLlm { get => isSystemLlm; set => isSystemLlm = value; }
         public DateTime StartTimeUTC { get => startTimeUTC; set => startTimeUTC = value; }
         public string ChatAgentLocation { get => chatAgentLocation; set => chatAgentLocation = value; }
-        public global::System.String ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
+        public string? ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
 
         public void PopMessageID()
         {
