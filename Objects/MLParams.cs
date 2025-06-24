@@ -49,6 +49,7 @@ public class MLParams
     private string _hFToken="";
     private bool _addSystemRag=false;
      private bool _addFunctionRag=false;
+    private string _defaultAgentLocation = "";
      private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -103,4 +104,5 @@ public class MLParams
     public string HFToken { get => _hFToken; set => _hFToken = value; }
     public bool LlmNoThink { get => _llmNoThink; set => _llmNoThink = value; }
     public Dictionary<global::System.String, global::System.String> LlmRunnerRoutingKeys { get => _llmRunnerRoutingKeys; set => _llmRunnerRoutingKeys = value; }
+    public global::System.String DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
 }

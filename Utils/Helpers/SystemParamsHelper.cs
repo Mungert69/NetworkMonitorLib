@@ -225,7 +225,7 @@ namespace NetworkMonitor.Utils.Helpers
                     { "HugLLM",   "execute.api" },
                     { "TestLLM",  "execute.local" }
                 };
-
+            mlParams.DefaultAgentLocation = _config.GetValue<string>("DefaultAgentLocation") ?? "Scanner - EU";
             mlParams.LlmTemp = _config.GetValue<string>("LlmTemp") ?? "0.1";
 
             mlParams.LlmOpenAICtxSize = int.TryParse(_config["LlmOpenAICtxSize"], out int llmOpenAICtxSize) ? llmOpenAICtxSize : 32000;
