@@ -85,6 +85,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
             messageID = other.MessageID;
             StartTimeUTC=other.StartTimeUTC;
             ChatAgentLocation=other.ChatAgentLocation;
+            ToolsDefinitionId = other.ToolsDefinitionId;
 
         }
         private string messageID = "";
@@ -96,6 +97,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private FunctionState functionState;
         private string functionName = "";
         private string functionCallId = "";
+        private string? toolsDefinitionId=null;
         private string llmRunnerType = "TurboLLM";
         private string chatAgentLocation="";
         private string sourceLlm = "";
@@ -278,6 +280,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public bool IsSystemLlm { get => isSystemLlm; set => isSystemLlm = value; }
         public DateTime StartTimeUTC { get => startTimeUTC; set => startTimeUTC = value; }
         public string ChatAgentLocation { get => chatAgentLocation; set => chatAgentLocation = value; }
+        public global::System.String ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
 
         public void PopMessageID()
         {
