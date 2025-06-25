@@ -86,6 +86,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
             StartTimeUTC=other.StartTimeUTC;
             ChatAgentLocation=other.ChatAgentLocation;
             ToolsDefinitionId = other.ToolsDefinitionId;
+            JsonToolsBuilderSpec = other.JsonToolsBuilderSpec;
 
         }
         private string messageID = "";
@@ -98,6 +99,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private string functionName = "";
         private string functionCallId = "";
         private string? toolsDefinitionId=null;
+        private string? jsonToolsBuilderSpec = null;
         private string llmRunnerType = "TurboLLM";
         private string chatAgentLocation="";
         private string sourceLlm = "";
@@ -281,6 +283,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public DateTime StartTimeUTC { get => startTimeUTC; set => startTimeUTC = value; }
         public string ChatAgentLocation { get => chatAgentLocation; set => chatAgentLocation = value; }
         public string? ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
+        public string? JsonToolsBuilderSpec { get => jsonToolsBuilderSpec; set => jsonToolsBuilderSpec = value; }
 
         public void PopMessageID()
         {
