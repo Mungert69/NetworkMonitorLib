@@ -369,7 +369,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         {
             try
             {
-                var timeZoneInfo = timeZone != null ? TimeZoneInfo.FindSystemTimeZoneById(timeZone) : TimeZoneInfo.Utc;
+                var timeZoneInfo = !string.IsNullOrEmpty(timeZone)  ? TimeZoneInfo.FindSystemTimeZoneById(timeZone) : TimeZoneInfo.Utc;
                 return TimeZoneInfo.ConvertTimeFromUtc(startTimeUTC, timeZoneInfo);
             }
             catch
@@ -396,7 +396,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         {
             try
             {
-                var timeZoneInfo = timeZone != null ? TimeZoneInfo.FindSystemTimeZoneById(timeZone) : TimeZoneInfo.Utc;
+                var timeZoneInfo = !string.IsNullOrEmpty(timeZone) ? TimeZoneInfo.FindSystemTimeZoneById(timeZone) : TimeZoneInfo.Utc;
                 DateTime clientStartTime = TimeZoneInfo.ConvertTimeFromUtc(startTimeUTC, timeZoneInfo);
                 return new DateTimeOffset(clientStartTime).ToUnixTimeSeconds();
             }
