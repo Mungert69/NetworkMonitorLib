@@ -53,6 +53,7 @@ public class MLParams
      private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
+     private Dictionary<string, string> _llmAgentDic = new Dictionary<string, string>();
 
     public int PredictWindow { get => _predictWindow; set => _predictWindow = value; }
     public int SpikeDetectionThreshold { get => _spikeDetectionThreshold; set => _spikeDetectionThreshold = value; }
@@ -103,6 +104,7 @@ public class MLParams
     public string DataRepoId { get => _dataRepoId; set => _dataRepoId = value; }
     public string HFToken { get => _hFToken; set => _hFToken = value; }
     public bool LlmNoThink { get => _llmNoThink; set => _llmNoThink = value; }
-    public Dictionary<global::System.String, global::System.String> LlmRunnerRoutingKeys { get => _llmRunnerRoutingKeys; set => _llmRunnerRoutingKeys = value; }
-    public global::System.String DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
+    public Dictionary<string, string> LlmRunnerRoutingKeys { get => _llmRunnerRoutingKeys; set => _llmRunnerRoutingKeys = value; }
+    public string DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
+    public Dictionary<string, string> LlmAgentDic { get => _llmAgentDic; set => _llmAgentDic = value; }
 }

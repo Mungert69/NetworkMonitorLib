@@ -26,7 +26,7 @@ namespace NetworkMonitor.Objects.Repository
         List<ProcessorObj> FilteredUserProcessorList(string userId, bool showAuthKey);
         List<ProcessorObj> FilteredUserAndSystemProcessorList(string userId, bool showAuthKey);
         string GetNextProcessorAppIDThatCanRunCommand(string command, string agentLocation, string userId);
-       ResultObj GetProcessorAppIDIfCanRunCommand(string command, string agentLocation, string userId);
+        ResultObj GetProcessorAppIDIfCanRunCommand(string command, string agentLocation, string userId);
         List<ProcessorObj> UserProcessorListAll(string userId, bool showAuthKey);
         List<ProcessorObj> EnabledSystemProcessorList(bool showAuthKey);
         List<ProcessorObj> EnabledSendAlertProcessorList(bool showAuthKey);
@@ -42,6 +42,7 @@ namespace NetworkMonitor.Objects.Repository
         ResultObj AddAppIDStateChange(string value);
         bool HasUserGotProcessor(string userId);
         string LocationFromID(string appID);
+        string IDFromLocation(string agentLocation);
         string AuthKeyFromID(string appID);
     }
     public class ProcessorState : IProcessorState
@@ -63,7 +64,7 @@ namespace NetworkMonitor.Objects.Repository
             bool isExists = _processorList.Any(a => a.AppID == processorObj.AppID);
             if (!isExists) return false;
             ProcessorObj? setProcessorObj = _processorList.Where(w => w.AppID == processorObj.AppID).FirstOrDefault();
-            if (setProcessorObj!=null) setProcessorObj.SetAllFields(processorObj);
+            if (setProcessorObj != null) setProcessorObj.SetAllFields(processorObj);
             return true;
         }
         public bool SetProcessorObjIsReportSent(string appID, bool isReportSent)
@@ -71,7 +72,7 @@ namespace NetworkMonitor.Objects.Repository
             bool isExists = _processorList.Any(a => a.AppID == appID);
             if (!isExists) return false;
             ProcessorObj? setProcessorObj = _processorList.Where(w => w.AppID == appID).FirstOrDefault();
-            if (setProcessorObj!=null) setProcessorObj.IsReportSent = isReportSent;
+            if (setProcessorObj != null) setProcessorObj.IsReportSent = isReportSent;
             return true;
 
         }
@@ -80,7 +81,7 @@ namespace NetworkMonitor.Objects.Repository
             bool isExists = _processorList.Any(a => a.AppID == appID);
             if (!isExists) return false;
             ProcessorObj? setProcessorObj = _processorList.Where(w => w.AppID == appID).FirstOrDefault();
-            if (setProcessorObj!=null) setProcessorObj.IsReady = isReady;
+            if (setProcessorObj != null) setProcessorObj.IsReady = isReady;
             return true;
 
         }
@@ -98,6 +99,14 @@ namespace NetworkMonitor.Objects.Repository
             var processorObj = _processorList.Where(w => w.AppID == appID).FirstOrDefault();
             if (processorObj != null) return processorObj.Location;
             return $" (Agent not found with agentID {appID}) ";
+        }
+
+           public string IDFromLocation(string agentLocation)
+        {
+            var selectedProcessor = _processorList
+                 .FirstOrDefault(p => p.Location == agentLocation);
+            if (selectedProcessor != null && string.IsNullOrEmpty(selectedProcessor.AppID)) return selectedProcessor.AppID;
+            else return "";
         }
         public string AuthKeyFromID(string appID)
         {
@@ -164,18 +173,17 @@ namespace NetworkMonitor.Objects.Repository
         {
             var result = new ResultObj();
             // Check if user selected a processor based on agent_location
-            if (agentLocation=="") return new ResultObj{Success=false, Message=$" Error : You must set agent_location"}; 
+            if (agentLocation == "") return new ResultObj { Success = false, Message = $" Error : You must set agent_location" };
             var selectedProcessor = _processorList
                 .FirstOrDefault(p => p.Location == agentLocation);
-            if (selectedProcessor==null) return new ResultObj{Success=false, Message=$" Error : There is no agent with agent_location '{agentLocation}'"};
+            if (selectedProcessor == null) return new ResultObj { Success = false, Message = $" Error : There is no agent with agent_location '{agentLocation}'" };
             if (selectedProcessor.Owner != userId) return new ResultObj { Success = false, Message = $" Error : You do not own this agent. Consider installing your own agent. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
             if (!selectedProcessor.IsEnabled) return new ResultObj { Success = false, Message = $" Error : The agent is not enabled. If you are unabled to re-enable the agent consider installing a new agent. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
             if (selectedProcessor.Load > selectedProcessor.MaxLoad) return new ResultObj { Success = false, Message = $" Error : The agent is over max load. Consider installing a new agent to share the load. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
-            if (!selectedProcessor.IsPrivate)  return new ResultObj { Success = false, Message = $" Error : The agent is a system agent and is not avaiable for this command. Consider installing your own agent. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
+            if (!selectedProcessor.IsPrivate) return new ResultObj { Success = false, Message = $" Error : The agent is a system agent and is not avaiable for this command. Consider installing your own agent. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
             if (selectedProcessor.DisabledCommands.Contains(command)) return new ResultObj { Success = false, Message = $" Error : The agent is unabled to run the {command} command. Consider installing your own agent with the {command} command enabled. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
             return new ResultObj { Success = true, Message = selectedProcessor.AppID };
         }
-
 
         public string GetNextProcessorAppIDThatCanRunCommand(string command, string agentLocation, string userId)
         {
