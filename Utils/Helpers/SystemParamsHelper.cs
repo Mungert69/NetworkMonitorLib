@@ -238,7 +238,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmUserPromptTimeout = int.TryParse(_config["LlmUserPromptTimeout"], out int llmUserPromptTimeout) ? llmUserPromptTimeout : 50;
             mlParams.LlmSessionIdleTimeout = int.TryParse(_config["LlmSessionIdleTimeout"], out int llmSessionIdleTimeout) ? llmSessionIdleTimeout : 60;
             mlParams.LlmFunctionDic = _config.GetSection("LlmFunctionMapping").Get<Dictionary<string, string>>() ?? new Dictionary<string, string>();
-            mlParams.LlmAgentDic = _config.GetSection("LlmAgentDic").Get<Dictionary<string, string>>() ?? new Dictionary<string, string>();
+            mlParams.LlmAgentDic = _config.GetSection("LlmAgentMapping").Get<Dictionary<string, string>>() ?? new Dictionary<string, string>();
             mlParams.LlmStartName = _config.GetValue<string>("LlmStartName") ?? "monitor";
             mlParams.LlmNoInitMessage = _config.GetValue<bool?>("LlmNoInitMessage") ?? false;
             mlParams.LlmUseHF = _config.GetValue<bool?>("LlmUseHF") ?? false;

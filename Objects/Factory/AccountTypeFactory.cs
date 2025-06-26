@@ -208,7 +208,8 @@ public class AccountTypeFactory
             "test_quantum_safety",
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
-            "validate_quantum_config"
+            "validate_quantum_config",
+            "call_security_basic_flow"
         },
             "Standard" => new List<string>
         {
@@ -240,7 +241,8 @@ public class AccountTypeFactory
             "test_quantum_safety",
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
-            "validate_quantum_config"
+            "validate_quantum_config",
+            "call_security_basic_flow"
         },
             "Professional" => new List<string>
         {
@@ -276,43 +278,8 @@ public class AccountTypeFactory
             "test_quantum_safety",
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
-            "validate_quantum_config"
-        },
-            "Professional-Old" => new List<string>
-        {
-            "are_functions_running",
-            "cancel_functions",
-            "add_host",
-            "edit_host",
-            "get_host_data",
-            "get_host_list",
-            "get_user_info",
-            "get_agents",
-            "call_security_expert",
-            "call_penetration_expert",
-            "call_search_expert",
-            "call_cmd_processor_expert",
-            "call_monitor_sys",
-            "call_quantum_expert",
-            "run_search_web",
-            "run_crawl_page",
-            "run_crawl_site",
-            "run_nmap",
-            "run_openssl",
-            "search_metasploit_modules",
-            "get_metasploit_module_info",
-            "run_metasploit",
-            "run_cmd_processor",
-            "add_cmd_processor",
-            "update_cmd_processor",
-            "delete_cmd_processor",
-            "get_cmd_processor_help",
-            "get_cmd_processor_list",
-            "get_cmd_processor_source_code",
-            "test_quantum_safety",
-            "scan_quantum_ports",
-            "get_quantum_algorithm_info",
-            "validate_quantum_config"
+            "validate_quantum_config",
+            "call_security_basic_flow"
         },
             "Enterprise" => new List<string>
         {
@@ -351,7 +318,8 @@ public class AccountTypeFactory
             "test_quantum_safety",
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
-            "validate_quantum_config"
+            "validate_quantum_config",
+            "call_security_basic_flow"
         },
             "God" => new List<string>
         {
@@ -390,7 +358,8 @@ public class AccountTypeFactory
             "test_quantum_safety",
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
-            "validate_quantum_config"
+            "validate_quantum_config",
+            "call_security_basic_flow"
         },
             _ => new List<string>
         {
@@ -411,7 +380,8 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_quantum_expert",
-            "call_monitor_sys"
+            "call_monitor_sys",
+            "call_security_basic_flow"
         }
         };
     }
