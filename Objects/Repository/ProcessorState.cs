@@ -105,7 +105,7 @@ namespace NetworkMonitor.Objects.Repository
         {
             var selectedProcessor = _processorList
                  .FirstOrDefault(p => p.Location == agentLocation);
-            if (selectedProcessor != null && string.IsNullOrEmpty(selectedProcessor.AppID)) return selectedProcessor.AppID;
+            if (selectedProcessor != null && !string.IsNullOrEmpty(selectedProcessor.AppID)) return selectedProcessor.AppID;
             else return "";
         }
         public string AuthKeyFromID(string appID)
