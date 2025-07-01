@@ -18,13 +18,13 @@ namespace NetworkMonitor.Connection
         private string _commandPath = "";
         private ILogger _logger;
 
-        public QuantumConnect(List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath,ILogger logger)
+        public QuantumConnect(List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger)
         {
             _logger = logger;
             _algorithmInfoList = algorithmInfoList;
             _oqsProviderPath = oqsProviderPath;
             _commandPath = commandPath;
-           
+
 
             IsLongRunning = true;
         }
@@ -140,27 +140,42 @@ namespace NetworkMonitor.Connection
             result.Data = null;
             return result;
         }
-        public async Task<ResultObj> IsQuantumSafe(string addrss, int port)
+        public async Task<ResultObj> IsQuantumSafe(string address, int port)
         {
-            var algorithmNames = new StringBuilder();
-            var result = new ResultObj();
-            foreach (var algorithmInfo in _algorithmInfoList.Where(x => x.Enabled && x.AddEnv))
+            // Try all modern algorithms first (those that _don’t_ need env-vars)
+            var modernList = _algorithmInfoList
+                             .Where(a => a.Enabled && !a.AddEnv)
+                             .Select(a => a.AlgorithmName)
+                             .ToList();
+
+            if (modernList.Any())
             {
-                result = await ProcessAlgorithm(algorithmInfo, addrss, port);
-                if (result.Data != null)
-                {
-                    return result;
-                }
+                var modernResult = await ProcessAlgorithm(
+                                       new AlgorithmInfo
+                                       {
+                                           AlgorithmName = string.Join(':', modernList),
+                                           AddEnv = false
+                                       },
+                                       address, port);
+
+                if (modernResult.Success)          // ← success?  we’re done
+                    return modernResult;
             }
-            foreach (var algorithmInfo in _algorithmInfoList.Where(x => x.Enabled && !x.AddEnv))
+
+            // Legacy / draft-ID algorithms (need env-vars) – one by one
+            foreach (var algo in _algorithmInfoList.Where(a => a.Enabled && a.AddEnv))
             {
-                algorithmNames.Append(algorithmInfo.AlgorithmName + ":");
+                var legacyResult = await ProcessAlgorithm(algo, address, port);
+                if (legacyResult.Success)
+                    return legacyResult;           // first winner short-circuits
             }
-            var result2 = await ProcessAlgorithm(new AlgorithmInfo() { AlgorithmName = algorithmNames.ToString().TrimEnd(':') }, addrss, port);
-            result.Message += result2.Message;
-            result.Success = result2.Success;
-            result.Data = result2.Data;
-            return result;
+
+            //  Nothing worked
+            return new ResultObj
+            {
+                Success = false,
+                Message = "No quantum-safe algorithm negotiated"
+            };
         }
         private async Task<string> RunCommandAsync(string oqsCodepoint, string curve, string address, int port, bool addEnv)
         {

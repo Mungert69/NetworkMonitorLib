@@ -18,7 +18,7 @@ namespace NetworkMonitor.Connection
         {
             var json = File.ReadAllText(jsonFilePath);
             var algorithms = JsonSerializer.Deserialize<Dictionary<string, List<AlgorithmInfo>>>(json);
-            var algorithmInfoMap = new Dictionary<string, AlgorithmInfo>(StringComparer.OrdinalIgnoreCase);
+            var algorithmInfoMap = new Dictionary<string, AlgorithmInfo>();
             if (algorithms == null) return algorithmInfoMap;
             foreach (var algorithm in algorithms["algorithms"])
             {

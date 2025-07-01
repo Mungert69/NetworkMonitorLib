@@ -31,33 +31,24 @@ namespace NetworkMonitor.Connection
     }
     public class ConnectFactory : IConnectFactory
     {
- private static ICmdProcessorProvider? _cmdProcessorProvider;
+        private static ICmdProcessorProvider? _cmdProcessorProvider;
         private HttpClient _httpClient;
         private HttpClient _httpsClient;
         private List<AlgorithmInfo> _algorithmInfoList = new List<AlgorithmInfo>();
         private string? _libPath;
         private string? _commandPath;
         private ILogger _logger;
-        
-        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null,  ICmdProcessorProvider? cmdProcessorProvider=null)
+
+        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null)
         {
             _logger = logger;
             _cmdProcessorProvider = cmdProcessorProvider;
 
-            //clientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
-            //var indexByHosts = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var sockerHttpHandler = new SocketsHttpHandler()
             {
-                // This caused problems with timeouts
-                //PooledConnectionLifetime = TimeSpan.FromSeconds(66),
-                //PooledConnectionIdleTimeout = TimeSpan.FromSeconds(66),
-                //MaxConnectionsPerServer = 50,
-                //AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
                 UseProxy = false,
                 AllowAutoRedirect = true,
                 UseCookies = true,
-
-
             };
             sockerHttpHandler.SslOptions.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
 
@@ -80,7 +71,7 @@ namespace NetworkMonitor.Connection
             _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
             _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("deflate"));
             _httpClient.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("br"));
-          
+
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgents.GetRandomUserAgent());
 
             var httpsSockerHttpHandler = new SocketsHttpHandler()
@@ -123,14 +114,14 @@ namespace NetworkMonitor.Connection
             if (netConfig != null && netConfig.OqsProviderPath != null)
             {
                 _libPath = netConfig.OqsProviderPath;
-                _algorithmInfoList =   ConnectHelper.GetAlgorithmInfoList(netConfig);
+                _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig);
             }
             else
             {
                 _logger.LogWarning(" Warning : Algo table not created Quantum Connect will not fucntion .");
             }
-            if (_commandPath == null) throw new  ArgumentException(" Command Path not found");
-            if (_libPath==null) throw new  ArgumentException(" Lib Path not found");
+            if (_commandPath == null) throw new ArgumentException(" Command Path not found");
+            if (_libPath == null) throw new ArgumentException(" Lib Path not found");
 
         }
         /*public Task GetNetConnect(MonitorPingInfo pingInfo, PingParams pingParams)
@@ -175,9 +166,10 @@ namespace NetworkMonitor.Connection
                     result.Success = true;
                     result.Message = " Success : Chromium Loaded OK";
                 }
-                else {
+                else
+                {
                     result.Success = false;
-                    result.Message=$"Chromium is not loaded netConfig is null or LoadChromium is not true."; 
+                    result.Message = $"Chromium is not loaded netConfig is null or LoadChromium is not true.";
 
                 }
             }
@@ -223,7 +215,7 @@ namespace NetworkMonitor.Connection
         {
             if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = pingParams.Timeout;
             string? type = monitorPingInfo.EndPointType;
-             INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _libPath!, _commandPath!, _logger, _cmdProcessorProvider);
+            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _libPath!, _commandPath!, _logger, _cmdProcessorProvider);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }

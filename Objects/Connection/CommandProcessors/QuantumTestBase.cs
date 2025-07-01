@@ -115,8 +115,7 @@ public abstract class QuantumTestBase : CmdProcessor
             .Intersect(
                 _algorithmInfoList
                     .Where(a => a.Enabled)
-                    .Select(a => a.AlgorithmName),
-                StringComparer.OrdinalIgnoreCase
+                    .Select(a => a.AlgorithmName)
             )
             .ToList();
     }
