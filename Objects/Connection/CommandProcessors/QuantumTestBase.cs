@@ -19,7 +19,7 @@ public abstract class QuantumTestBase : CmdProcessor
     protected readonly List<AlgorithmInfo> _algorithmInfoList;
     protected readonly QuantumConnect _quantumConnect;
     protected const int _defaultTimeout = 59000;
-    protected const int _maxParallelTests = 3;
+    protected const int _maxParallelTests = 10;
 
     protected QuantumTestBase(
         ILogger logger,
@@ -27,8 +27,9 @@ public abstract class QuantumTestBase : CmdProcessor
         IRabbitRepo rabbitRepo,
         NetConnectConfig netConfig,
         string commandName,
-        string displayName)
-        : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
+        string displayName,
+        int queueLength = 5)
+        : base(logger, cmdProcessorStates, rabbitRepo, netConfig, queueLength)
     {
         _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig);
         _quantumConnect = new QuantumConnect(_algorithmInfoList, netConfig.OqsProviderPath, netConfig.CommandPath, logger);

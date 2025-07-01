@@ -43,10 +43,11 @@ namespace NetworkMonitor.Connection
         protected string _frontendUrl = AppConstants.FrontendUrl;
         private readonly ConcurrentDictionary<string, CommandTask> _runningTasks
     = new ConcurrentDictionary<string, CommandTask>();
+        const int DefaultQueueLength = 5;
 
         public bool UseDefaultEndpoint { get => _cmdProcessorStates.UseDefaultEndpointType; set => _cmdProcessorStates.UseDefaultEndpointType = value; }
 #pragma warning disable CS8618
-        public CmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
+        public CmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, int queueLength)
         {
             _logger = logger;
             _cmdProcessorStates = cmdProcessorStates;
@@ -57,10 +58,18 @@ namespace NetworkMonitor.Connection
             _cmdProcessorStates.OnCancelScanAsync += CancelScan;
             _cmdProcessorStates.OnAddServicesAsync += AddServices;
             _currentQueue = new ConcurrentQueue<CommandTask>();
-            _semaphore = new SemaphoreSlim(5);
+            _semaphore = new SemaphoreSlim(queueLength);
             _ = StartQueueProcessorAsync();
 
         }
+        public CmdProcessor(
+    ILogger logger,
+    ILocalCmdProcessorStates cmdProcessorStates,
+    IRabbitRepo rabbitRepo,
+    NetConnectConfig netConfig)
+    : this(logger, cmdProcessorStates, rabbitRepo, netConfig, DefaultQueueLength) { }
+
+
 #pragma warning restore CS8618
 
         private async Task StartQueueProcessorAsync()

@@ -19,6 +19,8 @@ namespace NetworkMonitor.Connection
     {
         private readonly string _nmapPath;
         private const int _nmapTimeout = 30000;
+        const int MaxPortsToScan = 20;
+
 
         public QuantumPortScannerCmdProcessor(
             ILogger logger,
@@ -26,11 +28,11 @@ namespace NetworkMonitor.Connection
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig,
-                  "quantum-scan", "Quantum Security Scanner")
+                  "quantum-scan", "Quantum Security Scanner", queueLength: 10)
         {
             _nmapPath = Path.Combine(netConfig.CommandPath, "nmap");
 
-           }
+        }
 
         public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null)
@@ -41,10 +43,10 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Message = "Quantum security scanner not available" };
                 if (!File.Exists(_nmapPath))
                     return new ResultObj { Message = $"Nmap executable not found at {_nmapPath}" };
-                
+
                 var parsedArgs = base.ParseArguments(arguments);
                 var target = GetPositionalArgument(arguments);
-  target = target.Replace("https://", "");
+                target = target.Replace("https://", "");
                 target = target.Replace("http://", "");
                 if (string.IsNullOrEmpty(target))
                     return new ResultObj { Message = "Missing required target parameter" };
@@ -67,50 +69,106 @@ namespace NetworkMonitor.Connection
 
         private async Task<ResultObj> ExecuteFullScan(QuantumScanConfig config, CancellationToken ct)
         {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(config.Timeout);
+            // Outer token for the entire scan phase (OpenSSL loop)
 
+            List<int> ports;
             try
             {
-                var ports = config.Ports.Any()
-                    ? config.Ports
-                    : await RunNmapScan(config.Target, config.NmapOptions, cts.Token);
+                // If ports not specified, run nmap with its own dedicated timeout!
+                if (config.Ports.Any())
+                {
+                    ports = config.Ports;
+                }
+                else
+                {
+                    // Separate timeout just for nmap!
+                    using var nmapCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    nmapCts.CancelAfter(_nmapTimeout);
+                    try
+                    {
+                        ports = await RunNmapScan(config.Target, config.NmapOptions, nmapCts.Token);
+                    }
+                    catch (TimeoutException)
+                    {
+                        return new ResultObj
+                        {
+                            Success = false,
+                            Message = $"Nmap scan exceeded timeout of {_nmapTimeout / 1000} seconds. Please specify a smaller port list (e.g., with --ports 443,8443)."
+                        };
+                    }
+                }
 
                 if (!ports.Any())
-                    return new ResultObj { Message = "No open ports found to scan" };
+                    return new ResultObj { Success = false, Message = "No open ports found to scan" };
+
+                if (ports.Count > MaxPortsToScan)
+                {
+                    return new ResultObj
+                    {
+                        Success = false,
+                        Message = $"Too many ports specified ({ports.Count}). The maximum allowed is {MaxPortsToScan}. " +
+                                  $"Please specify a smaller port list (e.g., with --ports 443,8443)."
+                    };
+                }
 
                 var results = new List<PortResult>();
                 var semaphore = new SemaphoreSlim(_maxParallelTests);
+                var portTasks = new List<Task<PortResult>>();
 
                 foreach (var port in ports)
                 {
-                    await semaphore.WaitAsync(cts.Token);
-                    results.Add(await Task.Run(async () =>
+                    await semaphore.WaitAsync(ct);
+
+                    portTasks.Add(Task.Run(async () =>
                     {
+                        using var portCts = new CancellationTokenSource(config.Timeout); 
+
                         try
                         {
                             var portConfig = new QuantumTestConfig(
                                 Target: config.Target,
                                 Port: port,
                                 Algorithms: config.Algorithms,
-                                Timeout: config.Timeout / ports.Count
+                                Timeout: config.Timeout // or whatever you want to log/use
                             );
-
-                            var portResult = await base.ExecuteQuantumTest(portConfig, cts.Token);
+                            var portResult = await base.ExecuteQuantumTest(portConfig, portCts.Token);
                             return new PortResult(port, portResult);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return new PortResult(port, new ResultObj
+                            {
+                                Success = false,
+                                Message = $"Port scan for {port} timed out.",
+                                Data = null
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            return new PortResult(port, new ResultObj
+                            {
+                                Success = false,
+                                Message = $"Port scan for {port} failed: {ex.Message}",
+                                Data = null
+                            });
                         }
                         finally
                         {
                             semaphore.Release();
                         }
-                    }, cts.Token));
+                    }));
                 }
 
-                return ProcessScanResults(results);
+                // Wait for all scans to finish (whether completed or timed out)
+                var completedResults = await Task.WhenAll(portTasks);
+
+                return ProcessScanResults(completedResults.ToList());
+
+
             }
-            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            catch (Exception e ) 
             {
-                return new ResultObj { Message = $"Full scan timed out after {config.Timeout}ms" };
+                return new ResultObj { Message = $"Quantum scan failed: {e.Message}" };
             }
         }
 
@@ -155,16 +213,16 @@ namespace NetworkMonitor.Connection
             return ParseNmapOutput(outputFile);
         }
 
-     private List<int> ParseNmapOutput(string xmlPath)
-{
-    var doc = XDocument.Load(xmlPath);
-    return doc.Descendants("port")
-        .Where(p => p.Element("state")?.Attribute("state")?.Value == "open")
-        .Select(p => p.Attribute("portid")?.Value) // Get the string value safely
-        .Where(portid => int.TryParse(portid, out _)) // Ensure it's a valid int
-        .Select(portid => int.Parse(portid!)) // Parse safely
-        .ToList();
-}
+        private List<int> ParseNmapOutput(string xmlPath)
+        {
+            var doc = XDocument.Load(xmlPath);
+            return doc.Descendants("port")
+                .Where(p => p.Element("state")?.Attribute("state")?.Value == "open")
+                .Select(p => p.Attribute("portid")?.Value) // Get the string value safely
+                .Where(portid => int.TryParse(portid, out _)) // Ensure it's a valid int
+                .Select(portid => int.Parse(portid!)) // Parse safely
+                .ToList();
+        }
 
 
         private ResultObj ProcessScanResults(List<PortResult> results)
