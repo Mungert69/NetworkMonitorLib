@@ -51,15 +51,32 @@ namespace NetworkMonitor.Connection
                 if (string.IsNullOrEmpty(target))
                     return new ResultObj { Message = "Missing required target parameter" };
 
+                // Don't supply default here, so you can detect empty:
+                var userAlgos = parsedArgs.GetList("algorithms", new());
+                List<string> algosToUse;
+                bool batch;
+                if (userAlgos == null || userAlgos.Count == 0)
+                {
+                    algosToUse = GetDefaultAlgorithms();
+                    batch = true;
+                }
+                else
+                {
+                    algosToUse = userAlgos;
+                    batch = false;
+                }
+
                 var config = new QuantumScanConfig(
                     Target: target,
                     Ports: parsedArgs.GetList("ports", new List<string>()).Select(int.Parse).ToList(),
-                    Algorithms: parsedArgs.GetList("algorithms", GetDefaultAlgorithms()),
+                    Algorithms: algosToUse,
                     Timeout: parsedArgs.GetInt("timeout", _defaultTimeout),
-                    NmapOptions: parsedArgs.GetString("nmap-options", "-T4 --open")
+                    NmapOptions: parsedArgs.GetString("nmap-options", "-T4 --open"),
+                    batch: batch
                 );
 
                 return await ExecuteFullScan(config, cancellationToken);
+
             }
             catch (Exception ex)
             {
@@ -121,7 +138,7 @@ namespace NetworkMonitor.Connection
 
                     portTasks.Add(Task.Run(async () =>
                     {
-                        using var portCts = new CancellationTokenSource(config.Timeout); 
+                        using var portCts = new CancellationTokenSource(config.Timeout);
 
                         try
                         {
@@ -129,9 +146,23 @@ namespace NetworkMonitor.Connection
                                 Target: config.Target,
                                 Port: port,
                                 Algorithms: config.Algorithms,
-                                Timeout: config.Timeout // or whatever you want to log/use
+                                Timeout: config.Timeout
                             );
-                            var portResult = await base.ExecuteQuantumTest(portConfig, portCts.Token);
+
+                            List<AlgorithmResult> algoResults;
+                            if (config.batch)
+                            {
+                                // Batch mode: single OpenSSL call for all algos
+                                algoResults = await base.ProcessAlgorithmGroup(portConfig, config.Algorithms, portCts.Token);
+                            }
+                            else
+                            {
+                                // One-by-one mode
+                                algoResults = await base.ProcessAlgorithmGroupOneByOne(portConfig, config.Algorithms, portCts.Token);
+                            }
+
+                            // Combine/flatten algoResults for port (your existing logic for summarizing can remain)
+                            var portResult = base.ProcessTestResults(algoResults);
                             return new PortResult(port, portResult);
                         }
                         catch (OperationCanceledException)
@@ -166,7 +197,7 @@ namespace NetworkMonitor.Connection
 
 
             }
-            catch (Exception e ) 
+            catch (Exception e)
             {
                 return new ResultObj { Message = $"Quantum scan failed: {e.Message}" };
             }
@@ -286,7 +317,8 @@ Examples:
             List<int> Ports,
             List<string> Algorithms,
             int Timeout,
-            string NmapOptions);
+            string NmapOptions,
+            bool batch);
 
         private record PortResult(int Port, ResultObj QuantumResult);
     }

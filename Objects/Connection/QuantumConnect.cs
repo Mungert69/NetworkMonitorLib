@@ -278,5 +278,41 @@ namespace NetworkMonitor.Connection
 
             return $"{error.ToString()} : {output.ToString()}";
         }
+        public async Task<ResultObj> ProcessBatchAlgorithms(List<AlgorithmInfo> algorithms, string address, int port)
+        {
+            var result = new ResultObj();
+            if (algorithms == null || algorithms.Count == 0)
+            {
+                result.Success = false;
+                result.Message = "No algorithms to test";
+                return result;
+            }
+
+            string curves = string.Join(":", algorithms.Select(a => a.AlgorithmName));
+            string output = await RunCommandAsync(string.Empty, curves, address, port, false);
+
+            // ServerHello and KEM extension parsing logic (reuse your existing code)
+            var serverHelloHelper = new ServerHelloHelper();
+            KemExtension kemExtension = serverHelloHelper.FindServerHello(output);
+
+            if (kemExtension.IsQuantumSafe)
+            {
+                // Find algorithm name from the negotiated group
+                var negotiated = algorithms.FirstOrDefault(a => a.DefaultID == kemExtension.GroupID)?.AlgorithmName
+                                 ?? "unknown";
+                result.Success = true;
+                result.Data = negotiated;
+                result.Message = $"Negotiated quantum-safe algorithm: {negotiated}";
+                _logger.LogInformation("Success: {Address} : {Negotiated}", address, negotiated);
+            }
+            else
+            {
+                result.Success = false;
+                result.Message = "No quantum-safe algorithm negotiated";
+                _logger.LogWarning("No quantum-safe algorithm negotiated for {Address}", address);
+            }
+
+            return result;
+        }
     }
 }

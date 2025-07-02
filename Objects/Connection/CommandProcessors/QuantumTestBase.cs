@@ -37,8 +37,46 @@ public abstract class QuantumTestBase : CmdProcessor
         _cmdProcessorStates.CmdName = commandName;
         _cmdProcessorStates.CmdDisplayName = displayName;
     }
-
     protected async Task<List<AlgorithmResult>> ProcessAlgorithmGroup(
+        QuantumTestConfig config,
+        List<string> algorithms,
+        CancellationToken ct)
+    {
+        if (algorithms.Count == 0)
+            return new List<AlgorithmResult>();
+
+        // Find the AlgorithmInfo for each name
+        var algoInfos = _algorithmInfoList
+            .Where(a => algorithms.Contains(a.AlgorithmName, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        // Single batch OpenSSL run
+        var result = await _quantumConnect.ProcessBatchAlgorithms(algoInfos, config.Target, config.Port);
+
+        var results = new List<AlgorithmResult>();
+        if (result.Success)
+        {
+            results.Add(AlgorithmResult.CreateSuccessful(result.Data as string ?? "unknown", result.Message));
+        }
+        else
+        {
+            // All failed—show one fail per requested algorithm
+            foreach (var algo in algorithms)
+                results.Add(AlgorithmResult.CreateFailed(algo, result.Message));
+        }
+        return results;
+    }
+
+    private string? ExtractNegotiatedAlgorithmName(string opensslOutput, List<string> candidateAlgos)
+    {
+        // Very basic: checks for algo name in output
+        foreach (var algo in candidateAlgos)
+            if (opensslOutput.Contains(algo, StringComparison.OrdinalIgnoreCase))
+                return algo;
+        return null;
+    }
+
+    protected async Task<List<AlgorithmResult>> ProcessAlgorithmGroupOneByOne(
         QuantumTestConfig config,
         List<string> algorithms,
         CancellationToken ct)
@@ -169,26 +207,26 @@ public abstract class QuantumTestBase : CmdProcessor
 
 
     // Override methods from CmdProcessor
-    public override  Task<ResultObj> RunCommand(
+    public override Task<ResultObj> RunCommand(
         string arguments,
         CancellationToken cancellationToken,
         ProcessorScanDataObj? processorScanDataObj = null)
     {
         // Default implementation or throw if this should be implemented by child classes
-         return Task.FromException<ResultObj>(new NotImplementedException("Child classes must implement RunCommand"));
+        return Task.FromException<ResultObj>(new NotImplementedException("Child classes must implement RunCommand"));
 
     }
 
-    public override string GetCommandHelp()
-    {
-        var enabledAlgorithms = _algorithmInfoList
-            .Where(a => a.Enabled)
-            .Select(a => $"- {a.AlgorithmName}");
+   public override string GetCommandHelp()
+{
+    var enabledAlgorithms = _algorithmInfoList
+        .Where(a => a.Enabled)
+        .Select(a => $"- {a.AlgorithmName}");
 
-        return $@"
+    return $@"
 Quantum Security Processor Help
 ===============================
-Tests TLS endpoints for quantum-safe cryptographic support
+Tests TLS endpoints for quantum-safe cryptographic support.
 
 Usage:
   <target> [--port <number>] [--algorithms <list>] [--timeout <ms>]
@@ -198,17 +236,24 @@ Required:
 
 Options:
   --port        TLS port (default: 443)
-  --algorithms  Comma-separated list of algorithms (default: all enabled)
+  --algorithms  Comma-separated list of algorithms (if omitted, all supported algorithms are tested)
   --timeout     Operation timeout in milliseconds (default: {_defaultTimeout})
+
+How Algorithm Selection Works:
+  - If you **do not supply** --algorithms, all enabled quantum-safe algorithms are tested in a single batch per port.
+    - The result will show if **any** supported algorithm succeeded.
+  - If you **supply one or more** algorithms with --algorithms, each specified algorithm is tested **individually** and results are shown for each algorithm.
+    - This gives a yes/no answer per requested algorithm.
 
 Enabled Algorithms:
 {string.Join("\n", enabledAlgorithms)}
 
 Examples:
   example.com --port 8443
-  example.com --algorithms Kyber512,Dilithium2 --timeout 5000
+  example.com --algorithms Kyber512 --timeout 5000
+  example.com --algorithms Kyber512,Dilithium2 --timeout 7000
 ";
-    }
+}
 
     protected record QuantumTestConfig(
         string Target,

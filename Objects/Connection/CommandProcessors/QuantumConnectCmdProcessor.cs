@@ -31,30 +31,51 @@ namespace NetworkMonitor.Connection
 
                 var parsedArgs = base.ParseArguments(arguments);
                 var target = GetPositionalArgument(arguments);
-                  target = target.Replace("https://", "");
+                target = target.Replace("https://", "");
                 target = target.Replace("http://", "");
                 if (string.IsNullOrEmpty(target))
                     return new ResultObj { Message = "Missing required target parameter" };
 
+                // Do NOT pass a default here
+                var userAlgos = parsedArgs.GetList("algorithms", new());
+                List<string> algosToUse;
+                bool batch;
+                if (userAlgos == null || userAlgos.Count == 0)
+                {
+                    algosToUse = GetDefaultAlgorithms();
+                    batch = true;
+                }
+                else
+                {
+                    algosToUse = userAlgos;
+                    batch = false;
+                }
+
                 var config = new QuantumTestConfig(
                     Target: target,
                     Port: parsedArgs.GetInt("port", 443),
-                    Algorithms: parsedArgs.GetList("algorithms", GetDefaultAlgorithms()),
+                    Algorithms: algosToUse,
                     Timeout: parsedArgs.GetInt("timeout", _defaultTimeout)
                 );
 
-                return await ExecuteQuantumTest(config, cancellationToken);
+                List<AlgorithmResult> results;
+                if (batch)
+                {
+                    // Batch mode: test all at once
+                    results = await ProcessAlgorithmGroup(config, algosToUse, cancellationToken);
+                }
+                else
+                {
+                    // One-by-one: test each separately
+                    results = await ProcessAlgorithmGroupOneByOne(config, algosToUse, cancellationToken);
+                }
+
+                return ProcessTestResults(results);
             }
             catch (Exception ex)
             {
                 return new ResultObj { Message = $"Quantum check failed: {ex.Message}" };
             }
         }
-
-      
-
-      
-
-        
     }
 }
