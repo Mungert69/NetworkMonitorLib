@@ -51,6 +51,7 @@ public abstract class QuantumTestBase : CmdProcessor
             .ToList();
 
         // Single batch OpenSSL run
+	_quantumConnect.MpiStatic.Timeout=config.Timeout;
         var result = await _quantumConnect.ProcessBatchAlgorithms(algoInfos, config.Target, config.Port);
 
         var results = new List<AlgorithmResult>();
@@ -96,7 +97,7 @@ public abstract class QuantumTestBase : CmdProcessor
                     var algorithm = _algorithmInfoList.First(a =>
                         a.AlgorithmName.Equals(algorithmName, StringComparison.OrdinalIgnoreCase));
 
-                    return await TestAlgorithm(algorithm, config.Target, config.Port, ct);
+                    return await TestAlgorithm(algorithm, config.Target, config.Port, config.Timeout, ct);
                 }
                 finally
                 {
@@ -112,10 +113,12 @@ public abstract class QuantumTestBase : CmdProcessor
         AlgorithmInfo algorithm,
         string address,
         int port,
+	int timeout,
         CancellationToken ct)
     {
         try
         {
+	    _quantumConnect.MpiStatic.Timeout=timeout;
             var result = await _quantumConnect.ProcessAlgorithm(algorithm, address, port);
             return result.Success
                 ? AlgorithmResult.CreateSuccessful(algorithm.AlgorithmName, result.Data as string ?? "No additional data")
