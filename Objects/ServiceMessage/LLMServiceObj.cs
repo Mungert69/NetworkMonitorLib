@@ -97,6 +97,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private string jsonFunction = "";
         private FunctionState functionState;
         private string functionName = "";
+        private string swapFunctionName = "";
         private string functionCallId = "";
         private string? toolsDefinitionId=null;
         private string? jsonToolsBuilderSpec = null;
@@ -284,6 +285,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string ChatAgentLocation { get => chatAgentLocation; set => chatAgentLocation = value; }
         public string? ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
         public string? JsonToolsBuilderSpec { get => jsonToolsBuilderSpec; set => jsonToolsBuilderSpec = value; }
+        public string SwapFunctionName { get => swapFunctionName; set => swapFunctionName = value; }
 
         public void PopMessageID()
         {

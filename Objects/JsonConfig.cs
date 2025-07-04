@@ -113,6 +113,8 @@ namespace NetworkMonitor.Objects
   [JsonSerializable(typeof(ProcessorDataObj))]
   [JsonSerializable(typeof(ProcessorScanDataObj))]
   [JsonSerializable(typeof(FunctionRegistryReply))]
+  [JsonSerializable(typeof(CmdProcessorFunctionSpec))]
+  [JsonSerializable(typeof(CmdProcessorFunctionParameter))]
   [JsonSerializable(typeof(List<ProductObj>))]
   [JsonSerializable(typeof(ProductObj))]
   [JsonSerializable(typeof(ProcessorInitObj))]
