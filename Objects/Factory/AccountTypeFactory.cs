@@ -211,6 +211,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_cmd_processor_builder_flow",
             "cp_*"
         },
             "Standard" => new List<string>
@@ -245,6 +246,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_cmd_processor_builder_flow",
             "cp_*"
         },
             "Professional" => new List<string>
@@ -283,6 +285,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_cmd_processor_builder_flow",
             "cp_*"
         },
             "Enterprise" => new List<string>
@@ -324,6 +327,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_cmd_processor_builder_flow",
             "cp_*"
         },
             "God" => new List<string>
@@ -365,6 +369,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_cmd_processor_builder_flow",
             "cp_*"
         },
             _ => new List<string>
@@ -388,6 +393,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_monitor_sys",
             "call_security_basic_flow",
+            "call_cmd_processor_builder_flow",
             "cp_*"
         }
         };
