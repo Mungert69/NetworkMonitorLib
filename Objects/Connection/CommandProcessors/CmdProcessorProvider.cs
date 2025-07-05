@@ -61,7 +61,7 @@ namespace NetworkMonitor.Connection
         }
 
 
-        public  Task<ResultObj> Setup()
+        public Task<ResultObj> Setup()
         {
             var result = new ResultObj();
 
@@ -78,7 +78,7 @@ namespace NetworkMonitor.Connection
                 {
                     result.Success = false;
                     result.Message = staticSetupResult.Message;
-                   return Task.FromResult(result);
+                    return Task.FromResult(result);
                 }
 
 
@@ -170,11 +170,13 @@ namespace NetworkMonitor.Connection
                 throw new ArgumentException($"Processor type '{processorType}' not found.");
             }
         }
+       
         public ICmdProcessor? GetProcessor(string processorType)
         {
-            //processorType = processorType.ToLower();
-            return _processors.TryGetValue(processorType, out var processor) ? processor : null;
+            return _processors.FirstOrDefault(kvp =>
+                string.Equals(kvp.Key, processorType, StringComparison.OrdinalIgnoreCase)).Value;
         }
+
 
         public ILocalCmdProcessorStates? GetProcessorStates(string processorType)
         {
