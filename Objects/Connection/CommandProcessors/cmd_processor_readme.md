@@ -205,3 +205,111 @@ namespace NetworkMonitor.Connection
 
 ---
 
+## Dynamic Cmd Processors — What They **can** and **can’t** do
+
+> **Context recap:**
+> `CmdProcessorCompiler` lets you push *raw C# source code* (via RabbitMQ, or by dropping a `*.cs` file in `CommandPath`) and have it compiled at runtime into a fully-fledged `ICmdProcessor`.
+> The same agent process then instantiates the new class, wires in logging / config / Rabbit repo, and hosts it exactly like the baked-in Nmap, Ping, etc.
+
+Below is an exhaustive list of capabilities, guard-rails, and hard limitations.
+
+---
+
+### 1  What you **can** do
+
+| Area                            | Practical freedom                                                                                                                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Language & APIs**             | Write **any C# 9/10** code (whatever the agent’s runtime supports) — async/await, LINQ, reflection, P/Invoke, sockets, file I/O, etc.                                              |
+| **External tools**              | Spawn *any* executable reachable from the agent’s file-system (same trick that NmapCmdProcessor uses via `Process.Start`).                                                         |
+| **Imports**                     | Reference **all assemblies** already loaded into the AppDomain **plus** any `*.dll` placed in `<CommandPath>/dlls`.                                                                |
+| **Queues & Cancellation**       | Get the base-class goodies: automatic queuing, semaphore-based parallelism, `CancellationToken` kill-switch, pagination, RabbitMQ streaming.                                       |
+| **State sharing**               | Access / mutate the injected `ILocalCmdProcessorStates` — e.g. expose extra flags and have another service flip them in real time.                                                 |
+| **Persistence across restarts** | When source arrives via Rabbit, the compiler saves `YourTypeCmdProcessor.cs` in `CommandPath`; after a restart it’s treated as a “static” processor and re-compiled automatically. |
+| **Full-trust execution**        | Code runs in-process with the agent’s own privileges, so you can open raw sockets, read environment variables, mount `DllImport` shims, etc.                                       |
+| **Dynamic updates**             | Send a newer source file with the same `cmd_processor_type`; it overwrites the old file, re-compiles, and hot-swaps without redeploying the binary.                                |
+
+---
+
+### 2  Hard **requirements / guard-rails**
+
+| Rule                                                                                                                                                      | Enforced by                        | Error message if violated                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
+| **Namespace** must be `NetworkMonitor.Connection`.                                                                                                        | Regex checks in `AddCmdProcessor`. | “you must include the namespace NetworkMonitor.Connection …” |
+| **Class name** must be exactly `«Type»CmdProcessor`.                                                                                                      | Same.                              | “public class FooCmdProcessor … not found”                   |
+| `cmd_processor_type` **string** (the Rabbit field / filename) **must not contain spaces or the word “CmdProcessor”**.                                     | Same.                              | Specific helper messages.                                    |
+| Missing `using` lines get auto-injected, **but** you still need the usual .NET SDK namespaces for exotic APIs.                                            |                                    |                                                              |
+| Roslyn compile **errors** abort the add-operation; only the **top 5** diagnostics are returned (plus an example stub).                                    |                                    |                                                              |
+| Constructor **signature** must match the base-class: `(ILogger, ILocalCmdProcessorStates, IRabbitRepo, NetConnectConfig [, int queueLen])`.               |                                    |                                                              |
+| **Disabled commands**: if `netConfig.DisabledCommands` contains the `CmdName`, `states.IsCmdAvailable` is set false and the processor will refuse to run. |                                    |                                                              |
+
+---
+
+### 3  Platform & dependency **limitations**
+
+1. **No NuGet restore** — you can only reference assemblies already on disk (`dlls/` or shipped with the agent).
+2. **Single AppDomain** — .NET can’t unload individual dynamic assemblies; repeated hot-reloads keep stacking in memory until the agent restarts.
+3. **Semaphore bottleneck** — per-processor parallelism is capped (default 5). If you need >5 concurrent external commands you must raise it in your constructor.
+4. **No built-in sandbox** — buggy or malicious code can crash the entire agent process; there’s no AppContainer or CAS isolation.
+5. **Process-level rights** — dynamic code inherits the agent’s OS privileges; it cannot self-elevate beyond that.
+6. **Disk paths** — compiled DLL + source are written under `CommandPath`; if that path is read-only the save-step fails (but you still get the in-memory instance for this session).
+7. **Dependency search order** (for Roslyn references):
+
+   1. `CommandPath/dlls/*.dll`
+   2. Already-loaded AppDomain assemblies
+   3. .NET runtime directory
+      If a required assembly isn’t in those loci the compile fails.
+
+---
+
+### 4  Operational constraints
+
+| Constraint              | Practical impact                                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Message-driven API**  | All calls are routed through Rabbit → you must adhere to existing `ProcessorScanDataObj` schema (e.g. `arguments`, `LineLimit`, `Page`).                  |
+| **Pagination footer**   | Consumers must strip the footer when `LineLimit != –2`, otherwise downstream JSON parsing may break.                                                      |
+| **Cancellation window** | If the external CLI ignores `SIGKILL` (rare on Windows), the process may stay zombie; build timeout / watchdog logic into your processor if that matters. |
+| **Resource leaks**      | Long-running `Task`s or `Timer`s you spin up won’t be auto-disposed when the provider removes the processor; manage your own lifetime.                    |
+
+---
+
+### 5  Security considerations & things you **shouldn’t** do
+
+* **Don’t** run untrusted code — the compiler executes with full agent trust; it can `rm -rf /`, exfiltrate credentials, or embed reverse shells. Only allow code from authenticated, audited sources.
+* **Don’t** block the queue pump — long-synchronous loops inside `Scan()` will hog the CPU thread and starve other tasks; always `await` I/O.
+* **Don’t** swallow `OperationCanceledException`; let the base class see it so it can mark the task as cancelled.
+* **Don’t** gossip huge blobs via `SendMessage`; paginate or save to a file and transmit a URL if output > a few MB — RabbitMQ memory pressure is real.
+* **Don’t** rely on static-field singletons across dynamic recompiles; each compile makes a new assembly, and static state from old versions lingers.
+* **Don’t** assume GUI Chromium — `LaunchHelper.CheckDisplay` may flip to headless if `DISPLAY`/`WAYLAND_DISPLAY` not set.
+
+---
+
+### 6  Extensibility checklist (✅ / ❌ quick view)
+
+| Feature                                          | Supported?                                            |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| Add brand-new processor at runtime               | ✅                                                     |
+| Hot-replace existing processor                   | ✅                                                     |
+| Use external NuGet packages on the fly           | ❌ (must pre-bundle DLL)                               |
+| Raise per-processor concurrency >5               | ✅ (ctor arg)                                          |
+| Reduce per-processor concurrency to 1            | ✅                                                     |
+| Unload/destroy a processor without agent restart | ❌ (can stop calling it, but assembly stays in memory) |
+| Persist custom state across restarts             | ❌ (unless you write to disk yourself)                 |
+| Reference Win32 / libc via `DllImport`           | ✅ (same privs as agent)                               |
+| Limit a processor to a specific OS user          | ❌ out of the box (would need `runas` wrapper)         |
+
+---
+
+### 7  Best-practice pointers
+
+1. **Small adapters, big helpers** – keep each processor thin (parse args, call helper class). That way recompiles are cheap and business logic is testable outside the agent.
+2. **Validate inputs early** – throw when `arguments` are obviously malformed so the caller sees an immediate Rabbit reply.
+3. **Surface progress** – write interim status to `_cmdProcessorStates.RunningMessage` and call `SendMessage` periodically for long scans.
+4. **Graceful shutdown** – tie every background loop to `CancellationToken`; the standard `CancelCommand` path then works automatically.
+5. **Ship dependencies alongside code** – drop any extra `*.dll` in `CommandPath/dlls` *before* you push the new processor so the compile succeeds first time.
+
+---
+
+#### TL;DR
+
+Dynamic Cmd Processors give you **nearly unrestricted C# + OS-level power** inside the agent, with first-class queuing, cancellation, and RabbitMQ streaming already solved.
+The trade-offs are: no NuGet at runtime, no sandbox, and assemblies stay loaded until restart. Design accordingly, validate aggressively, and you can wrap almost any CLI or write pure-C# scanners on the fly.
