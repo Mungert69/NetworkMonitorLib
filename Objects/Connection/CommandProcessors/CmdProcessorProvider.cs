@@ -171,10 +171,10 @@ namespace NetworkMonitor.Connection
             }
         }
        
-        public ICmdProcessor? GetProcessor(string processorType)
+       public ICmdProcessor? GetProcessor(string processorType)
         {
-            return _processors.FirstOrDefault(kvp =>
-                string.Equals(kvp.Key, processorType, StringComparison.OrdinalIgnoreCase)).Value;
+            //processorType = processorType.ToLower();
+            return _processors.TryGetValue(processorType, out var processor) ? processor : null;
         }
 
 
