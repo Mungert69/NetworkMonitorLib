@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 
 namespace NetworkMonitor.Objects.Factory;
@@ -209,7 +210,8 @@ public class AccountTypeFactory
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
             "validate_quantum_config",
-            "call_security_basic_flow"
+            "call_security_basic_flow",
+            "cp_*"
         },
             "Standard" => new List<string>
         {
@@ -242,7 +244,8 @@ public class AccountTypeFactory
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
             "validate_quantum_config",
-            "call_security_basic_flow"
+            "call_security_basic_flow",
+            "cp_*"
         },
             "Professional" => new List<string>
         {
@@ -279,7 +282,8 @@ public class AccountTypeFactory
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
             "validate_quantum_config",
-            "call_security_basic_flow"
+            "call_security_basic_flow",
+            "cp_*"
         },
             "Enterprise" => new List<string>
         {
@@ -319,7 +323,8 @@ public class AccountTypeFactory
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
             "validate_quantum_config",
-            "call_security_basic_flow"
+            "call_security_basic_flow",
+            "cp_*"
         },
             "God" => new List<string>
         {
@@ -359,7 +364,8 @@ public class AccountTypeFactory
             "scan_quantum_ports",
             "get_quantum_algorithm_info",
             "validate_quantum_config",
-            "call_security_basic_flow"
+            "call_security_basic_flow",
+            "cp_*"
         },
             _ => new List<string>
         {
@@ -381,9 +387,31 @@ public class AccountTypeFactory
             "validate_quantum_config",
             "call_quantum_expert",
             "call_monitor_sys",
-            "call_security_basic_flow"
+            "call_security_basic_flow",
+            "cp_*"
         }
         };
+    }
+
+
+    public static bool IsFunctionNameAllowed(IEnumerable<string> allowedPatterns, string funcName)
+    {
+        foreach (var pattern in allowedPatterns)
+        {
+            if (pattern.Contains("*"))
+            {
+                // Replace "*" with ".*" and escape the rest, anchor to start/end
+                string regex = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+                if (Regex.IsMatch(funcName, regex, RegexOptions.IgnoreCase))
+                    return true;
+            }
+            else
+            {
+                if (string.Equals(pattern, funcName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
     }
 
     public static string? GetLowestAccountTypeForFunction(string funcName)
@@ -394,10 +422,11 @@ public class AccountTypeFactory
         foreach (var accountType in accountTypesOrder)
         {
             var availableFuncs = GetFunctionNamesForAccountType(accountType);
-            if (availableFuncs != null && availableFuncs.Contains(funcName))
+            if (availableFuncs != null && IsFunctionNameAllowed(availableFuncs, funcName))
             {
                 return accountType;
             }
+
         }
 
         // If the function is not found in any account type, return null or throw an exception
@@ -406,17 +435,18 @@ public class AccountTypeFactory
 
     public static (bool, string) CheckUserFuncPermissions(UserInfo user, string funcName, string frontendUrl)
     {
-        if (string.IsNullOrEmpty(frontendUrl)) frontendUrl=AppConstants.FrontendUrl;
+        if (string.IsNullOrEmpty(frontendUrl)) frontendUrl = AppConstants.FrontendUrl;
         if (user == null) return (false, $"User is null in CheckUserFuncPermissions. Contact support with details of this error");
 
         var allFuncs = GetFunctionNamesForAccountType("God");
-        if (!allFuncs.Any(a => a == funcName))
+        if (!IsFunctionNameAllowed(allFuncs, funcName))
         {
             return (false, $"There is no `{funcName}` function. You are trying to call a non existent function");
         }
+
         string message = "";
         string? accountType = user.AccountType;
-        if (string.IsNullOrEmpty(accountType) || accountType=="Default")
+        if (string.IsNullOrEmpty(accountType) || accountType == "Default")
         {
 
             var freeAvailableFuncs = GetFunctionNamesForAccountType("Free");
@@ -428,13 +458,15 @@ public class AccountTypeFactory
             else
             {
                 string? lowestAccountType = GetLowestAccountTypeForFunction(funcName) ?? "";
-                if (lowestAccountType!=null) {
-                     extraMessage = $" If they wish to use this advanced feature they will need to [Login]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)and upgrade to the {lowestAccountType} plan. Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details";
-                   
-                   if (lowestAccountType=="Standard") extraMessage+=" . You can get a 'Free' upgrade to a Standard Plan if you Download and install the Quantum Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade";
+                if (lowestAccountType != null)
+                {
+                    extraMessage = $" If they wish to use this advanced feature they will need to [Login]({AppConstants.FrontendUrl}/Dashboard/#assistant=open&openInNewTab)and upgrade to the {lowestAccountType} plan. Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details";
 
-                   
-                }else extraMessage = $" Error : could not find an account type or plan that has access to the functon {funcName}";
+                    if (lowestAccountType == "Standard") extraMessage += " . You can get a 'Free' upgrade to a Standard Plan if you Download and install the Quantum Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade";
+
+
+                }
+                else extraMessage = $" Error : could not find an account type or plan that has access to the functon {funcName}";
             }
             message = $"For secuitry reasons users that are not logged in do not have access to `{funcName}` . {extraMessage}";
 
@@ -443,7 +475,7 @@ public class AccountTypeFactory
         else message = $"User does not have access to the `{funcName}` function. Explain to the user they have several options: 1: Upgrade your subscription to enjoy access to this function and many more benefits, Visit [Subscription](https://{frontendUrl}/subscription#openInNewTab))for details. Or they can get a 'Free' upgrade to a Standard Plan if you Download and install the Quantum Network Monitor Agent. Visit [Download](https://{frontendUrl}/download#openInNewTab))and follow the instructions on installing any of the agents to get your Free Upgrade.";
 
         var availableFuncs = GetFunctionNamesForAccountType(accountType);
-        if (availableFuncs != null && availableFuncs.Any(a => a == funcName))
+        if (availableFuncs != null && IsFunctionNameAllowed(availableFuncs, funcName))
         {
             return (true, $"User has access to the `{funcName}` function");
         }
@@ -451,6 +483,7 @@ public class AccountTypeFactory
         {
             return (false, message);
         }
+
     }
 
     public static IEnumerable<AccountType> GetAccountTypes()
@@ -466,8 +499,8 @@ public class AccountTypeFactory
         }
         else
         {
-           return new AccountType("Default", config.hostLimit, config.tokenLimit, config.dailyTokens, config.contextSize);
-    
+            return new AccountType("Default", config.hostLimit, config.tokenLimit, config.dailyTokens, config.contextSize);
+
         }
     }
 
