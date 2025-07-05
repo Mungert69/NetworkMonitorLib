@@ -176,7 +176,7 @@ namespace NetworkMonitor.Objects.Repository
             if (agentLocation == "") return new ResultObj { Success = false, Message = $" Error : You must set agent_location" };
             var selectedProcessor = _processorList
                 .FirstOrDefault(p => p.Location == agentLocation);
-            if (selectedProcessor == null) return new ResultObj { Success = false, Message = $" Error : There is no agent with agent_location '{agentLocation}'" };
+            if (selectedProcessor == null) return new ResultObj { Success = false, Message = $" Error : There is no agent with agent_location '{agentLocation}' . You need to check what agents you have available before trying again." };
             if (selectedProcessor.Owner != userId) return new ResultObj { Success = false, Message = $" Error : You do not own this agent. Consider installing your own agent. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
             if (!selectedProcessor.IsEnabled) return new ResultObj { Success = false, Message = $" Error : The agent is not enabled. If you are unabled to re-enable the agent consider installing a new agent. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
             if (selectedProcessor.Load > selectedProcessor.MaxLoad) return new ResultObj { Success = false, Message = $" Error : The agent is over max load. Consider installing a new agent to share the load. Follow the instructions at {AppConstants.FrontendUrl}/download to download and install your own agent." };
