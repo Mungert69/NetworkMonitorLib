@@ -12,12 +12,148 @@ using System.Net.Mime;
 
 namespace NetworkMonitor.Objects;
 
-public class SecurityPrompt
-{
 
-    public static string GetHelpText()
+public static class Prompts
+{ 
+
+   public static string CmdProcessorPrompt () => 
+@"**.NET Source Code in add_cmd_processor**:
+When adding a cmd processor, supply its source code in the 'source_code' parameter. The code must inherit from the base class CmdProcessor
+For reference and outline of the CmdProcesor Base class is given below :
+
+namespace NetworkMonitor.Connection
+{
+    public interface ICmdProcessor : IDisposable
     {
-        string content = @"
+         Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null);
+          string GetCommandHelp();
+    }
+    public abstract class CmdProcessor : ICmdProcessor
+    {
+        protected readonly ILogger _logger;
+        protected readonly ILocalCmdProcessorStates _cmdProcessorStates;
+        protected readonly IRabbitRepo _rabbitRepo;
+        protected readonly NetConnectConfig _netConfig;
+        protected string _rootFolder; // the folder to read and write files to.
+        protected CancellationTokenSource _cancellationTokenSource; // the cmd processor is cancelled using this.
+        protected string _frontendUrl = AppConstants.FrontendUrl;
+     
+
+        public bool UseDefaultEndpoint { get => _cmdProcessorStates.UseDefaultEndpointType; set => _cmdProcessorStates.UseDefaultEndpointType = value; }
+#pragma warning disable CS8618
+        public CmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
+        {
+            _logger = logger;
+            _cmdProcessorStates = cmdProcessorStates;
+            _rabbitRepo = rabbitRepo;
+            _netConfig = netConfig;
+            _rootFolder = netConfig.CommandPath;  // use _rootFolder to access the agents file system
+        }
+
+        // You will override this method with your implementation.
+        public virtual async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
+        {
+            var result = new ResultObj();
+            string output = "";
+            try
+            {
+               
+                using (var process = new Process())
+                {
+                    process.StartInfo.FileName = _netConfig.CommandPath + _cmdProcessorStates.CmdName;
+                    process.StartInfo.Arguments = arguments;
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.RedirectStandardOutput = true;
+                    process.StartInfo.RedirectStandardError = true; // Add this to capture standard error
+
+                    process.StartInfo.CreateNoWindow = true;
+                    process.StartInfo.WorkingDirectory = _netConfig.CommandPath;
+
+                    var outputBuilder = new StringBuilder();
+                    var errorBuilder = new StringBuilder();
+
+                    process.OutputDataReceived += (sender, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            outputBuilder.AppendLine(e.Data);
+                        }
+                    };
+
+                    process.ErrorDataReceived += (sender, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            errorBuilder.AppendLine(e.Data);
+                        }
+                    };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    // Register a callback to kill the process if cancellation is requested
+                    using (cancellationToken.Register(() =>
+                    {
+                        if (!process.HasExited)
+                        {
+                            _logger.LogInformation($""Cancellation requested, killing the {_cmdProcessorStates.CmdDisplayName} process..."");
+                            process.Kill();
+                        }
+                    }))
+                    {
+                        // Wait for the process to exit or the cancellation token to be triggered
+                        await process.WaitForExitAsync(cancellationToken);
+                        cancellationToken.ThrowIfCancellationRequested(); // Check if cancelled before processing output
+
+                        output = outputBuilder.ToString();
+                        string errorOutput = errorBuilder.ToString();
+
+                        if (!string.IsNullOrWhiteSpace(errorOutput) && processorScanDataObj != null)
+                        {
+                            output = $""RedirectStandardError : {errorOutput}. \n RedirectStandardOutput : {output}"";
+                        }
+                        result.Success = true;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($""Error : running {_cmdProcessorStates.CmdName} command. Error was : {e.Message}"");
+                output += $""Error : running {_cmdProcessorStates.CmdName} command. Error was : {e.Message}\n"";
+                result.Success = false;
+            }
+            result.Message = output;
+            return result;
+        }
+
+        // You can use this helper method in your cmd processor for argument parsing
+        protected virtual Dictionary<string, string> ParseArguments(string arguments)
+        {
+            var args = new Dictionary<string, string>();
+            var regex = new Regex(@""--(?<key>\w+)(?:\s+(?<value>""[^""]*""|\S+))?"");
+            var matches = regex.Matches(arguments);
+
+            foreach (Match match in matches)
+            {
+                args[match.Groups[""key""].Value.ToLower()] = match.Groups[""value""].Value;
+            }
+
+            return args;
+        }      
+        public virtual string GetCommandHelp()
+        {
+            // override this method and provide the help as a returned string.
+        }
+   
+    }
+
+}
+
+";
+
+
+  public static string SecurityPrompt() => @"
 Error Recovery:
 Nmap Errors:
 
@@ -225,6 +361,4 @@ Example Command:
 
 openssl s_client -connect example.com:443 -servername example.com -showcerts -tls1_2 -CAfile /etc/ssl/certs/ca-certificates.crt -status
 ";
-        return content;
-    }
 }
