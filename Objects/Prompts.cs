@@ -149,6 +149,8 @@ namespace NetworkMonitor.Connection
     }
 
 }
+Do not to include the word CmdProcessor in the cmd_processor_type. For example if you want to call the cmd processor HttpTest then cmd_processor_type is HttpTest and the class name is HttpTestCmdProcessor.
+Use _rootFolder for file operations as this has read write access. Try and implement the CancellationToken cancellationToken to make sure the command can be cancelled.
 
 ";
 
