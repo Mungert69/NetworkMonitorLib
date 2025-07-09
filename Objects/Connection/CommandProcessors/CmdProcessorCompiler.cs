@@ -217,27 +217,32 @@ public class CmdProcessorCompiler
 
 
             var topErrors = result.Diagnostics
-                .Where(d => d.Severity == DiagnosticSeverity.Error)         // only errors :contentReference[oaicite:2]{index=2}
-                .DistinctBy(d => d.Id)                                      // remove duplicate CS codes (.NET 6+) :contentReference[oaicite:3]{index=3}
-                .Take(5)                                                    // still cap at five
+                .Where(d => d.Severity == DiagnosticSeverity.Error)              // 1️⃣ keep only errors :contentReference[oaicite:2]{index=2}
+                .GroupBy(d => d.Id)                                              // 2️⃣ bucket by CS-code
+                .Select(g => g.OrderBy(d => d.Location.SourceSpan.Start)
+                              .First())                                          // 3️⃣ pick earliest instance in each file
+                .OrderBy(d => d.Location.SourceSpan.Start)                       // 4️⃣ stable order across buckets
+                .Take(10)                                                        // 5️⃣ cap at ten
                 .Select(d =>
                 {
-                    var msg = $"error {d.Id}: " + d.GetMessage(CultureInfo.InvariantCulture);  // :contentReference[oaicite:4]{index=4}
-                    var docUrl = $"https://learn.microsoft.com/dotnet/csharp/misc/{d.Id.ToLower()}";  // pattern from docs :contentReference[oaicite:5]{index=5}
-                    msg += $"\nSee: {docUrl}";
+                    var msg = $"error {d.Id}: {d.GetMessage(CultureInfo.InvariantCulture)}"; // formatted text :contentReference[oaicite:3]{index=3}
+                    var link = $"https://learn.microsoft.com/dotnet/csharp/misc/{d.Id.ToLower()}"; // docs pattern :contentReference[oaicite:4]{index=4}
+                    msg += $"\nLocation: {d.Location.GetLineSpan().Path}:{d.Location.GetLineSpan().StartLinePosition.Line + 1}";
+                    msg += $"\nMore info see: {link}";
 
                     return msg;
                 })
                 .ToArray();
 
 
-            var errorSummary = string.Join("\n\n", topErrors);
 
+            var errorSummary = string.Join("\n\n", topErrors);
+            string exampleContent = "";
 
             try
             {
                 var exampleFilePath = Path.Combine(_netConfig.CommandPath, "CompileErrorExample.cs");
-                if (File.Exists(exampleFilePath))
+                if (File.Exists(exampleFilePath) && includeExample)
                 {
                     var source_code = await File.ReadAllTextAsync(exampleFilePath);
 

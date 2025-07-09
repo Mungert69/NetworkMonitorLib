@@ -221,7 +221,7 @@ namespace NetworkMonitor.Connection
             }
             else
             {
-                string sessionId = processorScanDataObj.LLServiceObj?.SessionId ?? "unknown";
+                string sessionId = processorScanDataObj.LlmServiceObj?.SessionId ?? "unknown";
                 string procType = processorScanDataObj.Type;
 
                 var key = (sessionId, procType);
