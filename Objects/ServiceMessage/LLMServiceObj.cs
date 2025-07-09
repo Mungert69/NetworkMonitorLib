@@ -83,10 +83,11 @@ namespace NetworkMonitor.Objects.ServiceMessage
             IsProcessedStack = new Stack<bool>(other.IsProcessedStack);
             LlmSessionStartName = other.LlmSessionStartName;
             messageID = other.MessageID;
-            StartTimeUTC=other.StartTimeUTC;
-            ChatAgentLocation=other.ChatAgentLocation;
+            StartTimeUTC = other.StartTimeUTC;
+            ChatAgentLocation = other.ChatAgentLocation;
             ToolsDefinitionId = other.ToolsDefinitionId;
             JsonToolsBuilderSpec = other.JsonToolsBuilderSpec;
+            Timeout = other.Timeout;
 
         }
         private string messageID = "";
@@ -99,7 +100,8 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private string functionName = "";
         private string swapFunctionName = "";
         private string functionCallId = "";
-        private string? toolsDefinitionId=null;
+        private int? timeout =null;
+        private string? toolsDefinitionId = null;
         private string? jsonToolsBuilderSpec = null;
         private string llmRunnerType = "TurboLLM";
         private string chatAgentLocation="";
@@ -286,6 +288,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string? ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
         public string? JsonToolsBuilderSpec { get => jsonToolsBuilderSpec; set => jsonToolsBuilderSpec = value; }
         public string SwapFunctionName { get => swapFunctionName; set => swapFunctionName = value; }
+        public int? Timeout { get => timeout; set => timeout = value; }
 
         public void PopMessageID()
         {
