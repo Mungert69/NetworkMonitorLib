@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +37,7 @@ public class CmdProcessorCompiler
         _sourceCodeFileMap = sourceCodeFileMap;
     }
 
-    public async Task<ResultObj> HandleDynamicProcessor(string processorType, bool argsEscaped = false, string processorSourceCode = "")
+    public async Task<ResultObj> HandleDynamicProcessor(string processorType, bool argsEscaped = false, string processorSourceCode = "", bool includeExample = false)
     {
 
         var result = new ResultObj();
@@ -58,29 +60,29 @@ public class CmdProcessorCompiler
 
 
 
-           // Generate LocalCmdProcessorStates source code dynamically
+            // Generate LocalCmdProcessorStates source code dynamically
             //string statesSourceCode = GenerateStatesSourceCode(processorType);
 
             // ** Add Missing Using Statements **
             processorSourceCode = EnsureRequiredUsingStatements(processorSourceCode);
-/*
-            // Combine both source codes
-            string combinedSourceCode = $"{processorSourceCode}\n{statesSourceCode}";
+            /*
+                        // Combine both source codes
+                        string combinedSourceCode = $"{processorSourceCode}\n{statesSourceCode}";
 
-            // Compile and create LocalCmdProcessorStates instance
-            var statesInstance = await CompileAndCreateInstance<ILocalCmdProcessorStates>(
-                combinedSourceCode,
-                $"NetworkMonitor.Objects.Local{processorType}CmdProcessorStates",
-                argsEscaped);
+                        // Compile and create LocalCmdProcessorStates instance
+                        var statesInstance = await CompileAndCreateInstance<ILocalCmdProcessorStates>(
+                            combinedSourceCode,
+                            $"NetworkMonitor.Objects.Local{processorType}CmdProcessorStates",
+                            argsEscaped);
 
-            if (statesInstance == null)
-            {
-                result.Success = false;
-                result.Message += $" Error : cannot create instance for states of type: Local{processorType}CmdProcessorStates";
-                return result;
-            }*/
+                        if (statesInstance == null)
+                        {
+                            result.Success = false;
+                            result.Message += $" Error : cannot create instance for states of type: Local{processorType}CmdProcessorStates";
+                            return result;
+                        }*/
             var statesInstance = CreateProcessorStates(processorType);
-      
+
             _processorStates[processorType] = statesInstance;
 
             // Set command availability
@@ -92,6 +94,7 @@ public class CmdProcessorCompiler
                 processorSourceCode,
                 $"NetworkMonitor.Connection.{processorType}CmdProcessor",
                 argsEscaped,
+                includeExample,
                 processorLogger, statesInstance, _rabbitRepo, _netConfig);
 
             if (processorInstance == null)
@@ -193,7 +196,7 @@ public class CmdProcessorCompiler
         }}";
     }
 
-    private async Task<T?> CompileAndCreateInstance<T>(string sourceCode, string typeName, bool argsEscaped, params object[] args) where T : class
+    private async Task<T?> CompileAndCreateInstance<T>(string sourceCode, string typeName, bool argsEscaped, bool includeExample, params object[] args) where T : class
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
 
@@ -211,14 +214,25 @@ public class CmdProcessorCompiler
 
         if (!result.Success)
         {  // Get the top 5 errors for brevity
+
+
             var topErrors = result.Diagnostics
-                .Where(d => d.Severity == DiagnosticSeverity.Error)
-                .Take(5)
-                .Select(d => d.ToString())
+                .Where(d => d.Severity == DiagnosticSeverity.Error)         // only errors :contentReference[oaicite:2]{index=2}
+                .DistinctBy(d => d.Id)                                      // remove duplicate CS codes (.NET 6+) :contentReference[oaicite:3]{index=3}
+                .Take(5)                                                    // still cap at five
+                .Select(d =>
+                {
+                    var msg = $"error {d.Id}: " + d.GetMessage(CultureInfo.InvariantCulture);  // :contentReference[oaicite:4]{index=4}
+                    var docUrl = $"https://learn.microsoft.com/dotnet/csharp/misc/{d.Id.ToLower()}";  // pattern from docs :contentReference[oaicite:5]{index=5}
+                    msg += $"\nSee: {docUrl}";
+
+                    return msg;
+                })
                 .ToArray();
 
-            var errorSummary = string.Join("\n", topErrors);
-            string exampleContent = string.Empty;
+
+            var errorSummary = string.Join("\n\n", topErrors);
+
 
             try
             {
@@ -231,7 +245,7 @@ public class CmdProcessorCompiler
                     {
                         if (argsEscaped)
                         {
-                           source_code = System.Text.Json.JsonSerializer.Serialize(source_code);
+                            source_code = System.Text.Json.JsonSerializer.Serialize(source_code);
                             // Remove unnecessary quotes added by JsonSerializer
                             source_code = source_code.Trim('"');
                         }
@@ -255,8 +269,11 @@ public class CmdProcessorCompiler
 
             // Build the final error message
             var message = $"Compilation failed with the following errors:\n{errorSummary}\n" +
-                          "REMEMBER to include the full source code for the class, including all necessary using statements and methods." +
-                          exampleContent;
+                          "REMEMBER to include the full source code for the class, including all necessary using statements and methods. ";
+            if (includeExample && !string.IsNullOrEmpty(exampleContent))
+            {
+                message += exampleContent;
+            }
 
             _logger.LogError(message);
             throw new Exception(message);
@@ -273,10 +290,10 @@ public class CmdProcessorCompiler
 
         return Activator.CreateInstance(type, args) as T;
     }
-        private static string Capitalize(string s) => char.ToUpper(s[0]) + s.Substring(1);
+    private static string Capitalize(string s) => char.ToUpper(s[0]) + s.Substring(1);
 
 
-       private ILocalCmdProcessorStates CreateProcessorStates(string processorType)
+    private ILocalCmdProcessorStates CreateProcessorStates(string processorType)
     {
         var cmdName = processorType.ToLower();
         var cmdDisplayName = Capitalize(processorType);
@@ -286,8 +303,8 @@ public class CmdProcessorCompiler
     {
         var assembly = Assembly.GetExecutingAssembly();
 
-      var statesInstance = CreateProcessorStates(processorType);
-                   
+        var statesInstance = CreateProcessorStates(processorType);
+
 
         _processorStates[processorType] = statesInstance;
 

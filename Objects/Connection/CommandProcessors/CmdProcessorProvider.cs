@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
@@ -42,6 +43,9 @@ namespace NetworkMonitor.Connection
         private List<string> _processorTypes;
         private Dictionary<string, string> _sourceCodeFileMap = new();
         private readonly CmdProcessorCompiler _compiler;
+
+        private readonly ConcurrentDictionary<(string SessionId, string ProcessorType), int> _errorCounts
+    = new();
 
         public List<string> ProcessorTypes { get => _processorTypes; }
 
@@ -170,8 +174,8 @@ namespace NetworkMonitor.Connection
                 throw new ArgumentException($"Processor type '{processorType}' not found.");
             }
         }
-       
-       public ICmdProcessor? GetProcessor(string processorType)
+
+        public ICmdProcessor? GetProcessor(string processorType)
         {
             //processorType = processorType.ToLower();
             return _processors.TryGetValue(processorType, out var processor) ? processor : null;
@@ -217,8 +221,24 @@ namespace NetworkMonitor.Connection
             }
             else
             {
+                string sessionId = processorScanDataObj.LLServiceObj?.SessionId ?? "unknown";
+                string procType = processorScanDataObj.Type;
+
+                var key = (sessionId, procType);
+
+                // Safely increment error count
+                int currentCount = _errorCounts.AddOrUpdate(key, 1, (k, v) => v + 1);
+
+                // Show example on first and every 5th error
+                bool includeExample = (currentCount == 1 || currentCount % 5 == 0);
+
                 _logger.LogInformation($"\n\n Attempting to compile source code :\n\n{processorScanDataObj.Arguments}\n\n");
-                result = await _compiler.HandleDynamicProcessor(processorScanDataObj.Type, argsEscaped: processorScanDataObj.ArgsEscaped, processorSourceCode: processorScanDataObj.Arguments);
+                result = await _compiler.HandleDynamicProcessor(
+                    processorScanDataObj.Type,
+                    argsEscaped: processorScanDataObj.ArgsEscaped,
+                    processorSourceCode: processorScanDataObj.Arguments,
+                    includeExample: includeExample);
+                if (result.Success) _errorCounts.TryRemove(key, out _);
             }
 
 
