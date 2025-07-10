@@ -22,6 +22,7 @@ namespace NetworkMonitor.Objects.ServiceMessage;
     private bool _isControllerCall=false;
     private string _type="";
     private bool _isAck=false;
+    private bool _scanCommandSuccess;
 
     public bool UseDefaultEndpoint { get => _useDefaultEndpoint; set => _useDefaultEndpoint = value; }
     public string  DefaultEndpoint { get => _defaultEndpoint; set => _defaultEndpoint = value; }
@@ -43,7 +44,8 @@ namespace NetworkMonitor.Objects.ServiceMessage;
     public string RootMessageID => _llmServiceObj.RootMessageID;
 
     public bool IsAck { get => _isAck; set => _isAck = value; }
-    public global::System.Boolean ArgsEscaped { get => _argsEscaped; set => _argsEscaped = value; }
+    public bool ArgsEscaped { get => _argsEscaped; set => _argsEscaped = value; }
+    public bool ScanCommandSuccess { get => _scanCommandSuccess; set => _scanCommandSuccess = value; }
 
     public ProcessorScanDataObj()
         {

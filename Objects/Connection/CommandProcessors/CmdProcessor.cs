@@ -161,7 +161,7 @@ namespace NetworkMonitor.Connection
             _currentQueue.Enqueue(commandTask);
             ResultObj taskResult = await tcs.Task;
             _runningTasks.TryRemove(commandTask.MessageId, out _);
-
+            processorScanDataObj.ScanCommandSuccess = taskResult.Success;
             taskResult.Message = await SendMessage(taskResult.Message, processorScanDataObj);
             return taskResult;
             // return await tcs.Task; // Return the Task<string> that will complete once the command finishes

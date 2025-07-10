@@ -243,6 +243,7 @@ namespace NetworkMonitor.Connection
 
 
             processorScanDataObj.ScanCommandOutput = result.Message;
+            processorScanDataObj.ScanCommandSuccess = result.Success;
             await _rabbitRepo.PublishAsync<ProcessorScanDataObj>(processorScanDataObj.CallingService, processorScanDataObj);
             return result;
         }
@@ -300,6 +301,7 @@ namespace NetworkMonitor.Connection
 
 
             processorScanDataObj.ScanCommandOutput = result.Message;
+            processorScanDataObj.ScanCommandSuccess = result.Success;
             await _rabbitRepo.PublishAsync<ProcessorScanDataObj>(processorScanDataObj.CallingService, processorScanDataObj);
             return result;
         }
@@ -312,6 +314,7 @@ namespace NetworkMonitor.Connection
                 // Prepare the acknowledgment message
                 processorScanDataObj.ScanCommandOutput = $"Acknowledged command with MessageID {processorScanDataObj.MessageID}";
                 processorScanDataObj.IsAck = true;
+                processorScanDataObj.ScanCommandSuccess = true;
                 // Publish the acknowledgment to RabbitMQ
                 await _rabbitRepo.PublishAsync<ProcessorScanDataObj>(processorScanDataObj.CallingService + "Ack", processorScanDataObj);
 
@@ -346,6 +349,7 @@ namespace NetworkMonitor.Connection
             try
             {
                 processorScanDataObj.ScanCommandOutput = await GetSourceCode(processorScanDataObj.Type);
+                processorScanDataObj.ScanCommandSuccess = true;
                 await _rabbitRepo.PublishAsync<ProcessorScanDataObj>(processorScanDataObj.CallingService, processorScanDataObj);
                 result.Message = $" Success : published  soruce code message with MessageID {processorScanDataObj.MessageID} output : {processorScanDataObj.ScanCommandOutput}";
                 result.Success = true;
