@@ -40,16 +40,21 @@ namespace NetworkMonitor.Connection
         {
             "Nmap", "Meta", "Openssl", "Busybox", "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite", "Ping", "QuantumConnect", "QuantumPortScanner", "QuantumInfo"
         };
+        private readonly List<string> _requireLaunchHelper = new()
+        {
+            "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite"
+        };
         private List<string> _processorTypes;
         private Dictionary<string, string> _sourceCodeFileMap = new();
         private readonly CmdProcessorCompiler _compiler;
+        private readonly ILaunchHelper _launchHelper;
 
         private readonly ConcurrentDictionary<(string SessionId, string ProcessorType), int> _errorCounts
     = new();
 
         public List<string> ProcessorTypes { get => _processorTypes; }
 
-        public CmdProcessorProvider(ILoggerFactory loggerFactory, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
+        public CmdProcessorProvider(ILoggerFactory loggerFactory, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, ILaunchHelper launchHelper)
         {
             _loggerFactory = loggerFactory;
             _rabbitRepo = rabbitRepo;
@@ -57,10 +62,12 @@ namespace NetworkMonitor.Connection
             _processorStates = new Dictionary<string, ILocalCmdProcessorStates>();
             _processors = new Dictionary<string, ICmdProcessor>();
             _processorTypes = new List<string>(_coreProcessorTypes);
-            _compiler = new CmdProcessorCompiler(_loggerFactory, _netConfig, _rabbitRepo, _processorStates, _processors, _processorTypes, _sourceCodeFileMap);
+            _launchHelper = launchHelper;
+            _compiler = new CmdProcessorCompiler(_loggerFactory, _netConfig, _rabbitRepo, _processorStates, _processors, _processorTypes, _sourceCodeFileMap,_launchHelper, _requireLaunchHelper);
 
             _logger = _loggerFactory.CreateLogger<CmdProcessorProvider>();
-            // Populate _sourceCodeFileMap dynamically if _netConfig.CommandPath is provided
+
+
 
         }
 

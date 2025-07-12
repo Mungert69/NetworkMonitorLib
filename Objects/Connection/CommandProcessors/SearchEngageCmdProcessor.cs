@@ -20,13 +20,15 @@ namespace NetworkMonitor.Connection
         private readonly int _interactionDelayMin = 2000;
         private readonly int _interactionDelayMax = 5000;
          private readonly Random _random = new Random();
+        ILaunchHelper? _launchHelper = null;
 
         public SearchEngageCmdProcessor(ILogger logger, 
             ILocalCmdProcessorStates cmdProcessorStates, 
             IRabbitRepo rabbitRepo, 
-            NetConnectConfig netConfig)
+            NetConnectConfig netConfig,ILaunchHelper launchHelper)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
+            _launchHelper= launchHelper;
         }
 
         public override async Task<ResultObj> RunCommand(string arguments, 
@@ -34,16 +36,25 @@ namespace NetworkMonitor.Connection
             ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
+            string output = string.Empty;
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
                     _logger.LogWarning($"{_cmdProcessorStates.CmdDisplayName} is not available");
-                    result.Message = $"{_cmdProcessorStates.CmdDisplayName} not available";
+                    output = $"{_cmdProcessorStates.CmdDisplayName} not available";
+                    result.Message = await SendMessage(output, processorScanDataObj);
                     result.Success = false;
                     return result;
                 }
-
+                if (_launchHelper == null)
+                {
+                    _logger.LogWarning($" Error : PuppeteerSharp browser missing.");
+                    output = $"PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.\n";
+                    result.Message = await SendMessage(output, processorScanDataObj);
+                    result.Success = false;
+                    return result;
+                }
                 var parsedArgs = ParseArguments(arguments);
                 var searchTerm = parsedArgs.GetString("search_term","");
                 var targetDomain = parsedArgs.GetString("target_domain","");
@@ -51,8 +62,8 @@ namespace NetworkMonitor.Connection
                 if (string.IsNullOrEmpty(searchTerm)) throw new ArgumentException("Search term required");
                 if (string.IsNullOrEmpty(targetDomain)) throw new ArgumentException("Target domain required");
 
-                bool useHeadless = LaunchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var launchOptions = await LaunchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
+                bool useHeadless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
+                var launchOptions = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
 
                 using var browser = await Puppeteer.LaunchAsync(launchOptions);
                 using var page = await browser.NewPageAsync();

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Collections.Generic;
@@ -20,10 +20,16 @@ using NetworkMonitor.Service.Services.OpenAI;
 
 namespace NetworkMonitor.Connection
 {
-    public class LaunchHelper
+    public interface ILaunchHelper
     {
+        bool CheckDisplay(ILogger logger, bool forceHeadless = false);
+        Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false);
+    }
+    public class LaunchHelper : ILaunchHelper
+    {
+        private  readonly SemaphoreSlim _downloadSemaphore = new SemaphoreSlim(1, 1);
 
-        public static bool CheckDisplay(ILogger logger,bool forceHeadless =false)
+        public  bool CheckDisplay(ILogger logger, bool forceHeadless = false)
         {
             bool isGuiAvailable = false;
 
@@ -96,92 +102,127 @@ namespace NetworkMonitor.Connection
             return useHeadless;
         }
 
-        public static async Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true)
+        public  async Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false)
         {
-            ViewPortOptions vpo = new ViewPortOptions();
-            vpo.Width = 1920;
-            vpo.Height = 1280;
-            LaunchOptions lo;
+            var vpo = new ViewPortOptions { Width = 1920, Height = 1280 };
+            commandPath = Path.GetFullPath(commandPath.Replace('/', Path.DirectorySeparatorChar));
             var downloadPath = Path.Combine(commandPath, "chrome-bin");
 
-            // Create the directory if it doesn't exist
             if (!Directory.Exists(downloadPath))
-            {
                 Directory.CreateDirectory(downloadPath);
-            }
 
-            var bfo = new BrowserFetcherOptions
-            {
-                Path = downloadPath // Set the download path to "chrome-bin"
-            };
+            var bfo = new BrowserFetcherOptions { Path = downloadPath };
             logger?.LogInformation($"LaunchHelper Chromium path is {bfo.Path}");
             var browserFetcher = new BrowserFetcher(bfo);
 
-            // Check if the executable path exists
-            string chromiumPath = Path.Combine(bfo.Path, "Chrome");
-            if (!Directory.Exists(chromiumPath))
+            var chromiumPath = Path.Combine(bfo.Path, "Chrome");
+            var successMarker = Path.Combine(bfo.Path, ".chromium_downloaded");
+
+            // Optionally clear download marker
+            if (forceRedownload && File.Exists(successMarker))
+                File.Delete(successMarker);
+
+            string? chromeExecutable = FindChromeExecutable(chromiumPath);
+
+            bool executableMissingOrInvalid = string.IsNullOrEmpty(chromeExecutable) || !File.Exists(chromeExecutable);
+
+            if (!File.Exists(successMarker) || executableMissingOrInvalid)
             {
-                logger?.LogInformation($"Chromium not found. Downloading...");
-                await browserFetcher.DownloadAsync();
+                logger?.LogWarning("Chromium not found or corrupted. Downloading...");
+                await SafeDownloadChromiumAsync(browserFetcher, logger);
+                File.WriteAllText(successMarker, DateTime.UtcNow.ToString("o"));
+                chromeExecutable = FindChromeExecutable(chromiumPath);
             }
             else
             {
-                logger?.LogInformation($"Chromium revision already downloaded.");
+                logger?.LogInformation("Chromium already downloaded. Skipping download.");
             }
 
-            // Dynamically find the Chrome executable based on the platform
-            string? chromeExecutable = null;
-            // Recursively search for the Chrome executable in the directories
-            string? FindChromeExecutable(string rootPath)
+            if (string.IsNullOrEmpty(chromeExecutable))
+                throw new FileNotFoundException("Chrome executable not found");
+
+            logger?.LogInformation($"Using Chrome executable path {chromeExecutable}");
+
+            var lo = new LaunchOptions
+            {
+                Headless = useHeadless,
+                DefaultViewport = vpo,
+                ExecutablePath = chromeExecutable,
+                Args = new[]
+                {
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-extensions",
+                    "--disable-gpu",
+                    "--disable-blink-features=AutomationControlled"
+                }
+            };
+
+            return lo;
+
+             string? FindChromeExecutable(string rootPath)
             {
                 string exeName = "chrome";
-
 #if WINDOWS
                 exeName = "chrome.exe";
 #elif OSX
                 exeName = "Google Chrome.app/Contents/MacOS/Google Chrome";
 #endif
-
-
-                foreach (var filePath in Directory.GetFiles(rootPath, exeName, SearchOption.AllDirectories))
+                try
                 {
-                    if (File.Exists(filePath)) // Ensure it's a valid file
-                        return filePath;
+                    var files = Directory.GetFiles(rootPath, exeName, SearchOption.AllDirectories);
+                    return files.FirstOrDefault(File.Exists);
                 }
-
-                return null;
+                catch { return null; }
             }
-            logger?.LogInformation($"Searching for chrome executable...");
-
-            chromeExecutable = FindChromeExecutable(chromiumPath);
-            logger?.LogInformation($"Using Chrome executable path {chromeExecutable} .");
-            if (string.IsNullOrEmpty(chromeExecutable))
-            {
-                throw new FileNotFoundException($"Chrome executable not found");
-            }
-
-            lo = new LaunchOptions()
-            {
-                Headless = useHeadless,
-                DefaultViewport = vpo,
-                ExecutablePath = chromeExecutable, // Dynamically set the Chrome executable path based on platform
-                Args = new[]
-                     {
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-extensions",
-        "--disable-gpu",
-         "--disable-blink-features=AutomationControlled"
-                    }
-            };
-
-            return lo;
         }
 
+        private  async Task SafeDownloadChromiumAsync(
+        BrowserFetcher browserFetcher,
+        ILogger? logger = null,
+        int timeoutSeconds = 120,
+        int maxRetries = 3)
+        {
+            // Try to enter semaphore immediately
+            if (!await _downloadSemaphore.WaitAsync(0))
+            {
+                logger?.LogError("Another thread is already downloading Chromium.");
+                throw new InvalidOperationException("Chromium download already in progress.");
+            }
+
+            try
+            {
+                // Perform download with retry logic
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
+                {
+                    try
+                    {
+                        logger?.LogInformation($"[Download] Attempt {attempt}...");
+                        await browserFetcher.DownloadAsync();
+                        logger?.LogInformation("Chromium downloaded successfully.");
+                        return;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        logger?.LogWarning($"Attempt {attempt}: download timed out.");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogError($"Attempt {attempt} failed: {ex.GetType().Name} - {ex.Message}");
+                    }
+
+                    if (attempt < maxRetries)
+                        await Task.Delay(3000);
+                }
+
+                throw new TimeoutException("Chromium download failed after multiple attempts.");
+            }
+            finally
+            {
+                _downloadSemaphore.Release();
+            }
+        }
 
     }
-
-
-
 }

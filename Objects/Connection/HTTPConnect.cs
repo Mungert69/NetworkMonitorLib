@@ -15,16 +15,18 @@ namespace NetworkMonitor.Connection
 {
     public class HTTPConnect : NetConnect
     {
+        ILaunchHelper? _launchHelper = null;
         private HttpClient _client;
         private bool _isFullGet;
         private bool _isHtmlGet;
         private string _commandPath;
-        public HTTPConnect(HttpClient client, bool isHtmlGet, bool isFullGet, string commandPath)
+        public HTTPConnect(HttpClient client, bool isHtmlGet, bool isFullGet, string commandPath, ILaunchHelper? launchHelper=null)
         {
             _client = client;
             _isFullGet = isFullGet;
             _isHtmlGet = isHtmlGet;
             _commandPath = commandPath;
+            _launchHelper = launchHelper;
 
 
         }
@@ -77,9 +79,14 @@ namespace NetworkMonitor.Connection
                 Timer.Reset();
                 if (!_isHtmlGet && _isFullGet)
                 {
+                    if (_launchHelper == null)
+                    {
+                        ProcessException("PuppeteerSharp browser is missing, check installation", "FullHtml Disabled");
+                        return;
+                    }
                     string statusStr = "";
                     // Launch a new browser instance
-                    var lo = await LaunchHelper.GetLauncher(_commandPath);
+                    var lo = await _launchHelper.GetLauncher(_commandPath);
                     using (var browser = await Puppeteer.LaunchAsync(lo))
                     {
                         

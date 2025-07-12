@@ -23,29 +23,39 @@ namespace NetworkMonitor.Connection
     {
         private int _microTimeout = 10000;
         private int _macroTimeout = 30000;
+        ILaunchHelper? _launchHelper = null;
 
-        public CrawlPageCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
+        public CrawlPageCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, ILaunchHelper? launchHelper = null)
 : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-
+            _launchHelper = launchHelper;
         }
         public override async Task<ResultObj> RunCommand(string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
+            string output = string.Empty;
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
                     _logger.LogWarning($" Warning : {_cmdProcessorStates.CmdDisplayName} is not enabled or installed on this agent.");
-                    var output = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent. Try installing the Quantum Secure Agent or select an agent that has Openssl enabled.\n";
+                    output = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent. Try installing the Quantum Secure Agent or select an agent that has Openssl enabled.\n";
+                    result.Message = await SendMessage(output, processorScanDataObj);
+                    result.Success = false;
+                    return result;
+                }
+                if (_launchHelper==null)
+                {
+                    _logger.LogWarning($" Error : PuppeteerSharp browser missing.");
+                    output = $"PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.\n";
                     result.Message = await SendMessage(output, processorScanDataObj);
                     result.Success = false;
                     return result;
                 }
                 cancellationToken.ThrowIfCancellationRequested();
 
-                bool useHeadless = LaunchHelper.CheckDisplay(_logger,_netConfig.ForceHeadless);
-                var lo = await LaunchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
+                bool useHeadless = _launchHelper.CheckDisplay(_logger,_netConfig.ForceHeadless);
+                var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
          
                 using (var browser = await Puppeteer.LaunchAsync(lo))
                 using (var page = await browser.NewPageAsync())

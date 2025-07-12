@@ -24,22 +24,32 @@ namespace NetworkMonitor.Connection
         private int _timeout = 10000;
         private int _simTimeout = 120000;
         private static readonly Random _random = new Random();
+        ILaunchHelper? _launchHelper = null;
 
 
-        public CrawlSiteCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
+        public CrawlSiteCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, ILaunchHelper? launchHelper = null)
 : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-
+            _launchHelper = launchHelper;
         }
         public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
+            string output = string.Empty;
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
                     _logger.LogWarning($" Warning : {_cmdProcessorStates.CmdDisplayName} is not enabled or installed on this agent.");
-                    var output = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent. Try installing the Quantum Secure Agent or select an agent that has Openssl enabled.\n";
+                    output = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent. Try installing the Quantum Secure Agent or select an agent that has Openssl enabled.\n";
+                    result.Message = await SendMessage(output, processorScanDataObj);
+                    result.Success = false;
+                    return result;
+                }
+                if (_launchHelper == null)
+                {
+                    _logger.LogWarning($" Error : PuppeteerSharp browser missing.");
+                    output = $"PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.\n";
                     result.Message = await SendMessage(output, processorScanDataObj);
                     result.Success = false;
                     return result;
@@ -217,9 +227,9 @@ The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extrac
 
             PuppeteerSharp.CookieParam[] storedCookies = Array.Empty<PuppeteerSharp.CookieParam>();
 
-            bool useHeadless = LaunchHelper.CheckDisplay(_logger,_netConfig.ForceHeadless);
+            bool useHeadless = _launchHelper!.CheckDisplay(_logger,_netConfig.ForceHeadless);
 
-            var lo = await LaunchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
+            var lo = await _launchHelper!.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
             using (var browser = await Puppeteer.LaunchAsync(lo))
             using (var page = await browser.NewPageAsync())
             {

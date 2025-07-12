@@ -28,11 +28,12 @@ namespace NetworkMonitor.Connection
     {
         private int _microTimeout = 10000;
         private int _macroTimeout = 120000;
+        ILaunchHelper? _launchHelper = null;
 
-        public SearchWebCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
+        public SearchWebCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, ILaunchHelper? launchHelper=null)
 : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-
+            _launchHelper = launchHelper;
         }
         public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
@@ -49,7 +50,14 @@ namespace NetworkMonitor.Connection
                     result.Success = false;
                     return result;
                 }
-
+                if (_launchHelper == null)
+                {
+                    _logger.LogWarning($" Error : PuppeteerSharp browser missing.");
+                    output = $"PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.\n";
+                    result.Message = await SendMessage(output, processorScanDataObj);
+                    result.Success = false;
+                    return result;
+                }
                 var parsedArgs = base.ParseArguments(arguments);
                 string searchTerm = parsedArgs.GetString("search_term", "");
                 if (string.IsNullOrEmpty(searchTerm))
@@ -60,8 +68,8 @@ namespace NetworkMonitor.Connection
                 }
 
                 bool returnOnlyUrls = parsedArgs.GetBool("return_only_urls", false);
-                bool useHeadless = LaunchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var lo = await LaunchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
+                bool useHeadless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
+                var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
 
 
                 using (var browser = await Puppeteer.LaunchAsync(lo))

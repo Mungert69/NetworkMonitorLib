@@ -38,11 +38,13 @@ namespace NetworkMonitor.Connection
         private string? _libPath;
         private string? _commandPath;
         private ILogger _logger;
+        private ILaunchHelper? _launchHelper;
 
-        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null)
+        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null,ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper=null)
         {
             _logger = logger;
             _cmdProcessorProvider = cmdProcessorProvider;
+            _launchHelper = launchHelper;
 
             var sockerHttpHandler = new SocketsHttpHandler()
             {
@@ -134,42 +136,18 @@ namespace NetworkMonitor.Connection
             var result = new ResultObj();
             try
             {
-                if (netConfig != null && netConfig.LoadChromium)
+                
+                if (netConfig != null && netConfig.LoadChromium && _launchHelper!=null)
                 {
 
-                    var downloadPath = Path.Combine(netConfig.CommandPath, "chrome-bin");
-
-                    // Create the directory if it doesn't exist
-                    if (!Directory.Exists(downloadPath))
-                    {
-                        Directory.CreateDirectory(downloadPath);
-                    }
-
-                    var bfo = new BrowserFetcherOptions
-                    {
-                        Path = downloadPath // Set the download path to "chrome-bin"
-                    };
-                    _logger.LogInformation($"Connectfactory found Chromium path is {bfo.Path}");
-                    var browserFetcher = new BrowserFetcher(bfo);
-
-                    // Check if the executable path exists
-                    string chromiumPath = Path.Combine(bfo.Path, "Chrome"); // Path to Chrome on Windows
-                    if (!Directory.Exists(chromiumPath))
-                    {
-                        _logger.LogInformation($"Chromium not found. Downloading...");
-                        await browserFetcher.DownloadAsync();
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"Chromium revision already downloaded.");
-                    }
+                    await _launchHelper.GetLauncher(netConfig.CommandPath, _logger);
                     result.Success = true;
                     result.Message = " Success : Chromium Loaded OK";
                 }
                 else
                 {
                     result.Success = false;
-                    result.Message = $"Chromium is not loaded netConfig is null or LoadChromium is not true.";
+                    result.Message = $"Chromium is not loaded, netConfig is null, LoadChromium is not true. or null lanchHelper was passed";
 
                 }
             }
@@ -215,7 +193,7 @@ namespace NetworkMonitor.Connection
         {
             if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = pingParams.Timeout;
             string? type = monitorPingInfo.EndPointType;
-            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _libPath!, _commandPath!, _logger, _cmdProcessorProvider);
+            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _libPath!, _commandPath!, _logger, _cmdProcessorProvider, _launchHelper);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }

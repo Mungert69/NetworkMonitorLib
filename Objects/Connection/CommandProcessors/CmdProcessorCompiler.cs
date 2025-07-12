@@ -25,7 +25,10 @@ public class CmdProcessorCompiler
     private readonly ILogger _logger;
     private readonly IRabbitRepo _rabbitRepo;
     private readonly NetConnectConfig _netConfig;
-    public CmdProcessorCompiler(ILoggerFactory loggerFactory, NetConnectConfig netConfig, IRabbitRepo rabbitRepo, Dictionary<string, ILocalCmdProcessorStates> processorStates, Dictionary<string, ICmdProcessor> processors, List<string> processorTypes, Dictionary<string, string> sourceCodeFileMap)
+    private readonly ILaunchHelper _launchHelper;
+    private readonly List<string> _requiresLaunchHelper = new List<string>();
+   
+    public CmdProcessorCompiler(ILoggerFactory loggerFactory, NetConnectConfig netConfig, IRabbitRepo rabbitRepo, Dictionary<string, ILocalCmdProcessorStates> processorStates, Dictionary<string, ICmdProcessor> processors, List<string> processorTypes, Dictionary<string, string> sourceCodeFileMap, ILaunchHelper launchHelper, List<string> requiresLaunchHelper)
     {
         _loggerFactory = loggerFactory;
         _netConfig = netConfig;
@@ -35,6 +38,8 @@ public class CmdProcessorCompiler
         _processors = processors;
         _processorTypes = processorTypes;
         _sourceCodeFileMap = sourceCodeFileMap;
+        _launchHelper = launchHelper;
+        _requiresLaunchHelper = requiresLaunchHelper;
     }
 
     public async Task<ResultObj> HandleDynamicProcessor(string processorType, bool argsEscaped = false, string processorSourceCode = "", bool includeExample = false)
@@ -90,12 +95,28 @@ public class CmdProcessorCompiler
 
             // Compile and create CmdProcessor instance
             var processorLogger = _loggerFactory.CreateLogger($"NetworkMonitor.Connection.{processorType}CmdProcessor");
-            var processorInstance = await CompileAndCreateInstance<ICmdProcessor>(
-                processorSourceCode,
-                $"NetworkMonitor.Connection.{processorType}CmdProcessor",
-                argsEscaped,
-                includeExample,
-                processorLogger, statesInstance, _rabbitRepo, _netConfig);
+            ICmdProcessor? processorInstance = null;
+            if (_requiresLaunchHelper.Contains(processorType))
+            {
+                // If the processor requires the launch helper, pass it as an argument
+                processorInstance = await CompileAndCreateInstance<ICmdProcessor>(
+                    processorSourceCode,
+                    $"NetworkMonitor.Connection.{processorType}CmdProcessor",
+                    argsEscaped,
+                    includeExample,
+                    processorLogger, statesInstance, _rabbitRepo, _netConfig, _launchHelper);
+            }
+            else
+            {
+                // Otherwise, create the instance without the launch helper
+                processorInstance = await CompileAndCreateInstance<ICmdProcessor>(
+                    processorSourceCode,
+                    $"NetworkMonitor.Connection.{processorType}CmdProcessor",
+                    argsEscaped,
+                    includeExample,
+                    processorLogger, statesInstance, _rabbitRepo, _netConfig);
+            }
+          
 
             if (processorInstance == null)
             {
@@ -325,9 +346,17 @@ public class CmdProcessorCompiler
         }
 
         var processorLogger = _loggerFactory.CreateLogger(processorTypeObj);
-        var processorInstance = Activator.CreateInstance(processorTypeObj, processorLogger, statesInstance, _rabbitRepo, _netConfig) as ICmdProcessor;
+        ICmdProcessor? processorInstance = null;
+        if (_requiresLaunchHelper.Contains(processorType))
+        {
+            // If the processor requires the launch helper, pass it as an argument
+            processorInstance = Activator.CreateInstance(processorTypeObj, processorLogger, statesInstance, _rabbitRepo, _netConfig, _launchHelper) as ICmdProcessor;
+        }
+        else {
+            processorInstance = Activator.CreateInstance(processorTypeObj, processorLogger, statesInstance, _rabbitRepo, _netConfig) as ICmdProcessor;
 
-        if (processorInstance == null)
+        }
+         if (processorInstance == null)
         {
             throw new Exception($"Cannot create instance of {processorTypeName}");
         }
