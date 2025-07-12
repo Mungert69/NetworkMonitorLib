@@ -35,6 +35,8 @@ namespace NetworkMonitor.Connection
         private bool _isEnabled = true;
         private bool _isRunning = false;
         private bool _isQueued = false;
+        private bool _extendTimeout = false;
+        private int _extendTimeoutMultiplier = 10;
         private CancellationTokenSource _cts = new CancellationTokenSource();
         //private DateTime _dateSent;
         private PingParams _pingParams = new PingParams();
@@ -52,6 +54,9 @@ namespace NetworkMonitor.Connection
         public bool IsEnabled { get => _isEnabled; set => _isEnabled = value; }
         public MPIConnect MpiConnect { get => _mpiConnect; set => _mpiConnect = value; }
         public MPIStatic MpiStatic { get => _mpiStatic; set => _mpiStatic = value; }
+        protected bool ExtendTimeout { get => _extendTimeout; set => _extendTimeout = value; }
+        protected int ExtendTimeoutMultiplier { get => _extendTimeoutMultiplier; set => _extendTimeoutMultiplier = value; }
+
         public abstract Task Connect();
         //public TimeSpan RunningTime()
         //{
@@ -69,10 +74,15 @@ namespace NetworkMonitor.Connection
                 DateSent = DateTime.UtcNow
             };
             _cts = new CancellationTokenSource();
-            _cts.CancelAfter(TimeSpan.FromMilliseconds(_mpiStatic.Timeout));
+            int timeout = _mpiStatic.Timeout;
+            if (ExtendTimeout)
+            {
+                timeout = (_mpiStatic.Timeout * ExtendTimeoutMultiplier);
+            }
+            _cts.CancelAfter(TimeSpan.FromMilliseconds(timeout));
 
         }
-        public void ExtendCancelAfterTimeout()
+        /*public void ExtendCancelAfterTimeout()
         {  // Cancel the previous CancellationTokenSource if it's still active
         if (_cts != null && !_cts.IsCancellationRequested)
         {
@@ -84,7 +94,9 @@ namespace NetworkMonitor.Connection
         _cts = new CancellationTokenSource();
        
             _cts.CancelAfter(TimeSpan.FromMilliseconds(_mpiStatic.Timeout * 10));
-        }
+        }*/
+
+
         public void PostConnect()
         {
             IsRunning = false;

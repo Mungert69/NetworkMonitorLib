@@ -24,7 +24,7 @@ namespace NetworkMonitor.Connection
 
         public override async Task Connect()
         {
-            ExtendCancelAfterTimeout();
+            ExtendTimeout = true;
 
             if (_cmdProcessor == null)
             {

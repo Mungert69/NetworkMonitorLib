@@ -23,7 +23,8 @@ namespace NetworkMonitor.Connection
 
         public override async Task Connect()
         {
-            ExtendCancelAfterTimeout();
+            ExtendTimeout=true;
+            ExtendTimeoutMultiplier = 20;
 
             if (_cmdProcessor == null)
             {
