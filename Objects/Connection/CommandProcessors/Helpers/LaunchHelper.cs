@@ -136,7 +136,7 @@ namespace NetworkMonitor.Connection
             {
                 string exeName = "chrome";
 
-#if Windows
+#if WINDOWS
                 exeName = "chrome.exe";
 #elif OSX
                 exeName = "Google Chrome.app/Contents/MacOS/Google Chrome";

@@ -74,7 +74,7 @@ namespace NetworkMonitor.Connection
         private string _commandPath = "";
         private bool _loadChromium = false;
         private string _oqsProviderPathReadOnly = "";
-        private string _opensslVersion = "openssl-3.3.1";
+        private string _opensslVersion = "openssl-3.4.2";
         private string _clientAuthUrl = "";
         private string _authKey = "";
         private string _baseFusionAuthURL = "";
@@ -247,7 +247,7 @@ namespace NetworkMonitor.Connection
 
                 CmdReturnDataLineLimit = int.TryParse(config["CmdReturnDataLineLimit"], out int cmdReturnDataLineLimit) ? cmdReturnDataLineLimit : 100;
                 RetryDelayMilliseconds = int.TryParse(config["RetryDelayMilliseconds"], out int retryDelayMilliseconds) ? retryDelayMilliseconds : 10000;
-                OpensslVersion = config["OpensslVersion"] ?? "openssl-3.3.1";
+                OpensslVersion = config["OpensslVersion"] ?? "openssl-3.4.2";
                 AuthKey = config["AuthKey"] ?? "";
                 DisabledEndpointTypes = config.GetSection("DisabledEndpointTypes").Get<List<string>>() ?? new List<string>();
                 DisabledCommands = config.GetSection("DisabledCommands").Get<List<string>>() ?? new List<string>();
