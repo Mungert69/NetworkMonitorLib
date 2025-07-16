@@ -249,6 +249,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.AddSystemRag = _config.GetValue<bool?>("AddSystemRag") ?? false;
             mlParams.AddFunctionRag = _config.GetValue<bool?>("AddFunctionRag") ?? false;
             mlParams.IsStream = _config.GetValue<bool?>("IsStream") ?? false;
+            mlParams.EnableAgentFlow = _config.GetValue<bool?>("EnableAgentFlow") ?? false;
             mlParams.BertModelDir = _config.GetValue<string>("BertModelDir") ?? "stsb-bert-tiny-onnx";
             mlParams.BertModelVecDim = int.TryParse(_config["BertModelVecDim"], out int bertModelVecDim) ? bertModelVecDim : 128;
             mlParams.OpenSearchKey = GetConfigValue("OpenSearchKey");

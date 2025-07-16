@@ -50,6 +50,7 @@ public class MLParams
     private bool _addSystemRag=false;
      private bool _addFunctionRag=false;
     private string _defaultAgentLocation = "";
+    private bool _enableAgentFlow = false;
      private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -107,4 +108,5 @@ public class MLParams
     public Dictionary<string, string> LlmRunnerRoutingKeys { get => _llmRunnerRoutingKeys; set => _llmRunnerRoutingKeys = value; }
     public string DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
     public Dictionary<string, string> LlmAgentDic { get => _llmAgentDic; set => _llmAgentDic = value; }
+    public bool EnableAgentFlow { get => _enableAgentFlow; set => _enableAgentFlow = value; }
 }
