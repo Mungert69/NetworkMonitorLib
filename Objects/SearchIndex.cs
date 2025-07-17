@@ -20,6 +20,7 @@ public class QueryIndexRequest
     public string AppID { get; set; } = "";
     public string AuthKey { get; set; } = "";
     public string MessageID { get; set; } = "";
+    public string LLMRunnerType { get; set; } = "";
     public List<QueryResultObj> QueryResults { get; set; } = new();
     public bool Success { get; set; }
     public string Message { get; set; } = "";
