@@ -143,6 +143,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.ServiceAuthKey = GetConfigValue("ServiceAuthKey");
             string rabbitPassword = GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigValue("REDIS_PASSWORD");
+            systemParams.DbPassword = GetConfigValue("DB_PASSWORD");
 
             systemParams.PublicIPAddress = GetPublicIP();
             systemParams.IsSingleSystem = true;

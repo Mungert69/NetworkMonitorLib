@@ -28,6 +28,7 @@ namespace NetworkMonitor.Objects
         private int _sendReportsTimeSpan = 48;
         private string _audioServiceUrl;
         private string _audioServiceOutputDir;
+        private string _dbPassword = "";
 
         //private string? _rabbitHostName="";
         //private string? _rabbitInstanceName="";
@@ -82,5 +83,6 @@ namespace NetworkMonitor.Objects
         public global::System.String RabbitRoutingKey { get => _rabbitRoutingKey; set => _rabbitRoutingKey = value; }
         public global::System.String RabbitExchangeType { get => _rabbitExchangeType; set => _rabbitExchangeType = value; }
         public Dictionary<global::System.String, global::System.String> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
+        public global::System.String DbPassword { get => _dbPassword; set => _dbPassword = value; }
     }
 }
