@@ -126,25 +126,24 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.SendTrustPilot = _config.GetValue<bool?>("SendTrustPilot") ?? true;
             systemParams.SendReportsTimeSpan = _config.GetValue<int?>("SendReportsTimeSpan") ?? 48;
             systemParams.ServiceID = _config.GetValue<string?>("ServiceID");
-
             systemParams.AudioServiceUrl = _config.GetValue<string?>("AudioServiceUrl") ?? $"https://transcribe.{AppConstants.AppDomain}";
             systemParams.AudioServiceOutputDir = _config.GetValue<string?>("AudioServiceOutputDir") ?? "/home/audioservice/code/securefiles/mail/output_audio";
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;
             systemParams.RedisUrl = _config.GetValue<string?>("RedisUrl") ?? $"redis.{AppConstants.AppDomain}";
             systemParams.RabbitRoutingKey = _config.GetValue<string?>("RabbitRoutingKey") ?? "";
             systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExhangeType") ?? "fanout";
-
+            systemParams.DataDir=_config.GetValue<string?>("DataDir") ?? "data";
+            systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
+            
             systemParams.SystemPassword = GetConfigValue("SystemPassword", "Missing");
             systemParams.EmailEncryptKey = GetConfigValue("EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigValue("LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.RapidApiKey = GetConfigValue("RapidApiKey", "Missing");
-            systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
             systemParams.ServiceAuthKey = GetConfigValue("ServiceAuthKey");
             string rabbitPassword = GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigValue("REDIS_PASSWORD");
             systemParams.DbPassword = GetConfigValue("DB_PASSWORD");
-
             systemParams.PublicIPAddress = GetPublicIP();
             systemParams.IsSingleSystem = true;
             if (systemParams.SystemUrls != null && systemParams.SystemUrls.Count > 1) systemParams.IsSingleSystem = false;

@@ -45,8 +45,9 @@ namespace NetworkMonitor.Objects
         private string _redisUrl = "";
         private string _rabbitRoutingKey = "";
         private string _rabbitExchangeType = "fanout";
+        private string _dataDir = "data";
 
-        private  Dictionary<string, string> _exchangeTypes = new();
+        private Dictionary<string, string> _exchangeTypes = new();
 
         public List<SystemUrl>? SystemUrls { get => _systemUrls; set => _systemUrls = value; }
         public string? SystemPassword { get => _systemPassword; set => _systemPassword = value; }
@@ -84,5 +85,6 @@ namespace NetworkMonitor.Objects
         public global::System.String RabbitExchangeType { get => _rabbitExchangeType; set => _rabbitExchangeType = value; }
         public Dictionary<global::System.String, global::System.String> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
         public global::System.String DbPassword { get => _dbPassword; set => _dbPassword = value; }
+        public global::System.String DataDir { get => _dataDir; set => _dataDir = value; }
     }
 }
