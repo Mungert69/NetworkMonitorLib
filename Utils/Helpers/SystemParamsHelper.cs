@@ -217,7 +217,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.OpenAIApiKey = GetConfigValue("OpenAIApiKey");
             mlParams.LlmHFUrl = _config.GetValue<string>("LlmHFUrl") ?? "";
             mlParams.LlmSystemPrompt = _config.GetValue<string>("LlmSystemPrompt") ?? "";
-            mlParams.LlmThreads = int.TryParse(_config["LlmThreads"], out int llmThreads) ? llmThreads : 4;
+            mlParams.LlmThreads = int.TryParse(_config["LlmThreads"], out int llmThreads) ? llmThreads : 2;
             mlParams.LlmSystemPromptTimeout = int.TryParse(_config["LlmSystemPromptTimeout"], out int llmSystemPromptTimeout) ? llmSystemPromptTimeout : 10;
             mlParams.LlmCtxSize = int.TryParse(_config["LlmCtxSize"], out int llmCtxSize) ? llmCtxSize : 12000;
             mlParams.LlmResponseTokens = int.TryParse(_config["LlmResponseTokens"], out int llmResponseTokens) ? llmCtxSize : 4000;
