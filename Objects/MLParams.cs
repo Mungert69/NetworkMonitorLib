@@ -51,6 +51,8 @@ public class MLParams
      private bool _addFunctionRag=false;
     private string _defaultAgentLocation = "";
     private bool _enableAgentFlow = false;
+    private int _maxTokenLengthCap;
+    private int _minTokenLengthCap;
      private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -109,4 +111,6 @@ public class MLParams
     public string DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
     public Dictionary<string, string> LlmAgentDic { get => _llmAgentDic; set => _llmAgentDic = value; }
     public bool EnableAgentFlow { get => _enableAgentFlow; set => _enableAgentFlow = value; }
+    public int MaxTokenLengthCap { get => _maxTokenLengthCap; set => _maxTokenLengthCap = value; }
+    public int MinTokenLengthCap { get => _minTokenLengthCap; set => _minTokenLengthCap = value; }
 }

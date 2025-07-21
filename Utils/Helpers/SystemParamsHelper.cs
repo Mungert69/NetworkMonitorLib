@@ -132,9 +132,9 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.RedisUrl = _config.GetValue<string?>("RedisUrl") ?? $"redis.{AppConstants.AppDomain}";
             systemParams.RabbitRoutingKey = _config.GetValue<string?>("RabbitRoutingKey") ?? "";
             systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExhangeType") ?? "fanout";
-            systemParams.DataDir=_config.GetValue<string?>("DataDir") ?? "data";
+            systemParams.DataDir = _config.GetValue<string?>("DataDir") ?? "data";
             systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
-            
+
             systemParams.SystemPassword = GetConfigValue("SystemPassword", "Missing");
             systemParams.EmailEncryptKey = GetConfigValue("EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigValue("LLMEncryptKey", "Missing");
@@ -201,6 +201,9 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.SpikeConfidence = double.TryParse(_config["SpikeConfidence"], out double spikeConfidence) ? spikeConfidence : 99;
             mlParams.ChangePreTrain = int.TryParse(_config["ChangePreTrain"], out int changePreTrain) ? changePreTrain : 50;
             mlParams.SpikePreTrain = int.TryParse(_config["SpikePreTrain"], out int spikePreTrain) ? spikePreTrain : 50;
+            mlParams.MaxTokenLengthCap = int.TryParse(_config["MaxTokenLengthCap"], out int maxTokenLengthCap) ? maxTokenLengthCap : 8192;
+            mlParams.MinTokenLengthCap = int.TryParse(_config["MinTokenLengthCap"], out int minTokenLengthCap) ? minTokenLengthCap : 128;
+
             mlParams.LlmModelPath = _config.GetValue<string>("LlmModelPath") ?? "";
             mlParams.LlmVersion = _config.GetValue<string>("LlmVersion") ?? "";
             mlParams.LlmPromptMode = _config.GetValue<string>("LlmPromptMode") ?? "-if -sp";
