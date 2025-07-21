@@ -201,7 +201,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.SpikeConfidence = double.TryParse(_config["SpikeConfidence"], out double spikeConfidence) ? spikeConfidence : 99;
             mlParams.ChangePreTrain = int.TryParse(_config["ChangePreTrain"], out int changePreTrain) ? changePreTrain : 50;
             mlParams.SpikePreTrain = int.TryParse(_config["SpikePreTrain"], out int spikePreTrain) ? spikePreTrain : 50;
-            mlParams.MaxTokenLengthCap = int.TryParse(_config["MaxTokenLengthCap"], out int maxTokenLengthCap) ? maxTokenLengthCap : 8192;
+            mlParams.MaxTokenLengthCap = int.TryParse(_config["MaxTokenLengthCap"], out int maxTokenLengthCap) ? maxTokenLengthCap : 4096;
             mlParams.MinTokenLengthCap = int.TryParse(_config["MinTokenLengthCap"], out int minTokenLengthCap) ? minTokenLengthCap : 128;
 
             mlParams.LlmModelPath = _config.GetValue<string>("LlmModelPath") ?? "";
