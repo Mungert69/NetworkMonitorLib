@@ -53,10 +53,14 @@ public class MLParams
     private bool _enableAgentFlow = false;
     private int _maxTokenLengthCap;
     private int _minTokenLengthCap;
-     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
+    private string _embeddingProvider ;
+
+    private string _embeddingApiModel ;
+    private string _embeddingApiUrl ;
+    private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
-     private Dictionary<string, string> _llmAgentDic = new Dictionary<string, string>();
+    private Dictionary<string, string> _llmAgentDic = new Dictionary<string, string>();
 
     public int PredictWindow { get => _predictWindow; set => _predictWindow = value; }
     public int SpikeDetectionThreshold { get => _spikeDetectionThreshold; set => _spikeDetectionThreshold = value; }
@@ -113,4 +117,8 @@ public class MLParams
     public bool EnableAgentFlow { get => _enableAgentFlow; set => _enableAgentFlow = value; }
     public int MaxTokenLengthCap { get => _maxTokenLengthCap; set => _maxTokenLengthCap = value; }
     public int MinTokenLengthCap { get => _minTokenLengthCap; set => _minTokenLengthCap = value; }
+    public string EmbeddingProvider { get => _embeddingProvider; set => _embeddingProvider = value; }
+
+    public string EmbeddingApiModel { get => _embeddingApiModel; set => _embeddingApiModel = value; }
+    public string EmbeddingApiUrl { get => _embeddingApiUrl; set => _embeddingApiUrl = value; }
 }
