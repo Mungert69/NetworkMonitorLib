@@ -253,8 +253,8 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.AddFunctionRag = _config.GetValue<bool?>("AddFunctionRag") ?? false;
             mlParams.IsStream = _config.GetValue<bool?>("IsStream") ?? false;
             mlParams.EnableAgentFlow = _config.GetValue<bool?>("EnableAgentFlow") ?? false;
-            mlParams.BertModelDir = _config.GetValue<string>("BertModelDir") ?? "stsb-bert-tiny-onnx";
-            mlParams.BertModelVecDim = int.TryParse(_config["BertModelVecDim"], out int bertModelVecDim) ? bertModelVecDim : 128;
+            mlParams.EmbeddingModelDir = _config.GetValue<string>("EmbeddingModelDir") ?? "stsb-bert-tiny-onnx";
+            mlParams.EmbeddingModelVecDim = int.TryParse(_config["EmbeddingModelVecDim"], out int bertModelVecDim) ? bertModelVecDim : 128;
             mlParams.OpenSearchKey = GetConfigValue("OpenSearchKey");
             mlParams.OpenSearchUser = _config.GetValue<string>("OpenSearchUser") ?? "admin";
             mlParams.OpenSearchDefaultIndex = _config.GetValue<string>("OpenSearchDefaultIndex") ?? "documents";

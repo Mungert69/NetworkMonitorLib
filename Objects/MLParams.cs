@@ -38,8 +38,8 @@ public class MLParams
     private string _llmHFModelVersion;
     private bool _llmReportProcess =false;
     private bool _xmlFunctionParsing=false;
-    private string _bertModelDir="stsb-bert-tiny-onnx";
-    private int _bertModelVecDim=128;
+    private string _embeddingModelDir="stsb-bert-tiny-onnx";
+    private int _embeddingModelVecDim=128;
     private string _openSearchKey="";
     private string _openSearchUser="admin";
     private string _openSearchDefaultIndex="documents";
@@ -99,8 +99,8 @@ public class MLParams
     public string LlmHFModelVersion { get => _llmHFModelVersion; set => _llmHFModelVersion = value; }
     public int LlmCtxRatio { get => _llmCtxRatio; set => _llmCtxRatio = value; }
     public bool IsStream { get => _isStream; set => _isStream = value; }
-    public string BertModelDir { get => _bertModelDir; set => _bertModelDir = value; }
-    public int BertModelVecDim { get => _bertModelVecDim; set => _bertModelVecDim = value; }
+    public string EmbeddingModelDir { get => _embeddingModelDir; set => _embeddingModelDir = value; }
+    public int EmbeddingModelVecDim { get => _embeddingModelVecDim; set => _embeddingModelVecDim = value; }
     public bool AddSystemRag { get => _addSystemRag; set => _addSystemRag = value; }
     public bool AddFunctionRag { get => _addFunctionRag; set => _addFunctionRag = value; }
     public string OpenSearchKey { get => _openSearchKey; set => _openSearchKey = value; }
