@@ -14,10 +14,16 @@ public class CreateIndexRequest
     public string Message { get; set; } = "";
     public bool CreateFromJsonDataDir { get; set; } = false;
 }
-
+public enum VectorSearchMode
+{
+    content,     // default
+    question,
+    summary
+}
 public class QueryIndexRequest
 {
     public string IndexName { get; set; } = "";
+    public VectorSearchMode VectorSearchMode { get; set; } = VectorSearchMode.content;
     public string QueryText { get; set; } = "";
     public string AppID { get; set; } = "";
     public string AuthKey { get; set; } = "";
@@ -36,12 +42,12 @@ public class QueryResultObj
 }
 
 
-    public class CreateSnapshotRequest
-    {
-        public string SnapshotRepo { get; set; } = "local_backup";
-        public string SnapshotName { get; set; } = "";
-        public string Indices { get; set; } = "documents,securitybooks";
-    }
+public class CreateSnapshotRequest
+{
+    public string SnapshotRepo { get; set; } = "local_backup";
+    public string SnapshotName { get; set; } = "";
+    public string Indices { get; set; } = "documents,securitybooks";
+}
 
 
 
