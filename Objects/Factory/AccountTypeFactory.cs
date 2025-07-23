@@ -399,6 +399,7 @@ public class AccountTypeFactory
             "call_monitor_sys",
             "call_security_basic_flow",
             "call_cmd_processor_builder_flow",
+            "execute_query",
             "cp_*"
         }
         };
