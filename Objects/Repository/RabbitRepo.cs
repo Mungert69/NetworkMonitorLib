@@ -74,10 +74,10 @@ namespace NetworkMonitor.Objects.Repository
         private readonly SemaphoreSlim _publishSemaphore = new SemaphoreSlim(1, 1);
 
 
-        public RabbitRepo(ILogger<RabbitRepo> logger, ISystemParamsHelper systemParamsHelper)
-        : this(logger, systemParamsHelper.GetSystemParams().ThisSystemUrl)
+        public RabbitRepo(ILogger<RabbitRepo> logger, SystemParams systemParams)
+        : this(logger, systemParams.ThisSystemUrl)
         {
-            _exchangeTypes = systemParamsHelper.GetSystemParams().ExchangeTypes ?? new Dictionary<string, string>();
+            _exchangeTypes = systemParams.ExchangeTypes ?? new Dictionary<string, string>();
 
         }
 #pragma warning disable CS8618
