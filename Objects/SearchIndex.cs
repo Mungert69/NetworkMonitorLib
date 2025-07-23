@@ -77,7 +77,7 @@ public class CreateSnapshotRequest
 {
     public string SnapshotRepo { get; set; } = "local_backup";
     public string SnapshotName { get; set; } = "";
-    public string Indices { get; set; } = "documents,securitybooks";
+    public string Indices { get; set; } = "documents,mitre,securitybooks";
 }
 
 
