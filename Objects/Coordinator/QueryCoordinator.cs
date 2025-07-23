@@ -19,7 +19,7 @@ namespace NetworkMonitor.Coordinator
 
     public interface IQueryCoordinator
     {
-        Task<string> ExecuteQueryAsync(string queryText, string messageId, string llmType, string llmRunnerType, TimeSpan? timeout = null);
+        Task<string> ExecuteQueryAsync(string queryText, string messageId, string llmType, string llmRunnerType,TimeSpan? timeout = null);
         void CompleteQuery(string messageId, string result);
         void CancelQuery(string messageId);
         void RemoveSystemRag(List<ChatMessage> localHistory);
