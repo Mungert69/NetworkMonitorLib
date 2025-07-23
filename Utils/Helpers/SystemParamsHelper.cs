@@ -259,12 +259,13 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.OpenSearchUser = _config.GetValue<string>("OpenSearchUser") ?? "admin";
             mlParams.OpenSearchDefaultIndex = _config.GetValue<string>("OpenSearchDefaultIndex") ?? "documents";
             mlParams.OpenSearchUrl = _config.GetValue<string>("OpenSearchUrl") ?? "https://opensearch:9200";
-
+            mlParams.SetVectorSearchModeFromString(_config.GetValue<string>("VectorSearchMode") ?? "content");
             // Embedding provider config
             mlParams.EmbeddingProvider = _config.GetValue<string>("EmbeddingProvider") ?? "local";
             mlParams.LlmHFKey = GetConfigValue("LlmHFKey");
             mlParams.EmbeddingApiModel = _config.GetValue<string>("EmbeddingApiModel") ?? "baai/bge-m3";
             mlParams.EmbeddingApiUrl = _config.GetValue<string>("EmbeddingApiUrl") ?? "https://api.novita.ai/v3/openai/embeddings";
+
 
 #pragma warning restore IL2026
             return mlParams;

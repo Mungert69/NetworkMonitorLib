@@ -20,6 +20,31 @@ public enum VectorSearchMode
     question,
     summary
 }
+
+public static class VectorSearchModeHelper
+{
+    public static VectorSearchMode Parse(string value)
+    {
+        if (Enum.TryParse<VectorSearchMode>(value, true, out var mode))
+            return mode;
+        return VectorSearchMode.content;
+    }
+
+    public static string ToString(VectorSearchMode mode)
+    {
+        return mode.ToString();
+    }
+
+    public static bool IsValid(string value)
+    {
+        return Enum.TryParse<VectorSearchMode>(value, true, out _);
+    }
+
+    public static IEnumerable<string> GetAllModes()
+    {
+        return Enum.GetNames(typeof(VectorSearchMode));
+    }
+}
 public class QueryIndexRequest
 {
     public string IndexName { get; set; } = "";
@@ -33,6 +58,12 @@ public class QueryIndexRequest
     public bool Success { get; set; }
     public string Message { get; set; } = "";
     public string RoutingKey { get; set; } = "";
+
+    // String property for easy setting
+   public void SetVectorSearchModeFromString(string value)
+    {
+        VectorSearchMode = VectorSearchModeHelper.Parse(value);
+    }
 }
 
 public class QueryResultObj

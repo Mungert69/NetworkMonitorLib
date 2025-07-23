@@ -19,7 +19,7 @@ namespace NetworkMonitor.Coordinator
 
     public interface IQueryCoordinator
     {
-        Task<string> ExecuteQueryAsync(string queryText, string messageId, string llmType, string llmRunnerType,TimeSpan? timeout = null);
+        Task<string> ExecuteQueryAsync(QueryIndexRequest queryIndexRequest,TimeSpan? timeout = null);
         void CompleteQuery(string messageId, string result);
         void CancelQuery(string messageId);
         void RemoveSystemRag(List<ChatMessage> localHistory);
@@ -128,9 +128,10 @@ namespace NetworkMonitor.Coordinator
                 _logger.LogWarning("No RAG system message found in local history.");
             }
         }
-        public async Task<string> ExecuteQueryAsync(string queryText, string messageId, string llmType, string llmRunnerType, TimeSpan? timeout = null)
+        public async Task<string> ExecuteQueryAsync(QueryIndexRequest queryIndexRequest, TimeSpan? timeout = null)
         {
-
+            var queryText=queryIndexRequest.QueryText;
+            var messageId=queryIndexRequest.MessageID;
             var hashKey = GetQueryHash(queryText);
             if (_queryCache.TryGetValue(hashKey, out var cached) &&
                 DateTime.UtcNow - cached.timestamp < _cacheTTL)
@@ -156,17 +157,7 @@ namespace NetworkMonitor.Coordinator
                     }
                 }, TaskScheduler.Default);
 
-            // Create the QueryIndexRequest
-            var queryIndexRequest = new QueryIndexRequest
-            {
-                IndexName = "documents",
-                QueryText = queryText,
-                MessageID = messageId,
-                AppID = llmType,
-                AuthKey = _authKey,
-                RoutingKey = _routingKey,
-                LLMRunnerType = llmRunnerType
-            };
+            queryIndexRequest.RoutingKey = _routingKey;
 
             // Publish the query to RabbitMQ
             await _rabbitRepo.PublishAsync("queryIndex", queryIndexRequest);

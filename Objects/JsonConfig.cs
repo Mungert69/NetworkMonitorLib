@@ -64,6 +64,7 @@ namespace NetworkMonitor.Objects
   [JsonSerializable(typeof(HuggingFaceRequest))]
   [JsonSerializable(typeof(CreateIndexRequest))]
   [JsonSerializable(typeof(QueryIndexRequest))]
+  [JsonSerializable(typeof(VectorSearchMode))]
   [JsonSerializable(typeof(QueryResultObj))]
   [JsonSerializable(typeof(List<QueryResultObj>))]
   [JsonSerializable(typeof(RootObject))]

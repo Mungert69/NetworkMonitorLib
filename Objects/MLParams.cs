@@ -1,7 +1,12 @@
+using System;
+using NetworkMonitor.Objects;
+
 namespace NetworkMonitor.Objects;
+
 public class MLParams
 {
     private int _predictWindow = 300;
+    private VectorSearchMode _vectorSearchMode = VectorSearchMode.content;
     private int _spikeDetectionThreshold = 5;
     private double _changeConfidence = 90;
     private double _spikeConfidence = 99;
@@ -57,6 +62,7 @@ public class MLParams
 
     private string _embeddingApiModel ;
     private string _embeddingApiUrl ;
+    private string _queryIndex;
     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -121,4 +127,20 @@ public class MLParams
 
     public string EmbeddingApiModel { get => _embeddingApiModel; set => _embeddingApiModel = value; }
     public string EmbeddingApiUrl { get => _embeddingApiUrl; set => _embeddingApiUrl = value; }
+
+    // Read-only string property for VectorSearchMode
+    public string VectorSearchModeStr => VectorSearchModeHelper.ToString(_vectorSearchMode);
+
+    // Enum property for VectorSearchMode
+    public VectorSearchMode VectorSearchMode
+    {
+        get => _vectorSearchMode;
+        set => _vectorSearchMode = value;
+    }
+
+    // Set from string using helper
+    public void SetVectorSearchModeFromString(string value)
+    {
+        _vectorSearchMode = VectorSearchModeHelper.Parse(value);
+    }
 }
