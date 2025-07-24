@@ -211,6 +211,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_penetration_flow",
             "call_cmd_processor_builder_flow",
             "execute_query*",
             "cp_*"
@@ -247,6 +248,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_penetration_flow",
             "call_cmd_processor_builder_flow",
             "execute_query*",
             "cp_*"
@@ -287,6 +289,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_penetration_flow",
             "call_cmd_processor_builder_flow",
             "execute_query*",
             "cp_*"
@@ -330,6 +333,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_penetration_flow",
             "call_cmd_processor_builder_flow",
             "execute_query*",
             "cp_*"
@@ -373,6 +377,7 @@ public class AccountTypeFactory
             "get_quantum_algorithm_info",
             "validate_quantum_config",
             "call_security_basic_flow",
+            "call_penetration_flow",
             "call_cmd_processor_builder_flow",
             "execute_query*",
             "cp_*"
@@ -398,6 +403,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_monitor_sys",
             "call_security_basic_flow",
+            "call_penetration_flow",
             "call_cmd_processor_builder_flow",
             "execute_query*",
             "cp_*"
