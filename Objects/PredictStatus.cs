@@ -9,12 +9,21 @@ public class PredictStatus
 {
     public PredictStatus() { }
 
-      public PredictStatus(PredictStatus copy) { 
-                ID=copy.ID;
-                AlertFlag=copy.AlertFlag;
+    public PredictStatus(PredictStatus copy, bool zeroIds = false) {
+        if (zeroIds)
+        {
+            ID = 0;
+            MonitorPingInfoID = 0;
+        }
+        else
+        {
+            ID = copy.ID;
+            MonitorPingInfoID = copy.MonitorPingInfoID;
+        }
+
+                AlertFlag =copy.AlertFlag;
                 AlertSent=copy.AlertSent;
                 EventTime=copy.EventTime;
-                MonitorPingInfoID=copy.MonitorPingInfoID;
                 Message=copy.Message;
                 ChangeDetectionResult=copy.ChangeDetectionResult;
                 SpikeDetectionResult=copy.SpikeDetectionResult;
