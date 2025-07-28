@@ -13,7 +13,9 @@ public static class NetConnectFilterStrategyFactory
                 return new CmdEndpointFilterStrategy(config.FilterSkip, config.FilterStart);
             case "randomcmd":
                 return new RandomCmdEndpointFilterStrategy(config.FilterSkip, config.FilterStart);
-          
+            case "daily":
+                return new DailyEndpointFilterStrategy();
+           
             default:
                 throw new ArgumentException($"Unknown strategy name: {config.StrategyName}");
         }
