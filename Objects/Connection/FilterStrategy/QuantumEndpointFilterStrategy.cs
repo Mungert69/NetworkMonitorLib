@@ -33,6 +33,8 @@ namespace NetworkMonitor.Connection
     {
         if (_matchingConnectNames.Any(connectName => netConnect.MpiStatic.EndPointType.ToLower().Contains(connectName)))
         {
+            bool include = ((_counter + _offset) % _n == 0);
+
             _counter++;
 
             if (_counter >= _totalEndpoints)
@@ -41,11 +43,7 @@ namespace NetworkMonitor.Connection
                 _offset = (_offset + 1) % _n;
             }
 
-            if ((_counter + _offset) % _n == 0)
-            {
-                return true;
-            }
-            return false;
+            return include;
         }
         return true;
     }
