@@ -62,7 +62,7 @@ public class MLParams
 
     private string _embeddingApiModel ;
     private string _embeddingApiUrl ;
-    private string _queryIndex;
+
     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();

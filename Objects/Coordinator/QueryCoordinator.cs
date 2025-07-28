@@ -50,7 +50,7 @@ namespace NetworkMonitor.Coordinator
             _logger = logger;
             _rabbitRepo = rabbitRepo;
             _serviceID = systemParams.ServiceID!;
-            _authKey = systemParams.ServiceAuthKey;
+            _authKey = systemParams.ServiceAuthKey ?? "Missing";
             _routingKey = systemParams.RabbitRoutingKey;
 
         }

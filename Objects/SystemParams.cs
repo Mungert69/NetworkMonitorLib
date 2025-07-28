@@ -35,7 +35,7 @@ namespace NetworkMonitor.Objects
         private ManagementToken _managementToken = new ManagementToken();
         private bool sendTrustPilot;
         private string? _openAIPluginServiceKey;
-        private string? _rapidApiKey;
+        private string _rapidApiKey;
         private string? _serviceID;
         private string? _serviceAuthKey;
         private int _expireMonths;
@@ -75,16 +75,16 @@ namespace NetworkMonitor.Objects
         public string FrontEndUrl { get => _frontEndUrl; set => _frontEndUrl = value; }
         public int SendReportsTimeSpan { get => _sendReportsTimeSpan; set => _sendReportsTimeSpan = value; }
         public ushort GivenAgentPort { get => _givenAgentPort; set => _givenAgentPort = value; }
-        public global::System.String AudioServiceUrl { get => _audioServiceUrl; set => _audioServiceUrl = value; }
-        public global::System.String AudioServiceOutputDir { get => _audioServiceOutputDir; set => _audioServiceOutputDir = value; }
-        public global::System.String RedisSecret { get => _redisSecret; set => _redisSecret = value; }
-        public global::System.String RedisUrl { get => _redisUrl; set => _redisUrl = value; }
-        public global::System.String LLMEncryptKey { get => _lLMEncryptKey; set => _lLMEncryptKey = value; }
-        public global::System.String RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
-        public global::System.String RabbitRoutingKey { get => _rabbitRoutingKey; set => _rabbitRoutingKey = value; }
-        public global::System.String RabbitExchangeType { get => _rabbitExchangeType; set => _rabbitExchangeType = value; }
-        public Dictionary<global::System.String, global::System.String> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
-        public global::System.String DbPassword { get => _dbPassword; set => _dbPassword = value; }
-        public global::System.String DataDir { get => _dataDir; set => _dataDir = value; }
+        public string AudioServiceUrl { get => _audioServiceUrl; set => _audioServiceUrl = value; }
+        public string AudioServiceOutputDir { get => _audioServiceOutputDir; set => _audioServiceOutputDir = value; }
+        public string RedisSecret { get => _redisSecret; set => _redisSecret = value; }
+        public string RedisUrl { get => _redisUrl; set => _redisUrl = value; }
+        public string LLMEncryptKey { get => _lLMEncryptKey; set => _lLMEncryptKey = value; }
+        public string RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
+        public string RabbitRoutingKey { get => _rabbitRoutingKey; set => _rabbitRoutingKey = value; }
+        public string RabbitExchangeType { get => _rabbitExchangeType; set => _rabbitExchangeType = value; }
+        public Dictionary<string, string> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
+        public string DbPassword { get => _dbPassword; set => _dbPassword = value; }
+        public string DataDir { get => _dataDir; set => _dataDir = value; }
     }
 }
