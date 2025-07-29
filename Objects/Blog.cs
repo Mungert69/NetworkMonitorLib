@@ -8,7 +8,7 @@ namespace NetworkMonitor.Objects
 {
     public class Blog
     {
-        public Blog(){}
+        public Blog() { }
         [Key]
         public int Id { get; set; }
         public string Title { get; set; } = "";
@@ -30,8 +30,9 @@ namespace NetworkMonitor.Objects
 
         public DateTime DateCreated { get; set; } = DateTime.Now;
 
-        public virtual List<BlogCategory> BlogCategories { get;set; }= new List<BlogCategory>();
-
+        public virtual List<BlogCategory> BlogCategories { get; set; } = new List<BlogCategory>();
+        public string Question { get; set; } = "";
+        public string BriefAnswer { get; set; } = "";
     }
 
 }
