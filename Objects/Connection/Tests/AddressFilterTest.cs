@@ -15,7 +15,7 @@ public class AddressFilterTest
     [InlineData("https://example.com", null, "example.com")]
     [InlineData("http://example.com", null, "example.com")]
     [InlineData("example.com", null, "example.com")]
-    public void FilterAddress_WorksAsExpected(string address, string type, string expected)
+    public void FilterAddress_WorksAsExpected(string address, string? type, string expected)
     {
         var result = AddressFilter.FilterAddress(address, type);
         Assert.Equal(expected, result);

@@ -63,7 +63,9 @@ public class DailyEndpointFilterStrategyTest
         Assert.True(strategy.ShouldInclude(netConnect));
         // Simulate next day by updating the internal dictionary
         var field = typeof(DailyEndpointFilterStrategy).GetField("_lastConnectTimes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var dict = (Dictionary<int, DateTime>)field.GetValue(strategy);
+        Assert.NotNull(field);
+        var dict = field.GetValue(strategy) as Dictionary<int, DateTime>;
+        Assert.NotNull(dict);
         dict[monitorIPID] = now.AddDays(-1);
         // Should be included again (since last run was yesterday)
         Assert.True(strategy.ShouldInclude(netConnect));
