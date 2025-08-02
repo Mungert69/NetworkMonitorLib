@@ -18,8 +18,9 @@ namespace NetworkMonitor.Connection
 
         public NmapCmdConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
         {
-           if (cmdProcessorProvider!=null) _cmdProcessor = cmdProcessorProvider.GetProcessor("Nmap");
+            if (cmdProcessorProvider != null) _cmdProcessor = cmdProcessorProvider.GetProcessor("Nmap");
             _baseArg = baseArg;
+            IsLongRunning = true;
         }
 
         public override async Task Connect()

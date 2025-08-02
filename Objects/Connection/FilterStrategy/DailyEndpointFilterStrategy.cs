@@ -30,22 +30,35 @@ namespace NetworkMonitor.Connection
                 int assignedSlot = Math.Abs(netConnect.MpiStatic.MonitorIPID.ToString().GetHashCode()) % slotsPerDay;
                 int currentSlot = now.Hour;
 
+                int monitorIPID = netConnect.MpiStatic.MonitorIPID;
+                bool hasLastRun = _lastConnectTimes.TryGetValue(monitorIPID, out var lastRun);
+
+                Console.WriteLine(
+                    $"[DailyEndpointFilterStrategy] MonitorIPID={monitorIPID}, EndPointType={netConnect.MpiStatic.EndPointType}, " +
+                    $"assignedSlot={assignedSlot}, currentSlot={currentSlot}, now={now}, " +
+                    $"hasLastRun={hasLastRun}, lastRun={lastRun}");
+
                 // Only allow connect in the assigned slot
                 if (assignedSlot != currentSlot)
+                {
+                    Console.WriteLine($"[DailyEndpointFilterStrategy] MonitorIPID={monitorIPID}: Not in assigned slot (assignedSlot={assignedSlot}, currentSlot={currentSlot})");
                     return false;
+                }
 
-                int monitorIPID = netConnect.MpiStatic.MonitorIPID;
-                if (!_lastConnectTimes.TryGetValue(monitorIPID, out var lastRun) || lastRun.Date < now.Date)
+                if (!hasLastRun || lastRun.Date < now.Date)
                 {
                     // Mark as run for today
                     _lastConnectTimes[monitorIPID] = now;
+                    Console.WriteLine($"[DailyEndpointFilterStrategy] MonitorIPID={monitorIPID}: Allowing run (first run today or never run before)");
                     return true;
                 }
 
                 // Already run today
+                Console.WriteLine($"[DailyEndpointFilterStrategy] MonitorIPID={monitorIPID}: Already run today (lastRun={lastRun})");
                 return false;
             }
             // If not a matching connect type, always include
+            Console.WriteLine($"[DailyEndpointFilterStrategy] MonitorIPID={netConnect.MpiStatic.MonitorIPID}: Not a matching connect type ({netConnect.MpiStatic.EndPointType})");
             return true;
         }
     }

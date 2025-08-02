@@ -1,3 +1,4 @@
+
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.ServiceMessage;
 using System;
@@ -15,15 +16,17 @@ namespace NetworkMonitor.Connection
         private ICmdProcessor? _cmdProcessor;
         private string _baseArg;
 
-        public CrawlSiteCmdConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg){
+        public CrawlSiteCmdConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
+        {
 
-           if (cmdProcessorProvider!=null) _cmdProcessor = cmdProcessorProvider.GetProcessor("CrawlSite");
-             _baseArg = baseArg;
+            if (cmdProcessorProvider != null) _cmdProcessor = cmdProcessorProvider.GetProcessor("CrawlSite");
+            _baseArg = baseArg;
+            IsLongRunning = true;
         }
 
         public override async Task Connect()
         {
-            ExtendTimeout=true;
+            ExtendTimeout = true;
             ExtendTimeoutMultiplier = 20;
 
             if (_cmdProcessor == null)
@@ -38,14 +41,14 @@ namespace NetworkMonitor.Connection
             try
             {
                 string address = MpiStatic.Address;
-                if (!address.StartsWith("https://") || !address.StartsWith("http://")) address="https://"+address;
+                if (!address.StartsWith("https://") || !address.StartsWith("http://")) address = "https://" + address;
                 ushort port = MpiStatic.Port;
                 string arguments = $"--url {address}";
                 if (MpiStatic.Port != 0)
                 {
                     arguments = $"--url {address}:{port}";
                 }
-                arguments+=$" {_baseArg}";
+                arguments += $" {_baseArg}";
 
                 Timer.Reset();
                 Timer.Start();
@@ -70,7 +73,7 @@ namespace NetworkMonitor.Connection
                     isUp = false;
                 }
 
-               
+
                 if (isUp) ProcessStatus(statusMessage, responseTime, filteredString);
                 else ProcessException(filteredString, statusMessage);
             }
@@ -104,6 +107,6 @@ namespace NetworkMonitor.Connection
             }
         }
 
-       
+
     }
 }
