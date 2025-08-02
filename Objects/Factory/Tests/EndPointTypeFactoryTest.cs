@@ -21,6 +21,7 @@ public class EndPointTypeFactoryTest
     {
         Assert.Equal("15-30 minutes (comprehensive network scans take longer)", EndPointTypeFactory.GetProcessingTimeEstimate("nmap"));
         Assert.Equal("30-60 minutes (website crawling is resource intensive)", EndPointTypeFactory.GetProcessingTimeEstimate("crawlsite"));
+        Assert.Equal("One day (daily crawsite only runs once a day)", EndPointTypeFactory.GetProcessingTimeEstimate("dailycrawl"));
         Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("smtp"));
         Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("quantum"));
         Assert.Equal("2-5 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("http"));
@@ -39,6 +40,7 @@ public class EndPointTypeFactoryTest
         Assert.Contains(types, t => t.InternalType == "smtp");
         Assert.Contains(types, t => t.InternalType == "nmap");
         Assert.Contains(types, t => t.InternalType == "crawlsite");
+        Assert.Contains(types, t => t.InternalType == "dailycrawl");
     }
 
     [Fact]
@@ -116,6 +118,7 @@ public class EndPointTypeFactoryTest
         Assert.IsType<NmapCmdConnect>(EndPointTypeFactory.CreateNetConnect("nmap", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<NmapCmdConnect>(EndPointTypeFactory.CreateNetConnect("nmapvuln", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<CrawlSiteCmdConnect>(EndPointTypeFactory.CreateNetConnect("crawlsite", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
+        Assert.IsType<CrawlSiteCmdConnect>(EndPointTypeFactory.CreateNetConnect("dailycrawl", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<ICMPConnect>(EndPointTypeFactory.CreateNetConnect("notarealtype", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
     }
 }

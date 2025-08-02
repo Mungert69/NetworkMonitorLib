@@ -46,13 +46,15 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections"),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans"),
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans"),
-            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites")
+            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
+            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites")
         };
 
          public static string GetProcessingTimeEstimate(string? endpointType)
         {
             endpointType = endpointType?.ToLower() ?? "";
-
+            if (endpointType.Contains("dailycrawl"))
+                return "One day (daily crawsite only runs once a day)";
             if (endpointType.Contains("nmap"))
                 return "15-30 minutes (comprehensive network scans take longer)";
             if (endpointType.Contains("crawlsite"))
@@ -95,9 +97,10 @@ namespace NetworkMonitor.Objects.Factory
     { "rawconnect", new ResponseTimeThreshold(new ThresholdValues(100, 200, 400), new ThresholdValues(100, 200, 400)) },
 
     // Adjusted thresholds for nmap scans based on observed execution times. Note these are 10 times less than the above as the timeout is set is 10s of milliseconds nmap connects.
-    { "nmap", new ResponseTimeThreshold(new ThresholdValues(800, 1500, 2000), new ThresholdValues(400, 700, 1000)) },
-    { "nmapvuln", new ResponseTimeThreshold(new ThresholdValues(6000, 20000, 35000), new ThresholdValues(1500, 3000, 5000)) },
-     { "crawlsite", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) }
+    { "nmap", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+    { "nmapvuln", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+     { "crawlsite", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+     {"dailycrawl", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
 };
 
 
@@ -171,6 +174,7 @@ namespace NetworkMonitor.Objects.Factory
                 "nmap" => new NmapCmdConnect(cmdProcessorProvider, "-sV"),
                 "nmapvuln" => new NmapCmdConnect(cmdProcessorProvider, "--script vuln"),
                 "crawlsite" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 3 --max_pages 10"),
+                "dailycrawl" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 4 --max_pages 20"),
                 _ => new ICMPConnect(),
             };
         }
@@ -212,6 +216,10 @@ namespace NetworkMonitor.Objects.Factory
                 return await apiService.CheckNmap(hostObject);
             }
             else if (type.Contains("crawlsite"))
+            {
+                return await apiService.CheckCrawlSite(hostObject);
+            }
+            else if (type.Contains("dailycrawl"))
             {
                 return await apiService.CheckCrawlSite(hostObject);
             }
