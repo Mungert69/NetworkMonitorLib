@@ -9,7 +9,7 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-		Release-Dev|Any CPU = Release-Dev|Any CPU    # Add this line
+		Release-Dev|Any CPU = Release-Dev|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{63E08688-C067-422C-BE7F-C847D0927EFC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU

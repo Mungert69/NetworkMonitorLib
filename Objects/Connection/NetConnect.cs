@@ -83,21 +83,7 @@ namespace NetworkMonitor.Connection
             _cts.CancelAfter(TimeSpan.FromMilliseconds(timeout));
 
         }
-        /*public void ExtendCancelAfterTimeout()
-        {  // Cancel the previous CancellationTokenSource if it's still active
-        if (_cts != null && !_cts.IsCancellationRequested)
-        {
-            _cts.Cancel(); // Cancels the ongoing operation if applicable
-            _cts.Dispose(); // Dispose the old CTS
-        }
-
-        // Create a new CancellationTokenSource with the new delay
-        _cts = new CancellationTokenSource();
-       
-            _cts.CancelAfter(TimeSpan.FromMilliseconds(_mpiStatic.Timeout * 10));
-        }*/
-
-
+     
         public void PostConnect()
         {
             IsRunning = false;

@@ -60,6 +60,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = proc.ParseArguments(input);
             Assert.True(result.ContainsKey(key));
             Assert.Equal(expectedValue, result[key]);
+            proc.Dispose();
         }
 
         [Fact]
@@ -69,6 +70,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = proc.ParseArguments("random text without args");
             Assert.NotNull(result);
             Assert.Empty(result);
+            proc.Dispose();
         }
 
         [Fact]
@@ -81,6 +83,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             Assert.Equal("bar", result["foo"]);
             Assert.Equal("qux quux", result["baz"]);
             Assert.Equal("true", result["flag"]);
+            proc.Dispose();
         }
 
         [Fact]
@@ -90,6 +93,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = proc.ParseArguments("");
             Assert.NotNull(result);
             Assert.Empty(result);
+            proc.Dispose();
         }
 
         [Fact]
@@ -100,6 +104,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = proc.ParseArguments(input);
             Assert.Equal("how to use network analytics to predict network outages", result["search_term"]);
             Assert.Equal("blog.readyforquantum.com", result["target_domain"]);
+            proc.Dispose();
         }
 
         [Fact]
@@ -107,6 +112,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
         {
             var (proc, _, _, _, _) = CreateProcessor();
             Assert.Equal("No help file available", proc.GetCommandHelp());
+            proc.Dispose();
         }
 
         [Fact]
@@ -129,6 +135,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
 
             Assert.False(cmdStates.Object.IsSuccess);
             Assert.False(cmdStates.Object.IsRunning);
+            proc.Dispose();
         }
 
         [Fact]
@@ -151,6 +158,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
 
             Assert.False(cmdStates.Object.IsSuccess);
             Assert.False(cmdStates.Object.IsRunning);
+            proc.Dispose();
         }
 
         [Fact]
@@ -167,6 +175,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
 
             Assert.False(cmdStates.Object.IsSuccess);
             Assert.False(cmdStates.Object.IsRunning);
+            proc.Dispose();
         }
 
         [Fact]
@@ -180,13 +189,15 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             cmdStates.SetupProperty(x => x.RunningMessage);
 
             var cts = new CancellationTokenSource();
-            typeof(CmdProcessor)
-                .GetField("_cancellationTokenSource", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .SetValue(proc, cts);
+            var ctsField = typeof(CmdProcessor)
+                .GetField("_cancellationTokenSource", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.NotNull(ctsField);
+            ctsField.SetValue(proc, cts);
 
             await proc.CancelScan();
 
             Assert.True(cts.IsCancellationRequested);
+            proc.Dispose();
         }
 
         [Fact]
@@ -202,6 +213,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             await proc.CancelScan();
 
             Assert.Contains("No", cmdStates.Object.CompletedMessage);
+            proc.Dispose();
         }
 
         [Fact]
@@ -218,15 +230,21 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             };
 
             // Add to _runningTasks via reflection
-            var runningTasks = (System.Collections.Concurrent.ConcurrentDictionary<string, CommandTask>)
-                typeof(CmdProcessor)
-                .GetField("_runningTasks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .GetValue(proc);
+            var runningTasksField = typeof(CmdProcessor)
+                .GetField("_runningTasks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.NotNull(runningTasksField);
+            var runningTasks = (System.Collections.Concurrent.ConcurrentDictionary<string, CommandTask>?)runningTasksField.GetValue(proc);
+            Assert.NotNull(runningTasks);
             runningTasks.TryAdd("msgid", commandTask);
 
+            // Complete the task so it doesn't hang
+            tcs.SetResult();
+
             var result = await proc.CancelCommand("msgid");
+            Assert.NotNull(result);
             Assert.True(result.Success);
             Assert.Contains("cancelled", result.Message);
+            proc.Dispose();
         }
 
         [Fact]
@@ -236,6 +254,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = await proc.CancelCommand("notfound");
             Assert.False(result.Success);
             Assert.Contains("no running command", result.Message);
+            proc.Dispose();
         }
 
         [Fact]
@@ -248,6 +267,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = await proc.RunCommand("echo test", CancellationToken.None, null);
             Assert.False(result.Success);
             Assert.Contains("not available", result.Message);
+            proc.Dispose();
         }
 
         [Fact]
@@ -270,6 +290,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             Assert.True(result.Success);
             Assert.Contains("published help message", result.Message);
             rabbitRepo.Verify();
+            proc.Dispose();
         }
 
         [Fact]
@@ -290,6 +311,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var result = await proc.PublishCommandHelp(scanData);
             Assert.False(result.Success);
             Assert.Contains("could not publish help", result.Message);
+            proc.Dispose();
         }
 
         [Fact]
@@ -313,6 +335,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             Assert.Contains("line1", result);
             Assert.Contains("line2", result);
             Assert.Contains("Showing page", result);
+            proc.Dispose();
         }
 
         [Fact]
@@ -322,25 +345,30 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             var output = "test output";
             var result = await proc.SendMessage(output, null);
             Assert.Equal(output, result);
+            proc.Dispose();
         }
 
         [Fact]
         public async Task CancelRun_WhenRunning_CancelsToken()
         {
             var (proc, cmdStates, _, _, _) = CreateProcessor();
-            cmdStates.SetupGet(x => x.IsCmdRunning).Returns(true);
+            cmdStates.SetupProperty(x => x.IsCmdRunning);
+            cmdStates.Object.IsCmdRunning = true;
             cmdStates.SetupGet(x => x.CmdName).Returns("testcmd");
             cmdStates.SetupGet(x => x.CmdDisplayName).Returns("Test Command");
             cmdStates.SetupProperty(x => x.RunningMessage);
 
             var cts = new CancellationTokenSource();
-            typeof(CmdProcessor)
-                .GetField("_cancellationTokenSource", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .SetValue(proc, cts);
+            var ctsField = typeof(CmdProcessor)
+                .GetField("_cancellationTokenSource", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.NotNull(ctsField);
+            ctsField.SetValue(proc, cts);
 
             await proc.CancelRun();
 
             Assert.True(cts.IsCancellationRequested);
+
+            proc.Dispose();
         }
 
         [Fact]
@@ -354,6 +382,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
             await proc.CancelRun();
 
             Assert.Contains("No", cmdStates.Object.CompletedMessage);
+            proc.Dispose();
         }
     }
 }

@@ -7,73 +7,147 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.IO;
+
 namespace NetworkMonitor.Connection
 {
     public class QuantumConnect : NetConnect
     {
-        private readonly List<string> _oqsCodepoints = new List<string>();
-        private readonly List<string> _curves = new List<string>();
-        private List<AlgorithmInfo> _algorithmInfoList;
-        private string _oqsProviderPath = "";
-        private string _commandPath = "";
-        private ILogger _logger;
+        private readonly List<AlgorithmInfo> _algorithmInfoList;
+        private readonly string _oqsProviderPath;
+        private readonly string _commandPath;
+        private readonly ILogger _logger;
 
-        public QuantumConnect(List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger)
+        public QuantumConnect(
+            List<AlgorithmInfo> algorithmInfoList,
+            string oqsProviderPath,
+            string commandPath,
+            ILogger logger)
         {
-            _logger = logger;
             _algorithmInfoList = algorithmInfoList;
             _oqsProviderPath = oqsProviderPath;
             _commandPath = commandPath;
-
+            _logger = logger;
 
             IsLongRunning = true;
         }
+
+        /*───────────────────────────  ★ THE SINGLE SEAM ★  ───────────────────────────*/
+
+        /// <summary>
+        /// Executes the OpenSSL/OQS process.  
+        /// Override in tests to return canned output; production keeps default logic.
+        /// </summary>
+        protected virtual async Task<string> RunCommandAsync(
+            string oqsCodepoint,
+            string curve,
+            string address,
+            int port,
+            bool addEnv,
+            CancellationToken token)
+        {
+            var output = new StringBuilder();
+            var error = new StringBuilder();
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = Path.Combine(_commandPath, "openssl"),
+                Arguments = $"s_client -curves {curve} -connect {address}:{port} "
+                                        + $"-provider-path {_oqsProviderPath} -provider oqsprovider "
+                                        + "-provider default -msg",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = _commandPath
+            };
+
+            if (addEnv)
+            {
+                var kv = oqsCodepoint.Split('=', 2);
+                psi.EnvironmentVariables[kv[0]] = kv[1];
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                psi.EnvironmentVariables["PATH"] =
+                    _oqsProviderPath + ";" + (psi.EnvironmentVariables["PATH"] ?? "");
+            }
+            else
+            {
+                psi.EnvironmentVariables["LD_LIBRARY_PATH"] = _oqsProviderPath;
+            }
+
+            using var proc = new Process { StartInfo = psi };
+
+            token.Register(() =>
+            {
+                try
+                {
+                    if (!proc.HasExited) proc.Kill();
+                }
+                catch { /* ignore */ }
+            });
+
+            proc.Start();
+
+            await Task.WhenAll(
+                ReadStreamAsync(proc.StandardOutput, output, token),
+                ReadStreamAsync(proc.StandardError, error, token));
+
+            proc.WaitForExit();
+
+            return $"{error} : {output}";
+        }
+
+        private static async Task ReadStreamAsync(
+            StreamReader reader, StringBuilder sb, CancellationToken ct)
+        {
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                ct.ThrowIfCancellationRequested();
+                sb.AppendLine(line);
+            }
+        }
+
+
         public override async Task Connect()
         {
             PreConnect();
-            int port = 443;
-            // if MonitorPingInfo port is zero then use https default port
-            if (MpiStatic.Port != 0)
-                port = MpiStatic.Port;
+            int port = MpiStatic.Port != 0 ? MpiStatic.Port : 443;
+
             try
             {
-                // Time the IsQuantumSafe method
-                //Timer.Start();
-                Timer.Reset();
-                Timer.Start();
-                var result = await IsQuantumSafe(MpiStatic.Address, port);
+                Timer.Reset(); Timer.Start();
+                var r = await IsQuantumSafe(MpiStatic.Address, port);
                 Timer.Stop();
-                if (result.Success)
-                {
-                    ProcessStatus("Using quantum safe handshake", (ushort)Timer.ElapsedMilliseconds, " : " + result.Data);
 
-                    //Console.WriteLine("Using quantum safe handshake : " + quantumSafe.Item2);
-                }
+                if (r.Success)
+                    ProcessStatus("Using quantum safe handshake",
+                                  (ushort)Timer.ElapsedMilliseconds,
+                                  " : " + r.Data);
                 else
-                {
-                    MpiConnect.Message = "Could not negotiate quantum safe handshake : " + result.Message;
-                    ProcessException("Could not negotiate quantum safe handshake", "Could not negotiate quantum safe handshake");
-                }
+                    ProcessException("Could not negotiate quantum safe handshake",
+                                     "Could not negotiate quantum safe handshake");
             }
             catch (OperationCanceledException)
             {
                 ProcessException("Timeout", "Timeout");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                ProcessException(e.Message, "Exception");
+                ProcessException(ex.Message, "Exception");
             }
-            finally
-            {
-                PostConnect();
-            }
+            finally { PostConnect(); }
         }
+
         public async Task<ResultObj> ProcessAlgorithm(AlgorithmInfo algorithmInfo, string address, int port)
         {
             var result = new ResultObj();
 
             //Console.WriteLine($"Running algorithm: {algorithmInfo.AlgorithmName}");
-            string output = await RunCommandAsync(algorithmInfo.EnvironmentVariable + "=" + algorithmInfo.DefaultID, algorithmInfo.AlgorithmName, address, port, algorithmInfo.AddEnv);
+            string output = await RunCommandAsync(algorithmInfo.EnvironmentVariable + "=" + algorithmInfo.DefaultID, algorithmInfo.AlgorithmName, address, port, algorithmInfo.AddEnv, Cts.Token);
             string[] successIndicators = new[] {
                         "ServerHello",
                         //"EncryptedExtensions",
@@ -177,107 +251,7 @@ namespace NetworkMonitor.Connection
                 Message = "No quantum-safe algorithm negotiated"
             };
         }
-        private async Task<string> RunCommandAsync(string oqsCodepoint, string curve, string address, int port, bool addEnv)
-        {
-            StringBuilder output = new StringBuilder();
-            StringBuilder error = new StringBuilder();
-            var env = new Dictionary<string, string>();
-            string exeName = "openssl";
 
-            string opensslExecutable = Path.Combine(_commandPath, exeName);
-
-
-
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = opensslExecutable,
-                Arguments = $"s_client -curves {curve} -connect {address}:{port} -provider-path {_oqsProviderPath} -provider oqsprovider -provider default -msg",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(opensslExecutable) // Set the correct working directory
-
-            };
-            if (addEnv)
-            {
-                processStartInfo.EnvironmentVariables.Add(oqsCodepoint.Split('=')[0], oqsCodepoint.Split('=')[1]);
-            }
-            Console.WriteLine(processStartInfo.FileName.ToString() + " " + processStartInfo.Arguments.ToString());
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                // Set the PATH environment variable to include the OpenSSL library path for Windows
-                string currentPath = processStartInfo.EnvironmentVariables["PATH"] ?? "";
-                processStartInfo.EnvironmentVariables["PATH"] = _oqsProviderPath + ";" + currentPath;
-            }
-            else
-            {
-                // Set the LD_LIBRARY_PATH environment variable for Linux
-                processStartInfo.EnvironmentVariables["LD_LIBRARY_PATH"] = _oqsProviderPath;
-            }
-
-            using var process = new Process { StartInfo = processStartInfo };
-            Cts.Token.Register(() =>
-                 {
-                     try
-                     {
-                         _logger.LogDebug("PROCESSWAIT Timeout occurred for : " + address);
-
-                         if (process != null && !process.HasExited)
-                         {
-                             if (output.ToString().Contains("ServerHello"))
-                                 _logger.LogDebug("PROCESSWAIT : Got SERVERHELLO : Timeout occurred for : " + address + " Process has not exited so killing process.");//  Output was : " + output.ToString());
-                             process.Kill(false);
-                         }
-                     }
-                     catch (Exception ex)
-                     {
-                         _logger.LogDebug("PROCESSWAIT Exception occurred for : " + address + " Exception was : " + ex.Message);
-                     }
-
-                 });
-            process.Start();
-            using StreamReader sr = process.StandardOutput;
-            using StreamReader srError = process.StandardError;
-            // Define the timeout duration
-            int timeoutMilliseconds = MpiStatic.Timeout;
-            var outputTask = Task.Run(async () =>
-            {
-                string? line;
-                while ((line = await sr.ReadLineAsync()) != null)
-                {
-                    Cts.Token.ThrowIfCancellationRequested();
-                    output.AppendLine(line);
-                    _logger.LogDebug(line);
-                    if (line.Contains("Finished"))
-                    {
-                        break;
-                    }
-                }
-            }, Cts.Token);
-            var errorTask = Task.Run(async () =>
-            {
-                string? line;
-                while ((line = await srError.ReadLineAsync()) != null)
-                {
-                    _logger.LogDebug(line);
-                    Cts.Token.ThrowIfCancellationRequested();
-                    error.AppendLine(line);
-                }
-            }, Cts.Token);
-            try
-            {
-                await Task.WhenAll(outputTask, errorTask);
-            }
-            catch (OperationCanceledException)
-            {
-                sr.Close();
-                srError.Close();
-            }
-            process.WaitForExit(MpiStatic.Timeout);
-
-            return $"{error.ToString()} : {output.ToString()}";
-        }
         public async Task<ResultObj> ProcessBatchAlgorithms(List<AlgorithmInfo> algorithms, string address, int port)
         {
             var result = new ResultObj();
@@ -289,7 +263,7 @@ namespace NetworkMonitor.Connection
             }
 
             string curves = string.Join(":", algorithms.Select(a => a.AlgorithmName));
-            string output = await RunCommandAsync(string.Empty, curves, address, port, false);
+            string output = await RunCommandAsync(string.Empty, curves, address, port, false, Cts.Token);
 
             // ServerHello and KEM extension parsing logic (reuse your existing code)
             var serverHelloHelper = new ServerHelloHelper();
@@ -314,5 +288,8 @@ namespace NetworkMonitor.Connection
 
             return result;
         }
+
+      
+
     }
 }

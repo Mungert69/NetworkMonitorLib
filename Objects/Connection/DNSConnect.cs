@@ -1,51 +1,57 @@
-using NetworkMonitor.Objects;
 using System;
-using System.Text;
 using System.Net;
-using System.Threading.Tasks;
+using System.Text;
 using System.Threading;
-using System.Diagnostics;
+using System.Threading.Tasks;
+
 namespace NetworkMonitor.Connection
 {
     public class DNSConnect : NetConnect
     {
-        public DNSConnect()
-        {
-        }
+        // ❶ ––– the seam: override in a test spy
+        protected virtual Task<IPAddress[]> ResolveAsync(
+            string host, CancellationToken token) =>
+            Dns.GetHostAddressesAsync(host, token);
+
         public override async Task Connect()
         {
             PreConnect();
             try
             {
-
-               Timer.Reset();
+                Timer.Reset();
                 Timer.Start();
-                IPAddress[] ipAddresses = await Dns.GetHostAddressesAsync(MpiStatic.Address, Cts.Token);
+
+                // ❷ ––– use the seam
+                IPAddress[] ipAddresses =
+                    await ResolveAsync(MpiStatic.Address, Cts.Token);
+
                 Timer.Stop();
+
                 if (ipAddresses.Length > 0)
                 {
-                    StringBuilder sb = new StringBuilder();
-                    foreach (var ipAddress in ipAddresses)
-                    {
-                        sb.Append(ipAddress);
-                        sb.Append(", ");
-                    }
-                    string result = " : "+sb.ToString().TrimEnd(new char[] { ',', ' ' });
-                    ProcessStatus( "Found IP Addresses", (ushort)Timer.ElapsedMilliseconds, result);
-                    //MonitorPingInfo.PingInfos.Add(PingInfo);
+                    var sb = new StringBuilder();
+                    foreach (var ip in ipAddresses)
+                        sb.Append(ip).Append(", ");
+
+                    ProcessStatus(
+                        "Found IP Addresses",
+                        (ushort)Timer.ElapsedMilliseconds,
+                        " : " + sb.ToString().TrimEnd(',', ' '));
                 }
                 else
                 {
-                    ProcessException( "No IP addresses found for host","No IP addresses found for host");
+                    ProcessException(
+                        "No IP addresses found for host",
+                        "Exception");
                 }
             }
             catch (OperationCanceledException) when (Cts.Token.IsCancellationRequested)
             {
-                ProcessException( "Timeout","Timeout");
+                ProcessException("Timeout", "Timeout");
             }
             catch (Exception e)
             {
-                ProcessException( e.Message,"Exception");
+                ProcessException(e.Message, "Exception");
             }
             finally
             {
