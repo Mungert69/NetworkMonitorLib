@@ -15,24 +15,24 @@ namespace NetworkMonitor.Connection
 {
     public class SearchEngageCmdProcessor : CmdProcessor
     {
-        private readonly int _searchTimeout = 15000;
-        private readonly int _engagementTimeout = 30000;
-        private readonly int _interactionDelayMin = 2000;
-        private readonly int _interactionDelayMax = 5000;
-         private readonly Random _random = new Random();
+        private readonly int _searchTimeout = 60000;
+        private readonly int _engagementTimeout = 60000;
+        private readonly int _interactionDelayMin = 20000;
+        private readonly int _interactionDelayMax = 60000;
+        private readonly Random _random = new Random();
         ILaunchHelper? _launchHelper = null;
 
-        public SearchEngageCmdProcessor(ILogger logger, 
-            ILocalCmdProcessorStates cmdProcessorStates, 
-            IRabbitRepo rabbitRepo, 
-            NetConnectConfig netConfig,ILaunchHelper launchHelper)
+        public SearchEngageCmdProcessor(ILogger logger,
+            ILocalCmdProcessorStates cmdProcessorStates,
+            IRabbitRepo rabbitRepo,
+            NetConnectConfig netConfig, ILaunchHelper launchHelper)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper= launchHelper;
+            _launchHelper = launchHelper;
         }
 
-        public override async Task<ResultObj> RunCommand(string arguments, 
-            CancellationToken cancellationToken, 
+        public override async Task<ResultObj> RunCommand(string arguments,
+            CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
@@ -56,9 +56,9 @@ namespace NetworkMonitor.Connection
                     return result;
                 }
                 var parsedArgs = ParseArguments(arguments);
-                var searchTerm = parsedArgs.GetString("search_term","");
-                var targetDomain = parsedArgs.GetString("target_domain","");
-                
+                var searchTerm = parsedArgs.GetString("search_term", "");
+                var targetDomain = parsedArgs.GetString("target_domain", "");
+
                 if (string.IsNullOrEmpty(searchTerm)) throw new ArgumentException("Search term required");
                 if (string.IsNullOrEmpty(targetDomain)) throw new ArgumentException("Target domain required");
 
@@ -67,26 +67,49 @@ namespace NetworkMonitor.Connection
 
                 using var browser = await Puppeteer.LaunchAsync(launchOptions);
                 using var page = await browser.NewPageAsync();
-                
+                 var helper = new SearchWebHelper(_logger, _netConfig, _searchTimeout/4, _searchTimeout*2 );
+               
+                await helper.StealthAsync(page);
                 // Configure browser to appear more human-like
-                await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ...");
+                await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36");
                 await page.SetExtraHttpHeadersAsync(new Dictionary<string, string>
                 {
                     ["Accept-Language"] = "en-US,en;q=0.9"
                 });
 
-                // Phase 1: Perform Search
-                var searchSuccess = await ExecuteSearchFlow(page, searchTerm, targetDomain, cancellationToken);
-                if (!searchSuccess)
+                // Phase 1: Perform Search using SearchWebHelper
+                var urlResult = await helper.FetchGoogleSearchUrlsAsync(page, searchTerm, cancellationToken);
+
+                if (!urlResult.Success || urlResult.Data == null || urlResult.Data.Count == 0)
                 {
+                    result.Success = false;
+                    result.Message = urlResult.Message ?? "No search results found";
+                    return result;
+                }
+
+                // Find the first link matching the target domain
+                var targetLink = urlResult.Data.FirstOrDefault(l =>
+                    Uri.TryCreate(l, UriKind.Absolute, out var uri) &&
+                    uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase));
+
+                if (string.IsNullOrEmpty(targetLink))
+                {
+                    _logger.LogInformation("Target domain not found in links.");
                     result.Success = false;
                     result.Message = "Target site not found in search results";
                     return result;
                 }
 
+                // Click the result
+                await page.GoToAsync(targetLink, new NavigationOptions
+                {
+                    Timeout = _searchTimeout,
+                    WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
+                });
+
                 // Phase 2: Engagement Simulation
                 var engagementResult = await ExecuteEngagementFlow(page, cancellationToken);
-                
+
                 result.Success = engagementResult.Success;
                 result.Message = engagementResult.Message;
                 result.Data = engagementResult.Data;
@@ -99,67 +122,48 @@ namespace NetworkMonitor.Connection
             }
             return result;
         }
-
-        private async Task<bool> ExecuteSearchFlow(IPage page, string searchTerm, string targetDomain, 
-            CancellationToken ct)
+        private async Task DumpPageHtml(IPage page, string label = "page_debug")
         {
-            try
-            {
-                // Simulate human-like search input
-                await page.GoToAsync("https://www.google.com", new NavigationOptions { 
-                    Timeout = _searchTimeout,
-                    WaitUntil = new[] { WaitUntilNavigation.Networkidle0 } 
-                });
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var safeLabel = label.Replace(" ", "_");
 
-                await HumanLikeTyping(page, "input[name='q']", searchTerm);
-                await page.Keyboard.PressAsync("Enter");
-                await page.WaitForNavigationAsync(new NavigationOptions { 
-                    Timeout = _searchTimeout,
-                    WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
-                });
+            var html = await page.GetContentAsync();
+            var fileName = $"debug_{safeLabel}_{timestamp}.html";
 
-                // Find target domain in results
-                var links = await page.EvaluateFunctionAsync<string[]>(@"() => 
-                    Array.from(document.querySelectorAll('a'))
-                        .map(a => a.href)
-                        .filter(href => href.includes(location.hostname))");
-
-                var targetLink = links.FirstOrDefault(l => 
-                    new Uri(l).Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase));
-
-                if (string.IsNullOrEmpty(targetLink)) return false;
-
-                // Simulate human-like click
-                await HumanClick(page, targetLink);
-                await page.WaitForNavigationAsync(new NavigationOptions {
-                    Timeout = _searchTimeout,
-                    WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
-                });
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            File.WriteAllText(fileName, html);
+            _logger.LogInformation($"✅ Saved page HTML to: {fileName}");
         }
+
 
         private async Task<ResultObj> ExecuteEngagementFlow(IPage page, CancellationToken ct)
         {
             var result = new ResultObj();
             try
             {
+                try
+                {
+                    await ScrollLikeHuman(page);
+                    await RandomDelay();
+                }
+                catch { }
                 // Simulate reading behavior
-                await ScrollLikeHuman(page);
-                await RandomDelay();
 
+                try
+                {
+                    await ClickRandomLink(page);
+                    await RandomDelay();
+                }
+                catch { }
                 // Interact with page elements
-                await ClickRandomLink(page);
-                await RandomDelay();
 
+                try
+                {
+                    await ScrollLikeHuman(page, fastScroll: false);
+                    await HoverOverElements(page);
+                }
+                catch { }
                 // Simulate deeper engagement
-                await ScrollLikeHuman(page, fastScroll: false);
-                await HoverOverElements(page);
+
 
                 // Collect engagement metrics
                 var metrics = new EngagementMetrics
@@ -196,7 +200,7 @@ namespace NetworkMonitor.Connection
         {
             var scrollSteps = fastScroll ? 5 : 20;
             var scrollAmount = await page.EvaluateExpressionAsync<int>("document.body.scrollHeight");
-            
+
             for (int i = 0; i < scrollSteps; i++)
             {
                 await page.EvaluateExpressionAsync(
@@ -205,20 +209,21 @@ namespace NetworkMonitor.Connection
             }
         }
 
-         private async Task HumanClick(IPage page, string url)
+        private async Task HumanClick(IPage page, string url)
         {
             var element = await page.QuerySelectorAsync($"a[href*='{url}']");
             if (element == null) return;
 
             var rect = await element.BoundingBoxAsync();
-            
+
             await page.Mouse.MoveAsync(
                 rect.X + rect.Width / 2 + _random.Next(-5, 5),
                 rect.Y + rect.Height / 2 + _random.Next(-5, 5),
-                new MoveOptions { 
-                    Steps = _random.Next(3, 10) 
+                new MoveOptions
+                {
+                    Steps = _random.Next(3, 10)
                 });
-            
+
             await RandomDelay();
             await element.ClickAsync();
             await Task.Delay(_random.Next(1000, 3000));

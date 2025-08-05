@@ -496,9 +496,16 @@ namespace NetworkMonitor.Connection
         protected virtual Dictionary<string, string> ParseArguments(string arguments)
         {
             var args = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var regex = new Regex(@"--(?<key>\w+)(?:\s+(?<value>""[^""]*""|\S+))?");
+            // Support both --key value and --key="value" and --key value
+            var regex = new Regex(@"--(?<key>\w+)(?:[ =]+(?<value>""[^""]*""|\S+))?");
 
             var matches = regex.Matches(arguments);
+
+            if (matches.Count == 0)
+            {
+                // No matches found, return empty dictionary
+                return args;
+            }
 
             foreach (Match match in matches)
             {

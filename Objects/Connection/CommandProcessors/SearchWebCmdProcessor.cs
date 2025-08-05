@@ -77,7 +77,11 @@ namespace NetworkMonitor.Connection
                     // Fetch URLs using a single page
                     using (var fetchPage = await browser.NewPageAsync())
                     {
-                        var fetchUrlsTask = FetchUrls(fetchPage, searchTerm);
+                         var helper = new SearchWebHelper(_logger, _netConfig, _microTimeout, _macroTimeout);
+             
+                        await helper.StealthAsync(fetchPage); 
+                        var fetchUrlsTask = helper.FetchGoogleSearchUrlsAsync(fetchPage, searchTerm, CancellationToken.None);
+     
                         var timeoutTask = Task.Delay(_macroTimeout, cancellationToken);
                         var completedTask = await Task.WhenAny(fetchUrlsTask, timeoutTask);
 
@@ -233,125 +237,6 @@ The SearchWebCmdProcessor is designed for retrieving search results dynamically 
             await Task.Delay(delay);
         }
 
-        private async Task<TResultObj<List<string>>> FetchUrls(IPage page, string searchTerm)
-        {
-            string[] urls;
-            var result = new TResultObj<List<string>>();
-
-            _logger.LogInformation($"Navigating to Google Search with term: {searchTerm}");
-
-            await page.GoToAsync($"https://www.google.com/search?q={Uri.EscapeDataString(searchTerm)}", new NavigationOptions { Timeout = _microTimeout });
-
-            _logger.LogInformation("Waiting for search results to load...");
-            await RandomDelay(5000, 10000); // Random delay between 5s and 10s
-
-            string pageContent = await page.GetContentAsync(); // Always fetch page content
-            try
-            {
-                // Check for CAPTCHA or unusual traffic message
-                if (pageContent.Contains("unusual traffic from your computer network") ||
-                    pageContent.Contains("please verify you are not a robot"))
-                {
-                    _logger.LogWarning("Google detected unusual traffic or CAPTCHA.");
-                    _logger.LogInformation("Falling back to Google Custom Search JSON API.");
-
-                    return await FetchUrlsFromGoogleApi(searchTerm);
-                }
-
-                // Wait for the search results container to be visible
-                await page.WaitForFunctionAsync(
-                    "() => document.querySelectorAll('.g').length > 0",
-                    new WaitForFunctionOptions { Timeout = _microTimeout }
-                );
-
-                _logger.LogInformation("Search results loaded.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"Search results not found or timed out. Falling back to API. Error: {ex.Message}");
-                return await FetchUrlsFromGoogleApi(searchTerm);
-            }
-
-            await RandomDelay(1500, 3000); // Random delay between 1.5s and 3s
-
-            // Extract URLs from search results
-
-            try
-            {
-                urls = await page.EvaluateFunctionAsync<string[]>(
-                    "() => Array.from(document.querySelectorAll('.g a')).map(link => link.href).filter(href => href.includes('http') && !href.includes('webcache'))"
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"Error extracting URLs: {ex.Message}");
-                return await FetchUrlsFromGoogleApi(searchTerm);
-            }
-
-            if (urls == null || urls.Length == 0)
-            {
-                _logger.LogInformation("No URLs extracted. Falling back to API.");
-                return await FetchUrlsFromGoogleApi(searchTerm);
-            }
-
-
-            result.Data = urls.ToList();
-            result.Success = true;
-            if (result.Data == null || result.Data.Count == 0)
-            {
-                result.Message = "Failed to fetch any urls";
-                result.Success = false;
-            }
-
-            return result;
-        }
-
-        // Fallback to Google Custom Search API
-        private async Task<TResultObj<List<string>>> FetchUrlsFromGoogleApi(string searchTerm)
-        {
-            var result = new TResultObj<List<string>>();
-
-            if (_netConfig.GoogleSearchApiCxID == "Not Set" || _netConfig.GoogleSearchApiKey == "Not set")
-            {
-                result.Message = "To use the google search api as a fallback for the Search Web Cmd Processor you need to set GoogleSearchApiKey and GoogleSearchApiCxID with the values you have set at https://console.cloud.google.com/apis/api/customsearch.googleapis.com";
-                result.Success = false;
-                return result;
-            }
-            string url = $"https://www.googleapis.com/customsearch/v1?q={Uri.EscapeDataString(searchTerm)}&key={_netConfig.GoogleSearchApiKey}&cx={_netConfig.GoogleSearchApiCxID}";
-            _logger.LogInformation($" Using url for Google Search Api : {url}");
-            using (var httpClient = new HttpClient())
-            {
-                try
-                {
-                    var response = await httpClient.GetStringAsync(url);
-
-                    // Deserialize the response
-                    var searchResponse = JsonSerializer.Deserialize<GoogleSearchResponse>(response);
-
-                    if (searchResponse?.Items != null && searchResponse.Items.Count > 0)
-                    {
-                        var urls = searchResponse.Items.Select(item => item.Link).ToList();
-                        result.Data = urls;
-                        result.Success = true;
-                        return result;
-                    }
-
-                    result.Success = false;
-                    result.Message = "Failed to fetch any urls";
-                }
-                catch (Exception ex)
-                {
-                    result.Message = $"Error fetching results from Google API: {ex.Message}";
-                    result.Success = false;
-                    _logger.LogError(result.Message);
-
-                }
-                return result;
-            }
-
-        }
-
-
 
         private string SummarizePageContent(string pageContent)
         {
@@ -375,26 +260,6 @@ The SearchWebCmdProcessor is designed for retrieving search results dynamically 
 
             return summary.ToString();
         }
-    }
-
-    public class GoogleSearchResponse
-    {
-        [JsonPropertyName("items")]
-        public List<SearchResultItem> Items { get; set; }
-    }
-
-    public class SearchResultItem
-    {
-        [JsonPropertyName("title")]
-        public string Title { get; set; }
-
-        [JsonPropertyName("link")]
-        public string Link { get; set; }
-
-        [JsonPropertyName("snippet")]
-        public string Snippet { get; set; }
-
-        // Include other properties as needed
     }
 
 }

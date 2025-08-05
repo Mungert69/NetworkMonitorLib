@@ -155,7 +155,10 @@ namespace NetworkMonitor.Connection
                     "--disable-dev-shm-usage",
                     "--disable-extensions",
                     "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled"
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36"
+
                 }
             };
 
