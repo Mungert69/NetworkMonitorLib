@@ -66,7 +66,7 @@ namespace NetworkMonitor.Connection
         {
             IsRunning = true;
             //_dateSent = DateTime.UtcNow;
-            MpiConnect = new MPIConnect();
+            _mpiConnect = new MPIConnect();
             _mpiConnect.PingInfo = new PingInfo()
             {
                 ID = PiID,
@@ -74,10 +74,11 @@ namespace NetworkMonitor.Connection
                 DateSent = DateTime.UtcNow
             };
             _cts = new CancellationTokenSource();
+            _mpiConnect.SiteHash=_mpiStatic.SiteHash;
             int timeout = _mpiStatic.Timeout;
             if (ExtendTimeout)
             {
-                timeout = (_mpiStatic.Timeout * ExtendTimeoutMultiplier);
+                timeout = _mpiStatic.Timeout * ExtendTimeoutMultiplier;
             }
             _cts.CancelAfter(TimeSpan.FromMilliseconds(timeout));
 
@@ -101,6 +102,10 @@ namespace NetworkMonitor.Connection
         {
             IsRunning = false;
             Cts.Dispose();
+        }
+        protected void SetSiteHash(string hash)
+        { 
+            _mpiConnect.SiteHash = hash;
         }
         protected void ProcessException(string message, string shortMessage)
         {

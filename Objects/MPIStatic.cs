@@ -27,6 +27,7 @@ namespace NetworkMonitor.Objects
                 EndPointType = monitorPingInfo.EndPointType;
                 Timeout = monitorPingInfo.Timeout;
                 Enabled = monitorPingInfo.Enabled;
+                SiteHash=monitorPingInfo.SiteHash;
             }
 
             //UserID = monitorPingInfo.UserID;

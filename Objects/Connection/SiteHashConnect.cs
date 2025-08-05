@@ -76,8 +76,7 @@ namespace NetworkMonitor.Connection
                     // Compare to expected hash
                     if (string.IsNullOrEmpty(MpiStatic.SiteHash))
                     {
-                        ProcessException("No SiteHash set for comparison", "No SiteHash");
-                        return;
+                       SetSiteHash(hash);
                     }
 
                     if (hash.Equals(MpiStatic.SiteHash, StringComparison.OrdinalIgnoreCase))
