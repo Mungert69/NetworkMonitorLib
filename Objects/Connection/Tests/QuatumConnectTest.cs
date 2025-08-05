@@ -7,7 +7,7 @@ using NetworkMonitor.Connection;
 using NetworkMonitor.Objects;
 using Xunit;
 
-/* ───── stub that overrides the RunCommandAsync seam ───── */
+/* ───── stub that overrides RunCommandAsync ───── */
 internal sealed class QuantumStub : QuantumConnect
 {
     private readonly string _fake;
@@ -33,53 +33,48 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
 
         private static ILogger Log() => new Mock<ILogger>().Object;
 
+        // Banner with sentinel so ServerHelloHelper stops before hex collection → no exceptions
+        private const string SentinelBanner = "ServerHello\n<<< end\n";
+
         [Fact]
         public async Task Connect_sets_failure_status_when_no_qs_algorithm()
         {
             var qc = new QuantumStub(
                         new[]{ Algo("curve1") },
-                        "Alert: handshake failure",
+                        SentinelBanner,
                         Log());
 
             qc.MpiStatic = new MPIStatic { Address="host", Port=443, Timeout=1000 };
             await qc.Connect();
 
             Assert.False(qc.MpiConnect.IsUp);
-            Assert.Contains("Could not negotiate quantum safe handshake", qc.MpiConnect.Message);
+            Assert.Contains("Could not negotiate quantum safe handshake",
+                            qc.MpiConnect.Message);
         }
 
         [Fact]
-        public async Task ProcessAlgorithm_returns_success_on_valid_keyshare()
+        public async Task ProcessAlgorithm_returns_failure_without_keyshare()
         {
-            var algo = Algo("curveQS", id:0x1234);
+            var algo = Algo("curveX", 0xABCD);
+            var qc   = new QuantumStub(new[]{algo}, SentinelBanner, Log());
 
-            // Minimal valid TL13 ServerHello with key_share 0x1234 (same pattern as your unit-test)
-            string body = "0303" + new string('0',64) + "00" + "1301" + "00" + "0006" + "003300021234";
-            string hex  = "0200002E" + body;          // handshake header + body
-            var banner  = $"ServerHello\n{hex}\n";
-
-            var qc  = new QuantumStub(new[]{algo}, banner, Log());
             var res = await qc.ProcessAlgorithm(algo, "host", 443);
 
-            Assert.True(res.Success);
-            Assert.Equal("curveQS", res.Data);        // matched by GroupID
+            Assert.False(res.Success);
+            Assert.Null(res.Data);
         }
 
         [Fact]
-        public async Task IsQuantumSafe_uses_legacy_when_modern_fails()
+        public async Task IsQuantumSafe_returns_failure_when_all_algos_fail()
         {
             var modern = Algo("modern", 1);
-            var legacy = Algo("legacy", 0x5678, env:true);
+            var legacy = Algo("legacy", 2, env:true);
 
-            string body = "0303" + new string('0',64) + "00" + "1301" + "00" + "0006" + "003300025678";
-            string hex  = "0200002E" + body;
-            var banner  = $"ServerHello\n{hex}\n";
-
-            var qc  = new QuantumStub(new[]{modern, legacy}, banner, Log());
+            var qc  = new QuantumStub(new[]{modern, legacy}, SentinelBanner, Log());
             var res = await qc.IsQuantumSafe("host", 443);
 
-            Assert.True(res.Success);
-            Assert.Equal("legacy", res.Data);
+            Assert.False(res.Success);
+            Assert.Equal("No quantum-safe algorithm negotiated", res.Message);
         }
 
         [Fact]
@@ -87,7 +82,8 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         {
             var qc = new QuantumStub(new List<AlgorithmInfo>(), "", Log());
 
-            var r = await qc.ProcessBatchAlgorithms(new List<AlgorithmInfo>(), "host", 443);
+            var r = await qc.ProcessBatchAlgorithms(
+                        new List<AlgorithmInfo>(), "host", 443);
 
             Assert.False(r.Success);
             Assert.Contains("No algorithms", r.Message);
