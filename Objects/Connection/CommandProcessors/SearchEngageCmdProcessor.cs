@@ -67,8 +67,8 @@ namespace NetworkMonitor.Connection
 
                 using var browser = await Puppeteer.LaunchAsync(launchOptions);
                 using var page = await browser.NewPageAsync();
-                 var helper = new SearchWebHelper(_logger, _netConfig, _searchTimeout/4, _searchTimeout*2 );
-               
+                var helper = new SearchWebHelper(_logger, _netConfig, _searchTimeout / 4, _searchTimeout * 2);
+
                 await helper.StealthAsync(page);
                 // Configure browser to appear more human-like
                 await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36");
@@ -87,10 +87,12 @@ namespace NetworkMonitor.Connection
                     return result;
                 }
 
-                // Find the first link matching the target domain
+                // Find the first link where the host equals or contains the target domain
                 var targetLink = urlResult.Data.FirstOrDefault(l =>
                     Uri.TryCreate(l, UriKind.Absolute, out var uri) &&
-                    uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase));
+                    (uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase) ||
+                     uri.Host.Contains(targetDomain, StringComparison.OrdinalIgnoreCase)));
+
 
                 if (string.IsNullOrEmpty(targetLink))
                 {
