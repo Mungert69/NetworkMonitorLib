@@ -39,6 +39,7 @@ namespace NetworkMonitor.Objects
             this.EditAuthKey = newMonIP.EditAuthKey;
             this.MessageForUser = newMonIP.MessageForUser;
             this.DateAdded = newMonIP.DateAdded;
+            this.SiteHash= newMonIP.SiteHash;
         }
 
         public MonitorIP()
@@ -136,6 +137,10 @@ namespace NetworkMonitor.Objects
         /// Date host was added.
         /// </summary>
         public DateTime? DateAdded { get; set; } = DateTime.UtcNow;
+
+        [Column(TypeName = "char(64)")]
+        [MaxLength(64)]
+        public string? SiteHash { get; set; } = null;
 
         [NotMapped]
         public string? Prompt { get; set; }

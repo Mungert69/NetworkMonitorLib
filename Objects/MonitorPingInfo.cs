@@ -56,6 +56,7 @@ namespace NetworkMonitor.Objects
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
             AgentLocation = copy.AgentLocation;
+            SiteHash = copy.SiteHash;
         }
 
         public MonitorPingInfo(MonitorPingInfo copy, bool copyAll)
@@ -92,6 +93,7 @@ namespace NetworkMonitor.Objects
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
             AgentLocation = copy.AgentLocation;
+            SiteHash = copy.SiteHash;
         }
 
         public void CopyForPredict(MonitorPingInfo copy)
@@ -123,6 +125,7 @@ namespace NetworkMonitor.Objects
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
             AgentLocation = copy.AgentLocation;
+            SiteHash = copy.SiteHash;
 
         }
         public void CopyMonitorPingInfo(MonitorPingInfo copy)
@@ -158,6 +161,7 @@ namespace NetworkMonitor.Objects
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
+            SiteHash = copy.SiteHash;
         }
 #pragma warning disable IL2026
         [Key]
@@ -169,6 +173,8 @@ namespace NetworkMonitor.Objects
         /// </summary> 
         [NotMapped]
         public int MonitorPingInfoID { get => ID; }
+        private string? _siteHash = null;
+
 
         private DateTime _dateStarted = DateTime.UtcNow;
         private DateTime? _dateEnded = DateTime.UtcNow;
@@ -339,6 +345,12 @@ namespace NetworkMonitor.Objects
         /// </summary>
         [NotMapped]
         public string? AgentLocation { get; set; }
+
+
+        [Column(TypeName = "char(64)")]
+        [MaxLength(64)]
+        public string? SiteHash { get => _siteHash; set => _siteHash = value; }
+
 #pragma warning restore IL2026
     }
 }
