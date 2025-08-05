@@ -40,6 +40,13 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("https", "HttpsIcon", "HttpSSL (SSL Certificate Check)", "Check SSL certificates via HTTPS"),
             new EndpointType("httphtml", "HtmlIcon", "HttpHtml (Load Website HTML)", "Load website HTML content"),
             new EndpointType("httpfull", "LanguageIcon", "HttpFull (Load All Website Content)", "Load full website content with Puppeteer"),
+            // New endpoint type for sitehash
+            new EndpointType(
+                "sitehash",
+                "HashIcon",
+                "SiteHash (Website Content Hash Check)",
+                "Load a website using Puppeteer (JavaScript-enabled), hash the rendered HTML, and compare to a stored value for change detection."
+            ),
             new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups"),
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP"),
             new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks"),
@@ -83,6 +90,9 @@ namespace NetworkMonitor.Objects.Factory
     
     // HTTPFULL (full page load with Puppeteer) - significantly higher thresholds for full content load
     { "httpfull", new ResponseTimeThreshold(new ThresholdValues(2000, 4000, 8000), new ThresholdValues(2000, 4000, 8000)) },
+
+    // SiteHash (full page load with Puppeteer and hash check) - same thresholds as httpfull
+    { "sitehash", new ResponseTimeThreshold(new ThresholdValues(2000, 4000, 8000), new ThresholdValues(2000, 4000, 8000)) },
     
     // DNS - DNS lookups are generally quick, with moderate thresholds
     { "dns", new ResponseTimeThreshold(new ThresholdValues(100, 300, 600), new ThresholdValues(100, 300, 600)) },
@@ -167,6 +177,7 @@ namespace NetworkMonitor.Objects.Factory
                 "https" => new HTTPConnect(httpsClient, false, false, commandPath),
                 "httphtml" => new HTTPConnect(httpClient, true, false, commandPath),
                 "httpfull" => new HTTPConnect(httpClient, false, true, commandPath, launchHelper),
+                "sitehash" => new SiteHashConnect(commandPath, launchHelper), // New endpoint type
                 "dns" => new DNSConnect(),
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger),

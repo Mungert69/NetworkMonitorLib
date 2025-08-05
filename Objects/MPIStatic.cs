@@ -383,10 +383,34 @@ namespace NetworkMonitor.Objects
         private string _endPointType = "";
         private int _timeout;
         private bool _enabled = false;
-        //private string _userID;
-        // private int _id;
-        //private DateTime _dateStarted = DateTime.UtcNow;
+        private string? _siteHash = null; // New field
 
-
+        public string? SiteHash
+        {
+            get
+            {
+                _rwLock.EnterReadLock();
+                try
+                {
+                    return _siteHash;
+                }
+                finally
+                {
+                    _rwLock.ExitReadLock();
+                }
+            }
+            set
+            {
+                _rwLock.EnterWriteLock();
+                try
+                {
+                    _siteHash = value;
+                }
+                finally
+                {
+                    _rwLock.ExitWriteLock();
+                }
+            }
+        }
     }
 }

@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 using NetworkMonitor.Objects;
+using NetworkMonitor.Utils.Helpers;
 
 namespace NetworkMonitor.Connection
 {
@@ -162,7 +163,7 @@ namespace NetworkMonitor.Connection
         private void LogIfFingerprintChanged(string html)
         {
             string normalized = RegexStripNumbers.Replace(html, "").Trim();
-            string fingerprint = ComputeSha256Hash(normalized);
+            string fingerprint = HashHelper.ComputeSha256Hash(normalized);
 
             if (_knownTrustedFingerprint != fingerprint)
             {
@@ -264,12 +265,7 @@ namespace NetworkMonitor.Connection
         private static int RandomInterval(int minMs, int maxMs) =>
             new Random().Next(minMs, maxMs);
 
-        private static string ComputeSha256Hash(string raw)
-        {
-            using var sha = SHA256.Create();
-            byte[] bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(raw));
-            return Convert.ToHexString(bytes);
-        }
+       
 
         private static readonly Regex RegexStripNumbers =
             new Regex(@"[\-\d]+", RegexOptions.Compiled);
