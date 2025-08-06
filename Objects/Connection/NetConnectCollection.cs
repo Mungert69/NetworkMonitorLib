@@ -34,6 +34,7 @@ namespace NetworkMonitor.Connection
         Task HandleLongRunningTask(INetConnect netConnect, MergeMonitorPingInfo mergeMonitorPingInfo);
         Task HandleShortRunningTask(INetConnect netConnect, MergeMonitorPingInfo mergeMonitorPingInfo);
         string LogInfo(List<INetConnect> filteredNetConnects);
+        void ResetSiteHash(int monitorIPID);
     }
 
     public delegate void MergeMonitorPingInfo(MPIConnect mpiConnect, int monitorIPID);
@@ -191,6 +192,17 @@ namespace NetworkMonitor.Connection
             }
             Add(monitorPingInfo);
             return message;
+        }
+
+        public void ResetSiteHash(int monitorIPID)
+        {
+            var netConnect = _netConnects.FirstOrDefault(x => x.MpiStatic.MonitorIPID == monitorIPID);
+            if (netConnect == null)
+                netConnect.MpiStatic.SiteHash = null;
+            else
+            {
+                _logger.LogWarning($"Warning : enable to find NetConnect with MonitorIPID {monitorIPID}");
+            }
         }
         public void UpdateOrAdd(MonitorPingInfo monitorPingInfo)
         {
