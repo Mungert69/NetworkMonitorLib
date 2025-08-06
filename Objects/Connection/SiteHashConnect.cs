@@ -74,18 +74,18 @@ namespace NetworkMonitor.Connection
                     string hash = HashHelper.ComputeSha256Hash(html);
 
                     // Compare to expected hash
-                    if (string.IsNullOrEmpty(MpiStatic.SiteHash))
+                    if (string.IsNullOrEmpty(MpiConnect.SiteHash))
                     {
                        SetSiteHash(hash);
                     }
 
-                    if (hash.Equals(MpiStatic.SiteHash, StringComparison.OrdinalIgnoreCase))
+                    if (hash.Equals(MpiConnect.SiteHash, StringComparison.OrdinalIgnoreCase))
                     {
                         ProcessStatus("SiteHash OK", (ushort)Timer.ElapsedMilliseconds, $"Hash: {hash}");
                     }
                     else
                     {
-                        ProcessException($"SiteHash mismatch. Expected: {MpiStatic.SiteHash}, Got: {hash}", "SiteHash Mismatch");
+                        ProcessException($"SiteHash mismatch. Expected: {MpiConnect.SiteHash}, Got: {hash}", "SiteHash Mismatch");
                     }
                 }
             }

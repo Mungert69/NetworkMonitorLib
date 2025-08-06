@@ -38,14 +38,14 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("icmp", "PingIcon", "ICMP (Simple Ping)", "Simple ICMP Ping"),
             new EndpointType("http", "HttpIcon", "Http (Website Ping)", "Ping a website via HTTP"),
             new EndpointType("https", "HttpsIcon", "HttpSSL (SSL Certificate Check)", "Check SSL certificates via HTTPS"),
-            new EndpointType("httphtml", "HtmlIcon", "HttpHtml (Load Website HTML)", "Load website HTML content"),
-            new EndpointType("httpfull", "LanguageIcon", "HttpFull (Load All Website Content)", "Load full website content with Puppeteer"),
+            new EndpointType("httphtml", "HtmlIcon", "HttpHtml (Load Website HTML)", "Load website HTML content, no javascript"),
+            new EndpointType("httpfull", "LanguageIcon", "HttpFull (Load All Website Content)", "Load full website content inc javascript"),
             // New endpoint type for sitehash
             new EndpointType(
                 "sitehash",
                 "HashIcon",
                 "SiteHash (Website Content Hash Check)",
-                "Load a website using Puppeteer (JavaScript-enabled), hash the rendered HTML, and compare to a stored value for change detection."
+                "Load full website content using Puppeteer, hash the rendered HTML, and compare to a stored value for change detection."
             ),
             new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups"),
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP"),
