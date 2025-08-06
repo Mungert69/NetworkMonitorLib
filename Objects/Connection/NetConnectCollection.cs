@@ -197,7 +197,7 @@ namespace NetworkMonitor.Connection
         public void ResetSiteHash(int monitorIPID)
         {
             var netConnect = _netConnects.FirstOrDefault(x => x.MpiStatic.MonitorIPID == monitorIPID);
-            if (netConnect == null)
+            if (netConnect != null)
                 netConnect.MpiStatic.SiteHash = null;
             else
             {
