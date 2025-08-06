@@ -90,8 +90,9 @@ namespace NetworkMonitor.Connection
             Cts.Dispose();
         }
         protected void SetSiteHash(string hash)
-        { 
+        {
             _mpiConnect.SiteHash = hash;
+            _mpiStatic.SiteHash = hash;
         }
         protected void ProcessException(string message, string shortMessage)
         {

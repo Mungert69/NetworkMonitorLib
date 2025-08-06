@@ -178,6 +178,7 @@ namespace NetworkMonitor.Connection
                 netConnect.MpiStatic.EndPointType = monitorPingInfo.EndPointType;
                 netConnect.MpiStatic.Username = monitorPingInfo.Username;
                 netConnect.MpiStatic.Password = monitorPingInfo.Password;
+                netConnect.MpiStatic.SiteHash = monitorPingInfo.SiteHash;
             }
             //if (pingParams != null) netConnect.PingParams = pingParams;
 
