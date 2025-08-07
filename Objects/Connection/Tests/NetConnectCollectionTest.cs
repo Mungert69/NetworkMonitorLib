@@ -6,10 +6,21 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Objects;
+
 using Xunit;
 
 public class NetConnectCollectionTest
 {
+    private class TestLogger : ILogger
+    {
+        public List<string> LoggedMessages { get; } = new List<string>();
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => null!;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            LoggedMessages.Add(formatter(state, exception));
+        }
+    }
     private class DummyLogger : ILogger
     {
         public IDisposable BeginScope<TState>(TState state) where TState : notnull => null!;
@@ -66,6 +77,50 @@ public class NetConnectCollectionTest
             new FilterStrategyConfig { StrategyName = strategyName, FilterSkip = skip, FilterStart = start }
         };
         return config;
+    }
+    // Remove or comment out this test if you do not have CreateProcessor and MonitorPingProcessor available in this test file.
+    // [Fact]
+    // public async Task ResetAlerts_ReturnsResults_ForValidAndInvalidIDs()
+    // {
+    //     // ... test code ...
+    // }
+    [Fact]
+    public void ResetSiteHash_SetsSiteHashToNull_ForExistingNetConnect()
+    {
+        var logger = new DummyLogger();
+        var config = GetConfig("cmd", 1, 0);
+        var factory = new DummyConnectFactory();
+        var collection = new NetConnectCollection(logger, config, factory);
+
+        var mpi = new MonitorPingInfo
+        {
+            MonitorIPID = 42,
+            EndPointType = "nmap",
+            Enabled = true,
+            SiteHash = "abc123"
+        };
+        collection.Add(mpi);
+
+        var netConnect = collection.GetFilteredNetConnects().First(nc => nc.MpiStatic.MonitorIPID == 42);
+        netConnect.MpiStatic.SiteHash = "abc123";
+        Assert.Equal("abc123", netConnect.MpiStatic.SiteHash);
+
+        collection.ResetSiteHash(42);
+
+        Assert.Null(netConnect.MpiStatic.SiteHash);
+    }
+
+    [Fact]
+    public void ResetSiteHash_LogsWarning_IfNotFound()
+    {
+        var logger = new TestLogger();
+        var config = GetConfig("cmd", 1, 0);
+        var factory = new DummyConnectFactory();
+        var collection = new NetConnectCollection(logger, config, factory);
+
+        collection.ResetSiteHash(999);
+
+        Assert.Contains(logger.LoggedMessages, m => m.Contains("Warning : enable to find NetConnect with MonitorIPID 999"));
     }
 
     [Fact]
@@ -371,7 +426,7 @@ public class NetConnectCollectionTest
         Assert.NotNull(info);
     }
 
-       [Fact]
+    [Fact]
     public void Add_AllEndpointTypes_CreatesCorrectNetConnectTypes()
     {
         var logger = new DummyLogger();

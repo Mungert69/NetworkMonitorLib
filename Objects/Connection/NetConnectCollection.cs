@@ -194,6 +194,7 @@ namespace NetworkMonitor.Connection
             return message;
         }
 
+
         public void ResetSiteHash(int monitorIPID)
         {
             var netConnect = _netConnects.FirstOrDefault(x => x.MpiStatic.MonitorIPID == monitorIPID);
