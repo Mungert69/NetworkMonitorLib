@@ -59,9 +59,13 @@ public class MLParams
     private int _maxTokenLengthCap;
     private int _minTokenLengthCap;
     private string _embeddingProvider ;
+    private string _llmProvider = "OpenAI";
 
-    private string _embeddingApiModel ;
+    private string _embeddingApiModel;
     private string _embeddingApiUrl ;
+    private float _llmTemperature = 0.2f;
+    private  float _llmTopP = 1.0f;
+
 
     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
@@ -137,6 +141,9 @@ public class MLParams
         get => _vectorSearchMode;
         set => _vectorSearchMode = value;
     }
+    public string LlmProvider { get => _llmProvider; set => _llmProvider = value; }
+    public global::System.Single LlmTemperature { get => _llmTemperature; set => _llmTemperature = value; }
+    public global::System.Single LlmTopP { get => _llmTopP; set => _llmTopP = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)

@@ -211,6 +211,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmReversePrompt = _config.GetValue<string>("LlmReversePrompt") ?? "";
             mlParams.LlmContextFileName = _config.GetValue<string>("LlmContextFileName") ?? "";
             mlParams.LlmHFModelID = _config.GetValue<string>("LlmHFModelID") ?? "";
+            mlParams.LlmProvider= _config.GetValue<string>("LlmProvider") ?? "OpenAI";
             mlParams.LlmHFKey = GetConfigValue("LlmHFKey");
             mlParams.DataRepoId = _config.GetValue<string>("DataRepoId") ?? "";
             mlParams.HFToken = GetConfigValue("HF_TOKEN");
