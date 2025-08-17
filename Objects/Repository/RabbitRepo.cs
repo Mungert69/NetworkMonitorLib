@@ -124,6 +124,11 @@ namespace NetworkMonitor.Objects.Repository
 #pragma warning restore CS8618
         private string GetExchangeType(string exchangeName)
         {
+            if (exchangeName.StartsWith("oa.", StringComparison.OrdinalIgnoreCase))
+            {
+                // Default to direct for oa.* exchanges
+                return ExchangeType.Direct;
+            }
             if (_exchangeTypes != null)
             {
                 // Match the longest key that is a prefix of exchangeName
@@ -134,6 +139,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 if (match != null)
                     return _exchangeTypes[match];
+
             }
             return ExchangeType.Fanout; // default fallback
         }

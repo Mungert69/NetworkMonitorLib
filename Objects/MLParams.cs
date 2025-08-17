@@ -13,6 +13,7 @@ public class MLParams
     private int _changePreTrain = 50;
     private int _spikePreTrain = 50;
     private string _llmModelPath = "";
+    private string _llmSpaceModelID = "";
     private string _llmModelFileName = "";
     private string _llmContextFileName = "";
     private string _llmSystemPrompt = "";
@@ -144,6 +145,7 @@ public class MLParams
     public string LlmProvider { get => _llmProvider; set => _llmProvider = value; }
     public global::System.Single LlmTemperature { get => _llmTemperature; set => _llmTemperature = value; }
     public global::System.Single LlmTopP { get => _llmTopP; set => _llmTopP = value; }
+    public string LlmSpaceModelID { get => _llmSpaceModelID; set => _llmSpaceModelID = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)
