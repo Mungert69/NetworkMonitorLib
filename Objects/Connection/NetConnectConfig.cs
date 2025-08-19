@@ -6,6 +6,10 @@ using NetworkMonitor.Connection;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.IO;
+#if ANDROID
+using Android.App;
+#endif
+
 
 namespace NetworkMonitor.Connection
 {
@@ -84,9 +88,9 @@ namespace NetworkMonitor.Connection
         private string _loadServer = $"loadserver.{AppConstants.AppDomain}";
         private string _serviceServer = $"monitorsrv.{AppConstants.AppDomain}";
         private string _chatServer = $"chatsrv.{AppConstants.AppDomain}";
-        private bool _isChatMode=false;
+        private bool _isChatMode = false;
         private bool _useTls = false;
-        private int _maxRetries=3;
+        private int _maxRetries = 3;
         private string _serviceDomain = AppConstants.AppDomain;
         private bool _isRestrictedPublishPerm = true;
         private List<string> _endpointTypes = new List<string>();
@@ -238,7 +242,7 @@ namespace NetworkMonitor.Connection
 
                 OqsProviderPath = config["OqsProviderPath"] ?? "";
                 CommandPath = config["CommandPath"] ?? "";
-                TranscribeAudioUrl=config["TranscribeAudioUrl"] ?? "";
+                TranscribeAudioUrl = config["TranscribeAudioUrl"] ?? "";
                 OqsProviderPath = FixDirPath(OqsProviderPath);
                 CommandPath = FixDirPath(CommandPath);
                 _oqsProviderPathReadOnly = OqsProviderPath;
@@ -261,7 +265,7 @@ namespace NetworkMonitor.Connection
                 AgentUserFlow.IsAuthorized = bool.TryParse(config["AgentUserFlow:IsAuthorized"], out bool isAuthorized) ? isAuthorized : false;
                 AgentUserFlow.IsLoggedInWebsite = bool.TryParse(config["AgentUserFlow:IsLoggedInWebsite"], out bool isLoggedInWebsite) ? isLoggedInWebsite : false;
                 AgentUserFlow.IsHostsAdded = bool.TryParse(config["AgentUserFlow:IsHostsAdded"], out bool isHostsAddded) ? isHostsAddded : false;
-                AgentUserFlow.IsChatOpened = bool.TryParse(config["AgentUserFlow:IsChatOpened"], out bool isChatOpened) ? isChatOpened : false; 
+                AgentUserFlow.IsChatOpened = bool.TryParse(config["AgentUserFlow:IsChatOpened"], out bool isChatOpened) ? isChatOpened : false;
                 ForceHeadless = bool.TryParse(config["ForceHeadless"], out bool forceHeadless) ? forceHeadless : false;
                 Owner = config["Owner"] ?? "";
                 MonitorLocation = config["MonitorLocation"] ?? "Not set - ffffff";
@@ -293,6 +297,9 @@ namespace NetworkMonitor.Connection
 
             }
             path = path.TrimEnd('/') + "/";
+#if ANDROID
+            return Android.App.Application.Context.NativeLibraryDir;
+#endif
             return path;
         }
     }
