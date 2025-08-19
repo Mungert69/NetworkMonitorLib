@@ -6,9 +6,6 @@ using NetworkMonitor.Connection;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.IO;
-#if ANDROID
-using Android.App;
-#endif
 
 
 namespace NetworkMonitor.Connection
@@ -297,9 +294,7 @@ namespace NetworkMonitor.Connection
 
             }
             path = path.TrimEnd('/') + "/";
-#if ANDROID
-            return Android.App.Application.Context.NativeLibraryDir;
-#endif
+
             return path;
         }
     }
