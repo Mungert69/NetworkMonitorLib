@@ -15,9 +15,9 @@ namespace NetworkMonitor.Connection
     public class QuantumConnect : NetConnect
     {
         private readonly List<AlgorithmInfo> _algorithmInfoList;
-        private readonly string _oqsProviderPath;
-        private readonly string _commandPath;
-        private readonly string _nativeLibDir = string.Empty;
+        private string _oqsProviderPath;
+        private string _commandPath;
+        private string _nativeLibDir = string.Empty;
         private readonly ILogger _logger;
 
         public QuantumConnect(
