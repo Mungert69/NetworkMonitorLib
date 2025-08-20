@@ -113,7 +113,7 @@ namespace NetworkMonitor.Connection
                 ReadStreamAsync(proc.StandardError, error, token));
 
             proc.WaitForExit();
-            _logger.LogInformation($"Output: {error} : {output}");
+            _logger.LogDebug($"Output: {error} : {output}");
 
             return $"{error} : {output}";
         }
