@@ -1,4 +1,5 @@
 using NetworkMonitor.Objects;
+using NetworkMonitor.Utils.Helpers;
 using System.Text;
 using System.Diagnostics;
 using System.Collections.Concurrent;
@@ -16,18 +17,31 @@ namespace NetworkMonitor.Connection
         private readonly List<AlgorithmInfo> _algorithmInfoList;
         private readonly string _oqsProviderPath;
         private readonly string _commandPath;
+        private readonly string _nativeLibDir = string.Empty;
         private readonly ILogger _logger;
 
         public QuantumConnect(
             List<AlgorithmInfo> algorithmInfoList,
             string oqsProviderPath,
             string commandPath,
-            ILogger logger)
+            ILogger logger, string nativeLibDir = "")
         {
             _algorithmInfoList = algorithmInfoList;
-            _oqsProviderPath = oqsProviderPath;
-            _commandPath = commandPath;
+            _nativeLibDir = nativeLibDir;
             _logger = logger;
+            if (!string.IsNullOrEmpty(_nativeLibDir))
+            {
+                // Use the native library directory if provided
+                _commandPath = _nativeLibDir;
+                _oqsProviderPath = _nativeLibDir;
+                LibraryHelper.SetLDLibraryPath(_nativeLibDir);
+            }
+            else
+            {
+                _oqsProviderPath = oqsProviderPath;
+                _commandPath = commandPath;
+
+            }
 
             IsLongRunning = true;
         }
@@ -49,9 +63,12 @@ namespace NetworkMonitor.Connection
             var output = new StringBuilder();
             var error = new StringBuilder();
 
+
+
+            string opensslPath = Path.Combine(_commandPath, "openssl");
             var psi = new ProcessStartInfo
             {
-                FileName = Path.Combine(_commandPath, "openssl"),
+                FileName = opensslPath,
                 Arguments = $"s_client -curves {curve} -connect {address}:{port} "
                                         + $"-provider-path {_oqsProviderPath} -provider oqsprovider "
                                         + "-provider default -msg",
@@ -289,7 +306,7 @@ namespace NetworkMonitor.Connection
             return result;
         }
 
-      
+
 
     }
 }

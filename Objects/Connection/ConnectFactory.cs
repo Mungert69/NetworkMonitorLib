@@ -35,14 +35,14 @@ namespace NetworkMonitor.Connection
         private HttpClient _httpClient;
         private HttpClient _httpsClient;
         private List<AlgorithmInfo> _algorithmInfoList = new List<AlgorithmInfo>();
-        private string? _libPath;
-        private string? _commandPath;
+        private NetConnectConfig? _netConfig;
         private ILogger _logger;
         private ILaunchHelper? _launchHelper;
 
-        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null,ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper=null)
+        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper = null)
         {
             _logger = logger;
+            _netConfig = netConfig;
             _cmdProcessorProvider = cmdProcessorProvider;
             _launchHelper = launchHelper;
 
@@ -109,21 +109,17 @@ namespace NetworkMonitor.Connection
 
             _httpsClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgents.GetRandomUserAgent());
 
-            if (netConfig != null && netConfig.CommandPath != null)
-            {
-                _commandPath = netConfig.CommandPath;
-            }
+
             if (netConfig != null && netConfig.OqsProviderPath != null)
             {
-                _libPath = netConfig.OqsProviderPath;
                 _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig);
             }
             else
             {
                 _logger.LogWarning(" Warning : Algo table not created Quantum Connect will not fucntion .");
             }
-            if (_commandPath == null) throw new ArgumentException(" Command Path not found");
-            if (_libPath == null) throw new ArgumentException(" Lib Path not found");
+            if (_netConfig.CommandPath == null) throw new ArgumentException(" Command Path not found");
+            if (_netConfig.OqsProviderPath == null) throw new ArgumentException(" Lib Path not found");
 
         }
         /*public Task GetNetConnect(MonitorPingInfo pingInfo, PingParams pingParams)
@@ -136,8 +132,8 @@ namespace NetworkMonitor.Connection
             var result = new ResultObj();
             try
             {
-                
-                if (netConfig != null && netConfig.LoadChromium && _launchHelper!=null)
+
+                if (netConfig != null && netConfig.LoadChromium && _launchHelper != null)
                 {
 
                     await _launchHelper.GetLauncher(netConfig.CommandPath, _logger);
@@ -194,7 +190,7 @@ namespace NetworkMonitor.Connection
         {
             if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = pingParams.Timeout;
             string? type = monitorPingInfo.EndPointType;
-            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _libPath!, _commandPath!, _logger, _cmdProcessorProvider, _launchHelper);
+            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList,_netConfig.OqsProviderPath, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _launchHelper, _netConfig.NativeLibDir!  );
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }

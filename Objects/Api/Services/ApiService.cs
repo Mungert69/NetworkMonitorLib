@@ -35,7 +35,7 @@ namespace NetworkMonitor.Api.Services
         public string? RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
 
 #pragma warning disable CS8618
-        public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "")
+        public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "", string nativeLibDir = "")
         {
             try
             {
@@ -55,7 +55,7 @@ namespace NetworkMonitor.Api.Services
                 _pingParams = _systemParamsHelper.GetPingParams();
                 _logger.LogInformation(" Info : Set PingParams.");
 
-                var netConnectConfig = new NetConnectConfig(_config, appDirectory);
+                var netConnectConfig = new NetConnectConfig(_config, appDirectory, nativeLibDir);
 
                 var connectFactory = new ConnectFactory(loggerFactory.CreateLogger<ConnectFactory>(), netConfig: netConnectConfig, cmdProcessorProvider: cmdProcessorProvider);
                 _ = connectFactory.SetupChromium(netConnectConfig);

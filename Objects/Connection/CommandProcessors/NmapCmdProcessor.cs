@@ -11,6 +11,7 @@ using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Utils;
+using NetworkMonitor.Utils.Helpers;
 using System.Xml.Linq;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -161,12 +162,19 @@ namespace NetworkMonitor.Connection
                 string xmlOutput = processorScanDataObj == null ? " -oX -" : "";
                 string extraArg = "";
                 extraArg = " --system-dns ";
+                string exePath = _netConfig.CommandPath;
+                string dataDir = "";
 
-
-
+                if (_netConfig.NativeLibDir != string.Empty)
+                {
+                    exePath = _netConfig.NativeLibDir;
+                    dataDir = " --datadir " + _netConfig.CommandPath;
+                    LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
+                }
+                string nmapPath = Path.Combine(exePath, "nmap");
                 using var process = new Process();
-                process.StartInfo.FileName = _netConfig.CommandPath + "nmap" ;
-                process.StartInfo.Arguments = arguments + xmlOutput + extraArg;
+                process.StartInfo.FileName = nmapPath;
+                process.StartInfo.Arguments = arguments + xmlOutput + extraArg + dataDir;
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
@@ -222,7 +230,7 @@ namespace NetworkMonitor.Connection
                     if (!string.IsNullOrWhiteSpace(errorOutput) && processorScanDataObj != null)
                     {
                         output = $"RedirectStandardError : {errorOutput}. \n RedirectStandardOutput : {output}";
-                        }
+                    }
 
                     result.Success = true;
                 }
@@ -244,9 +252,9 @@ namespace NetworkMonitor.Connection
             return result;
         }
 
-       public override string GetCommandHelp()
-{
-    return @"
+        public override string GetCommandHelp()
+        {
+            return @"
 The Nmap Command Processor integrates Nmap into the agent, so you only need to provide the arguments to customize its behavior. 
 This processor fully supports Nmap's extensive features, including host discovery, service detection, and vulnerability scanning. 
 The arguments you provide will directly modify how Nmap executes.
@@ -362,7 +370,7 @@ arguments: -sS 192.168.1.0/24
 
 This processor simplifies running Nmap by handling the tool's setup internally, allowing you to focus solely on specifying the arguments for your desired scans.
 ";
-}
+        }
         private List<string> ParseNmapOutputOld(string output)
         {
             var hosts = new List<string>();

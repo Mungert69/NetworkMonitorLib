@@ -16,6 +16,7 @@ namespace NetworkMonitor.Connection
         private SystemUrl _localSystemUrl = new SystemUrl();
         private string _appID = "";
         private string _appDataDirectory;
+        private string _nativeLibDir = string.Empty;
         private string _googleSearchApiKey;
         private string _googleSearchApiCxID;
 
@@ -188,6 +189,7 @@ namespace NetworkMonitor.Connection
         public string ChatServer { get => _chatServer; set => _chatServer = value; }
         public bool IsChatMode { get => _isChatMode; set => _isChatMode = value; }
         public string TranscribeAudioUrl { get => _transcribeAudioUrl; set => _transcribeAudioUrl = value; }
+        public string NativeLibDir { get => _nativeLibDir;}
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -207,12 +209,13 @@ namespace NetworkMonitor.Connection
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public NetConnectConfig(IConfiguration config, string appDataDirectory)
+        public NetConnectConfig(IConfiguration config, string appDataDirectory, string nativeLibDir = "")
         {
             try
             {
 #pragma warning disable IL2026
                 _appDataDirectory = appDataDirectory;
+                _nativeLibDir = nativeLibDir;
                 BaseFusionAuthURL = config["BaseFusionAuthURL"] ?? "";
                 ClientId = config["ClientId"] ?? "";
                 LocalSystemUrl = new SystemUrl
