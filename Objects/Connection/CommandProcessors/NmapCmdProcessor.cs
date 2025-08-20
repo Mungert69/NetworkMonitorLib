@@ -164,14 +164,15 @@ namespace NetworkMonitor.Connection
                 extraArg = " --system-dns ";
                 string exePath = _netConfig.CommandPath;
                 string dataDir = "";
-
+                string nmapPath = Path.Combine(exePath, "nmap");
                 if (_netConfig.NativeLibDir != string.Empty)
                 {
                     exePath = _netConfig.NativeLibDir;
                     dataDir = " --datadir " + _netConfig.CommandPath;
                     LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
+                    nmapPath = Path.Combine(_netConfig.NativeLibDir, "nmap.so");
                 }
-                string nmapPath = Path.Combine(exePath, "nmap");
+
                 using var process = new Process();
                 process.StartInfo.FileName = nmapPath;
                 process.StartInfo.Arguments = arguments + xmlOutput + extraArg + dataDir;

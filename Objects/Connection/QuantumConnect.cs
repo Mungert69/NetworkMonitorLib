@@ -28,20 +28,10 @@ namespace NetworkMonitor.Connection
         {
             _algorithmInfoList = algorithmInfoList;
             _nativeLibDir = nativeLibDir;
+            _oqsProviderPath = oqsProviderPath;
+            _commandPath = commandPath;
             _logger = logger;
-            if (!string.IsNullOrEmpty(_nativeLibDir))
-            {
-                // Use the native library directory if provided
-                _commandPath = _nativeLibDir;
-                _oqsProviderPath = _nativeLibDir;
-                LibraryHelper.SetLDLibraryPath(_nativeLibDir);
-            }
-            else
-            {
-                _oqsProviderPath = oqsProviderPath;
-                _commandPath = commandPath;
 
-            }
 
             IsLongRunning = true;
         }
@@ -62,10 +52,17 @@ namespace NetworkMonitor.Connection
         {
             var output = new StringBuilder();
             var error = new StringBuilder();
-
-
-
             string opensslPath = Path.Combine(_commandPath, "openssl");
+            if (!string.IsNullOrEmpty(_nativeLibDir))
+            {
+                // Use the native library directory if provided
+                _commandPath = _nativeLibDir;
+                _oqsProviderPath = _nativeLibDir;
+                LibraryHelper.SetLDLibraryPath(_nativeLibDir);
+                opensslPath = Path.Combine(_commandPath, "openssl.so");
+            }
+
+
             var psi = new ProcessStartInfo
             {
                 FileName = opensslPath,
