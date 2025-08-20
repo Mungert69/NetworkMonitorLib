@@ -79,6 +79,9 @@ namespace NetworkMonitor.Connection
                 WorkingDirectory = _commandPath
             };
 
+            // Log the full command and arguments
+            _logger.LogInformation($"Running command: {psi.FileName} {psi.Arguments}");
+
             if (addEnv)
             {
                 var kv = oqsCodepoint.Split('=', 2);
@@ -113,6 +116,7 @@ namespace NetworkMonitor.Connection
                 ReadStreamAsync(proc.StandardError, error, token));
 
             proc.WaitForExit();
+            _logger.LogInformation($"Output: {error} : {output}");
 
             return $"{error} : {output}";
         }
