@@ -118,8 +118,8 @@ namespace NetworkMonitor.Connection
             {
                 _logger.LogWarning(" Warning : Algo table not created Quantum Connect will not fucntion .");
             }
-            if (_netConfig.CommandPath == null) throw new ArgumentException(" Command Path not found");
-            if (_netConfig.OqsProviderPath == null) throw new ArgumentException(" Lib Path not found");
+            if (_netConfig?.CommandPath == null) throw new ArgumentException(" Command Path not found");
+            if (_netConfig?.OqsProviderPath == null) throw new ArgumentException(" Lib Path not found");
 
         }
         /*public Task GetNetConnect(MonitorPingInfo pingInfo, PingParams pingParams)
@@ -190,7 +190,7 @@ namespace NetworkMonitor.Connection
         {
             if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = pingParams.Timeout;
             string? type = monitorPingInfo.EndPointType;
-            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList,_netConfig.OqsProviderPath, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _launchHelper, _netConfig.NativeLibDir!  );
+            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList,_netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _launchHelper, _netConfig.NativeLibDir!  );
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }
