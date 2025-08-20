@@ -18,12 +18,12 @@ namespace NetworkMonitor.Connection
         protected virtual Stream CreateStream(TcpClient client) => client.GetStream();
 
         /// <summary>Wrapper for <c>TcpClient.ConnectAsync</c> so tests can short-circuit it.</summary>
-       protected virtual ValueTask ConnectAsync(           // ← ValueTask
-    TcpClient         client,
-    string            host,
-    int               port,
-    CancellationToken token) =>
-    client.ConnectAsync(host, port, token);         // no conversion
+        protected virtual ValueTask ConnectAsync(           // ← ValueTask
+     TcpClient client,
+     string host,
+     int port,
+     CancellationToken token) =>
+     client.ConnectAsync(host, port, token);         // no conversion
 
         /* ─────────────  Public API (unchanged)  ───────────── */
 
@@ -38,14 +38,36 @@ namespace NetworkMonitor.Connection
 
             await using var stream = CreateStream(client);
 
-            var helo = Encoding.ASCII.GetBytes($"HELO {MpiStatic.Address} \r\n");
+            // FIX 1: READ THE BANNER FIRST
+            // Wait for the server to send its welcome banner ("220 ...")
+            var bannerBuffer = new byte[1024];
+            var bannerBytes = await stream.ReadAsync(bannerBuffer, 0, bannerBuffer.Length, Cts.Token);
+            var bannerResponse = Encoding.ASCII.GetString(bannerBuffer, 0, bannerBytes);
+
+            // Optional: You can check if the banner starts with "220"
+            if (!bannerResponse.StartsWith("220 "))
+            {
+                result.Success = false;
+                result.Message = "Invalid banner from SMTP server: ";
+                result.Data = bannerResponse;
+                return result;
+            }
+
+            // FIX 2: NOW send the HELO command
+            var helo = Encoding.ASCII.GetBytes($"HELO {MpiStatic.Address}\r\n"); // Ensure correct CRLF
             await stream.WriteAsync(helo, 0, helo.Length, Cts.Token);
 
-            var buffer   = new byte[1024];
-            var bytes    = await stream.ReadAsync(buffer, 0, buffer.Length, Cts.Token);
-            var response = Encoding.ASCII.GetString(buffer, 0, bytes);
+            // FIX 3: Read the response to the HELO command
+            var responseBuffer = new byte[1024];
+            var responseBytes = await stream.ReadAsync(responseBuffer, 0, responseBuffer.Length, Cts.Token);
+            var response = Encoding.ASCII.GetString(responseBuffer, 0, responseBytes);
 
-            if (response.StartsWith("220 "))
+            // FIX 4: Send a QUIT command before disconnecting (Polite SMTP behavior)
+            var quit = Encoding.ASCII.GetBytes("QUIT\r\n");
+            await stream.WriteAsync(quit, 0, quit.Length, Cts.Token);
+            // You can read the QUIT response if you want, but it's not strictly necessary
+
+            if (response.StartsWith("250 "))
             {
                 result.Success = true;
                 result.Message = "Connect HELO";
@@ -54,17 +76,16 @@ namespace NetworkMonitor.Connection
             {
                 result.Success = false;
                 result.Message = "Unexpected response from SMTP server: ";
-                result.Data    = response;
+                result.Data = response;
             }
 
             return result;
         }
-
         public override async Task Connect()
         {
             PreConnect();
 
-            var port   = MpiStatic.Port != 0 ? MpiStatic.Port : (ushort)25;
+            var port = MpiStatic.Port != 0 ? MpiStatic.Port : (ushort)25;
             var result = new TResultObj<string>();
 
             try
