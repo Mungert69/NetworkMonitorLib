@@ -251,7 +251,7 @@ namespace NetworkMonitor.Connection
 
                 CmdReturnDataLineLimit = int.TryParse(config["CmdReturnDataLineLimit"], out int cmdReturnDataLineLimit) ? cmdReturnDataLineLimit : 100;
                 RetryDelayMilliseconds = int.TryParse(config["RetryDelayMilliseconds"], out int retryDelayMilliseconds) ? retryDelayMilliseconds : 10000;
-                OpensslVersion = config["OpensslVersion"] ?? "openssl-3.4.2";
+                OpensslVersion = config["OpensslVersion"] ?? "openssl";
                 AuthKey = config["AuthKey"] ?? "";
                 DisabledEndpointTypes = config.GetSection("DisabledEndpointTypes").Get<List<string>>() ?? new List<string>();
                 DisabledCommands = config.GetSection("DisabledCommands").Get<List<string>>() ?? new List<string>();
