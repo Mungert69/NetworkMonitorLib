@@ -170,7 +170,7 @@ namespace NetworkMonitor.Connection
                     exePath = _netConfig.NativeLibDir;
                     dataDir = " --datadir " + _netConfig.CommandPath;
                     LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
-                    nmapPath = Path.Combine(_netConfig.NativeLibDir, "nmap.so");
+                    nmapPath = Path.Combine(_netConfig.NativeLibDir, "nmap-exe.so");
                 }
 
                 using var process = new Process();
