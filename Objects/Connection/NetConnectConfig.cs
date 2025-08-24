@@ -15,6 +15,7 @@ namespace NetworkMonitor.Connection
 
         private SystemUrl _localSystemUrl = new SystemUrl();
         private string _appID = "";
+        private string _appName = "";
         private string _appDataDirectory;
         private string _nativeLibDir = string.Empty;
         private string _googleSearchApiKey;
@@ -22,6 +23,7 @@ namespace NetworkMonitor.Connection
 
         public event Func<SystemUrl, Task>? OnSystemUrlChangedAsync;
         public event Func<string, Task>? OnAppIDChangedAsync;
+        public event Func<Task>? OnAuthCompleteAsync;
 
 
 
@@ -59,6 +61,15 @@ namespace NetworkMonitor.Connection
                 await OnSystemUrlChangedAsync(value);
             }
             LocalSystemUrl = value;
+        }
+
+        public async Task AuthComplete()
+        {
+
+            if (OnAuthCompleteAsync != null)
+            {
+                await OnAuthCompleteAsync();
+            }
         }
 
         public async Task SetAppIDAsync(string value)
@@ -190,6 +201,7 @@ namespace NetworkMonitor.Connection
         public bool IsChatMode { get => _isChatMode; set => _isChatMode = value; }
         public string TranscribeAudioUrl { get => _transcribeAudioUrl; set => _transcribeAudioUrl = value; }
         public string NativeLibDir { get => _nativeLibDir;}
+        public string AppName { get => _appName; set => _appName = value; }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -232,6 +244,7 @@ namespace NetworkMonitor.Connection
                     MaxRuntime = int.TryParse(config["LocalSystemUrl:MaxRuntime"], out int maxRuntime) ? maxRuntime : 60,
                 };
                 AppID = config["AppID"] ?? "";
+                AppName = config["AppName"] ?? "";
                 LoadServer = config["LoadServer"] ?? $"loadserver.{AppConstants.AppDomain}";
                 ServiceServer = config["ServiceServer"] ?? $"monitorsrv.{AppConstants.AppDomain}";
                 ChatServer = config["ChatServer"] ?? $"chatsrv.{AppConstants.AppDomain}";
