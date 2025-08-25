@@ -163,11 +163,13 @@ namespace NetworkMonitor.Connection
                 string extraArg = "";
                 extraArg = " --system-dns ";
                 string exePath = _netConfig.CommandPath;
+                string workingDirectory = _netConfig.CommandPath;
                 string dataDir = "";
                 string nmapPath = Path.Combine(exePath, "nmap");
                 if (_netConfig.NativeLibDir != string.Empty)
                 {
                     exePath = _netConfig.NativeLibDir;
+                    workingDirectory = _netConfig.CommandPath;
                     dataDir = " --datadir " + _netConfig.CommandPath;
                     LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
                     nmapPath = Path.Combine(_netConfig.NativeLibDir, "nmap-exe.so");
@@ -180,7 +182,7 @@ namespace NetworkMonitor.Connection
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.CreateNoWindow = true;
-                process.StartInfo.WorkingDirectory = _netConfig.CommandPath;
+                process.StartInfo.WorkingDirectory = workingDirectory;
 
                 var outputBuilder = new StringBuilder();
                 var errorBuilder = new StringBuilder();

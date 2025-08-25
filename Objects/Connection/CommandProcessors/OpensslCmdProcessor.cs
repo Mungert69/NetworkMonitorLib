@@ -10,6 +10,7 @@ using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Utils;
+using NetworkMonitor.Utils.Helpers;
 using System.Xml.Linq;
 using System.IO;
 using System.Threading;
@@ -24,9 +25,9 @@ namespace NetworkMonitor.Connection
         public OpensslCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
 : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-           
+
         }
-                  public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
+        public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
             string output = "";
@@ -41,18 +42,29 @@ namespace NetworkMonitor.Connection
                     return result;
 
                 }
-              
 
+                string exePath = _netConfig.CommandPath;
+                string workingDirectory = _netConfig.CommandPath;
+                string opensslPath = Path.Combine(exePath, "openssl");
+                 string oqsProviderPath = _netConfig.OqsProviderPath;
+           
+                if (_netConfig.NativeLibDir != string.Empty)
+                {
+                    exePath = _netConfig.NativeLibDir;
+                    workingDirectory = _netConfig.CommandPath;
+                    LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
+                    opensslPath = Path.Combine(_netConfig.NativeLibDir, "openssl-exe.so");
+                }
                 using (var process = new Process())
                 {
-                    process.StartInfo.FileName = _netConfig.CommandPath + _cmdProcessorStates.CmdName;
+                    process.StartInfo.FileName = opensslPath;
                     process.StartInfo.Arguments = arguments;
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.RedirectStandardError = true; // Add this to capture standard error
-                    process.StartInfo.EnvironmentVariables["LD_LIBRARY_PATH"] = _netConfig.OqsProviderPath;
+                    process.StartInfo.EnvironmentVariables["LD_LIBRARY_PATH"] = oqsProviderPath;
                     process.StartInfo.CreateNoWindow = true;
-                    process.StartInfo.WorkingDirectory = _netConfig.CommandPath;
+                    process.StartInfo.WorkingDirectory = workingDirectory;
 
                     var outputBuilder = new StringBuilder();
                     var errorBuilder = new StringBuilder();
@@ -97,7 +109,7 @@ namespace NetworkMonitor.Connection
                         if (!string.IsNullOrWhiteSpace(errorOutput) && processorScanDataObj != null)
                         {
                             output = $"RedirectStandardError : {errorOutput}. \n RedirectStandardOutput : {output}";
-                         }
+                        }
                         result.Success = true;
                     }
                 }
@@ -113,8 +125,8 @@ namespace NetworkMonitor.Connection
         }
 
         public override string GetCommandHelp()
-{
-    return @"
+        {
+            return @"
 The OpenSSL command processor allows you to test SSL/TLS connections to servers. 
 It is designed to verify certificates, protocols, and handshake behavior. 
 This processor does not handle certificate creation or management tasks.
@@ -176,9 +188,9 @@ This extracts the server's certificate and saves it to `server-cert.pem`.
 
 This processor simplifies the use of OpenSSL for connection testing, providing an efficient way to diagnose server-side SSL/TLS issues.
 ";
-}
+        }
 
-   
+
     }
 
 

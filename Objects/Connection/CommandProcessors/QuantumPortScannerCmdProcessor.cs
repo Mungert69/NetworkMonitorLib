@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
+using NetworkMonitor.Utils.Helpers;
 using System.Text;
 using System.Runtime.InteropServices;
 
@@ -30,7 +31,6 @@ namespace NetworkMonitor.Connection
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig,
                   "quantum-scan", "Quantum Security Scanner", queueLength: 10)
         {
-            _nmapPath = Path.Combine(netConfig.CommandPath, "nmap");
 
         }
 
@@ -208,18 +208,28 @@ namespace NetworkMonitor.Connection
             var outputFile = Path.GetTempFileName();
             var arguments = $"{nmapOptions} -oX {outputFile} {target}";
 
-            using var process = new Process
+            string exePath = _netConfig.CommandPath;
+            string workingDirectory = _netConfig.CommandPath;
+            string dataDir = "";
+            string nmapPath = Path.Combine(exePath, "nmap");
+            if (_netConfig.NativeLibDir != string.Empty)
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = _nmapPath,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
+                exePath = _netConfig.NativeLibDir;
+                workingDirectory = _netConfig.CommandPath;
+                dataDir = " --datadir " + _netConfig.CommandPath;
+                LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
+                nmapPath = Path.Combine(_netConfig.NativeLibDir, "nmap-exe.so");
+            }
+
+            using var process = new Process();
+            process.StartInfo.FileName = nmapPath;
+            process.StartInfo.Arguments = arguments  + dataDir;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.WorkingDirectory = workingDirectory;
+
 
             var output = new StringBuilder();
             process.OutputDataReceived += (_, e) => LogAndCapture(e.Data, output);

@@ -53,13 +53,14 @@ namespace NetworkMonitor.Connection
             var output = new StringBuilder();
             var error = new StringBuilder();
             string opensslPath = Path.Combine(_commandPath, "openssl");
+            string workingDirectory = _commandPath;
+            string oqsProviderPath = _oqsProviderPath;
             if (!string.IsNullOrEmpty(_nativeLibDir))
             {
-                // Use the native library directory if provided
-                _commandPath = _nativeLibDir;
-                _oqsProviderPath = _nativeLibDir;
-                LibraryHelper.SetLDLibraryPath(_nativeLibDir);
-                opensslPath = Path.Combine(_commandPath, "openssl-exe.so");
+                LibraryHelper.SetLDLibraryPath(_nativeLibDir); 
+                workingDirectory = _commandPath;
+                oqsProviderPath = _nativeLibDir;
+                opensslPath = Path.Combine(_nativeLibDir, "openssl-exe.so");
             }
 
 
@@ -67,13 +68,13 @@ namespace NetworkMonitor.Connection
             {
                 FileName = opensslPath,
                 Arguments = $"s_client -curves {curve} -connect {address}:{port} "
-                                        + $"-provider-path {_oqsProviderPath} -provider oqsprovider "
+                                        + $"-provider-path {oqsProviderPath} -provider oqsprovider "
                                         + "-provider default -msg",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                WorkingDirectory = _commandPath
+                WorkingDirectory = workingDirectory
             };
 
             // Log the full command and arguments
@@ -88,11 +89,11 @@ namespace NetworkMonitor.Connection
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 psi.EnvironmentVariables["PATH"] =
-                    _oqsProviderPath + ";" + (psi.EnvironmentVariables["PATH"] ?? "");
+                    oqsProviderPath + ";" + (psi.EnvironmentVariables["PATH"] ?? "");
             }
             else
             {
-                psi.EnvironmentVariables["LD_LIBRARY_PATH"] = _oqsProviderPath;
+                psi.EnvironmentVariables["LD_LIBRARY_PATH"] = oqsProviderPath;
             }
 
             using var proc = new Process { StartInfo = psi };
