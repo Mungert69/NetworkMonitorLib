@@ -58,7 +58,7 @@ namespace NetworkMonitor.Connection
             if (!string.IsNullOrEmpty(_nativeLibDir))
             {
                 LibraryHelper.SetLDLibraryPath(_nativeLibDir); 
-                workingDirectory = _commandPath;
+                workingDirectory = _nativeLibDir;
                 oqsProviderPath = _nativeLibDir;
                 opensslPath = Path.Combine(_nativeLibDir, "openssl-exe.so");
             }

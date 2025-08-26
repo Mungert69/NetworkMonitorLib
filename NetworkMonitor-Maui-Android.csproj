@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <AndroidSdkDirectory>/usr/lib/android-sdk</AndroidSdkDirectory>
     <NoWarn>CS8618</NoWarn>
+     <DefineConstants>ANDROID</DefineConstants>
   </PropertyGroup>
   <!-- Conditional AOT and optimization for Release configuration -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
