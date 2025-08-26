@@ -63,9 +63,9 @@ public static class NativeProc
 
         public ILogger? Logger { get; set; }
 
-        IntPtr nativeArgv = BuildArgv(argv);
-        _handle = start_process(exePath, nativeArgv);
-        FreeArgv(nativeArgv, argv.Length);
+        private int _handle = -1;
+        private CancellationTokenSource? _cts;
+        private Task? _readerTask;
 
         // NEW: signal when we've drained both stdout/stderr
         private TaskCompletionSource<bool>? _drainedTcs;
@@ -250,6 +250,8 @@ public static class NativeProc
             {
                 try { stop_process(_handle); } catch { /* ignore */ }
             }
+            _cts?.Cancel();
+            try { _readerTask?.Wait(500); } catch { /* ignore */ }
         }
 
         public void Dispose()
@@ -261,93 +263,9 @@ public static class NativeProc
         // tiny helper so we can use TaskCompletionSource in netstandard-friendly way
         private sealed class TaskCreationSource<T> : TaskCompletionSource<T>
         {
-            Logger?.LogInformation("[proc] reader cancelled");
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(stdoutBuf);
-            Marshal.FreeHGlobal(stderrBuf);
-            _drainedTcs?.TrySetResult(true);
+            public TaskCreationSource() : base(TaskCreationOptions.RunContinuationsAsynchronously) { }
         }
     }
-
-    private static void EmitLines(StringBuilder sb, Action<string>? callback)
-    {
-        if (callback == null) return;
-        string all = sb.ToString();
-        int start = 0, idx;
-        while ((idx = all.IndexOf('\n', start)) >= 0)
-        {
-            string line = all.Substring(start, idx - start).TrimEnd('\r');
-            callback(line);
-            start = idx + 1;
-        }
-        if (start > 0)
-        {
-            string rem = all.Substring(start);
-            sb.Clear();
-            sb.Append(rem);
-        }
-    }
-
-    public int GetExitCode()
-    {
-        if (_handle < 0) return -1;
-        try { return get_exit_code(_handle); }
-        catch { return -1; }
-    }
-
-    public Task<int> WaitForExitAsync(int pollMs = 50, CancellationToken cancellationToken = default)
-    {
-        var tcs = new TaskCreationSource<int>();
-        var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Task.Run(async () =>
-        {
-            try
-            {
-                while (!linked.Token.IsCancellationRequested)
-                {
-                    int ec = GetExitCode();
-                    if (ec >= 0 || ec == -1) { tcs.TrySetResult(ec); return; }
-                    await Task.Delay(pollMs, linked.Token).ConfigureAwait(false);
-                }
-                tcs.TrySetCanceled(linked.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                tcs.TrySetCanceled(linked.Token);
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-            }
-        }, linked.Token);
-        return tcs.Task;
-    }
-
-    public void Stop()
-    {
-        Logger?.LogInformation("[proc] stop requested");
-        if (_handle >= 0)
-        {
-            try { stop_process(_handle); } catch { /* ignore */ }
-        }
-        _cts?.Cancel();
-        try { _readerTask?.Wait(500); } catch { /* ignore */ }
-    }
-
-    public void Dispose()
-    {
-        Stop();
-        _cts?.Dispose();
-    }
-
-    private sealed class TaskCreationSource<T> : TaskCompletionSource<T>
-    {
-        public TaskCreationSource() : base(TaskCreationOptions.RunContinuationsAsynchronously) { }
-    }
-
-}
 
 }
 
