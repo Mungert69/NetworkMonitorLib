@@ -86,7 +86,8 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         }
 
         var exit = await ps.WaitForExitAsync(50, token);
-
+        // NEW: wait for reader to fully drain both pipes (matches native changes)
+        await ps.WaitForDrainAsync();
         _logger.LogInformation("Exit code: {Exit}", exit);
 
         return $"{stderr} : {stdout}";
