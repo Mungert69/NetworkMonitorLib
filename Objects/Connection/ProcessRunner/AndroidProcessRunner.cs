@@ -1,10 +1,10 @@
 #if ANDROID
 using Android.App;
 using Java.IO;
-using Java.Lang;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System.Linq;
@@ -37,52 +37,83 @@ public class AndroidProcessRunner : IPlatformProcessRunner
             string cmd = string.Join(' ', argsList);
             _logger.LogInformation("Executing Android command: {Cmd}", cmd);
 
-            // Prepare environment variables
-            var env = new List<string>();
-            if (envVars != null)
-                env.AddRange(envVars.Select(kv => $"{kv.Key}={kv.Value}"));
+            // Merge current environment variables
+            var mergedEnv = new List<string>();
+            foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+                mergedEnv.Add($"{entry.Key}={entry.Value}");
 
-            // Always set LD_LIBRARY_PATH to working directory
-            env.Add("LD_LIBRARY_PATH=" + workingDirectory);
+            // Add/override LD_LIBRARY_PATH
+            string existingLd = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH") ?? "";
+            mergedEnv.Add("LD_LIBRARY_PATH=" + workingDirectory +
+                          (string.IsNullOrEmpty(existingLd) ? "" : ":" + existingLd));
+
+            // Merge additional envVars
+            if (envVars != null)
+                mergedEnv.AddRange(envVars.Select(kv => $"{kv.Key}={kv.Value}"));
+
+            _logger.LogDebug("Final environment variables for process:");
+            foreach (var e in mergedEnv)
+                _logger.LogDebug("  {Env}", e);
 
             // Execute process
+            _logger.LogDebug("Starting process in working directory: {Dir}", workingDirectory);
             var runtime = Java.Lang.Runtime.GetRuntime();
-            var process = runtime.Exec(cmd, env.ToArray(), new Java.IO.File(workingDirectory));
+            var process = runtime.Exec(cmd, mergedEnv.ToArray(), new Java.IO.File(workingDirectory));
+            _logger.LogInformation("Process started successfully.");
 
-            // Cancelation token handling
+            // Cancellation token handling
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-            cts.CancelAfter(TimeSpan.FromSeconds(20));
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
             cts.Token.Register(() =>
             {
+                _logger.LogWarning("Cancellation requested. Destroying process...");
                 try { process.Destroy(); } catch { }
             });
 
             // Read stdout asynchronously
             var stdoutTask = Task.Run(() =>
             {
-                using var reader = new BufferedReader(new InputStreamReader(process.InputStream));
-                string? line;
-                while ((line = reader.ReadLine()) != null)
+                try
                 {
-                    token.ThrowIfCancellationRequested();
-                    output.AppendLine(line);
+                    using var reader = new BufferedReader(new InputStreamReader(process.InputStream));
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        output.AppendLine(line);
+                        _logger.LogInformation("[STDOUT] {Line}", line);
+                    }
+                }
+                catch (Java.IO.InterruptedIOException)
+                {
+                    _logger.LogInformation("STDOUT read interrupted by cancellation.");
                 }
             }, token);
 
             // Read stderr asynchronously
             var stderrTask = Task.Run(() =>
             {
-                using var reader = new BufferedReader(new InputStreamReader(process.ErrorStream));
-                string? line;
-                while ((line = reader.ReadLine()) != null)
+                try
                 {
-                    token.ThrowIfCancellationRequested();
-                    error.AppendLine(line);
+                    using var reader = new BufferedReader(new InputStreamReader(process.ErrorStream));
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        error.AppendLine(line);
+                        _logger.LogInformation("[STDERR] {Line}", line);
+                    }
+                }
+                catch (Java.IO.InterruptedIOException)
+                {
+                    _logger.LogInformation("STDERR read interrupted by cancellation.");
                 }
             }, token);
 
             await Task.WhenAll(stdoutTask, stderrTask);
-            process.WaitFor();
+
+            int exitCode = process.WaitFor();
+            _logger.LogInformation("Process exited with code: {ExitCode}", exitCode);
         }
         catch (Java.IO.IOException ex)
         {
@@ -91,7 +122,7 @@ public class AndroidProcessRunner : IPlatformProcessRunner
         }
         catch (OperationCanceledException)
         {
-            _logger.LogError("Android process canceled: {Path}", executablePath);
+            _logger.LogWarning("Android process canceled: {Path}", executablePath);
             return "Process canceled or timeout reached.";
         }
         catch (System.Exception ex)
@@ -100,6 +131,7 @@ public class AndroidProcessRunner : IPlatformProcessRunner
             return ex.Message;
         }
 
+        _logger.LogInformation("Process finished. Returning combined output.");
         return $"{error} : {output}";
     }
 }

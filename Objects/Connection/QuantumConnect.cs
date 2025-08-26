@@ -19,12 +19,14 @@ namespace NetworkMonitor.Connection
         private string _commandPath;
         private string _nativeLibDir = string.Empty;
         private readonly ILogger _logger;
+        private readonly IPlatformProcessRunner _runner;
 
         public QuantumConnect(
             List<AlgorithmInfo> algorithmInfoList,
             string oqsProviderPath,
             string commandPath,
-            ILogger logger, string nativeLibDir = "")
+            ILogger logger,
+            string nativeLibDir = "")
         {
             _algorithmInfoList = algorithmInfoList;
             _nativeLibDir = nativeLibDir;
@@ -32,16 +34,17 @@ namespace NetworkMonitor.Connection
             _commandPath = commandPath;
             _logger = logger;
 
+#if ANDROID
+        _runner = new AndroidProcessRunner(logger);
+#else
+            _runner = new DefaultProcessRunner(logger);
+#endif
 
             IsLongRunning = true;
         }
 
-        /*───────────────────────────  ★ THE SINGLE SEAM ★  ───────────────────────────*/
+        /*───────────────────────────  ★ SINGLE SEAM: RUN PROCESS ★  ───────────────────────────*/
 
-        /// <summary>
-        /// Executes the OpenSSL/OQS process.  
-        /// Override in tests to return canned output; production keeps default logic.
-        /// </summary>
         protected virtual async Task<string> RunCommandAsync(
             string oqsCodepoint,
             string curve,
@@ -50,85 +53,27 @@ namespace NetworkMonitor.Connection
             bool addEnv,
             CancellationToken token)
         {
-            var output = new StringBuilder();
-            var error = new StringBuilder();
-            string opensslPath = Path.Combine(_commandPath, "openssl");
-            string workingDirectory = _commandPath;
-            string oqsProviderPath = _oqsProviderPath;
-            if (!string.IsNullOrEmpty(_nativeLibDir))
-            {
-                LibraryHelper.SetLDLibraryPath(_nativeLibDir); 
-                workingDirectory = _nativeLibDir;
-                oqsProviderPath = _nativeLibDir;
-                opensslPath = Path.Combine(_nativeLibDir, "openssl-exe.so");
-            }
+            string workingDirectory = string.IsNullOrEmpty(_nativeLibDir) ? _commandPath : _nativeLibDir;
+            string providerPath = string.IsNullOrEmpty(_nativeLibDir) ? _oqsProviderPath : _nativeLibDir;
+            string opensslPath = Path.Combine(workingDirectory, "openssl" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "-exe.so"));
 
+            string arguments = $"s_client -curves {curve} -connect {address}:{port} " +
+                               $"-provider-path {providerPath} -provider oqsprovider -provider default -msg";
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = opensslPath,
-                Arguments = $"s_client -curves {curve} -connect {address}:{port} "
-                                        + $"-provider-path {oqsProviderPath} -provider oqsprovider "
-                                        + "-provider default -msg",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = workingDirectory
-            };
-
-            // Log the full command and arguments
-            _logger.LogInformation($"Running command: {psi.FileName} {psi.Arguments}");
-
-            if (addEnv)
+            var envVars = new Dictionary<string, string>();
+            if (addEnv && !string.IsNullOrEmpty(oqsCodepoint))
             {
                 var kv = oqsCodepoint.Split('=', 2);
-                psi.EnvironmentVariables[kv[0]] = kv[1];
+                envVars[kv[0]] = kv[1];
             }
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                psi.EnvironmentVariables["PATH"] =
-                    oqsProviderPath + ";" + (psi.EnvironmentVariables["PATH"] ?? "");
-            }
-            else
-            {
-                psi.EnvironmentVariables["LD_LIBRARY_PATH"] = oqsProviderPath;
-            }
+            envVars["LD_LIBRARY_PATH"] = workingDirectory;
 
-            using var proc = new Process { StartInfo = psi };
+            _logger.LogInformation("Preparing to run OpenSSL/OQS: {Cmd} {Args}", opensslPath, arguments);
 
-            token.Register(() =>
-            {
-                try
-                {
-                    if (!proc.HasExited) proc.Kill();
-                }
-                catch { /* ignore */ }
-            });
-
-            proc.Start();
-
-            await Task.WhenAll(
-                ReadStreamAsync(proc.StandardOutput, output, token),
-                ReadStreamAsync(proc.StandardError, error, token));
-
-            proc.WaitForExit();
-            _logger.LogDebug($"Output: {error} : {output}");
-
-            return $"{error} : {output}";
+            return await _runner.RunAsync(opensslPath, arguments, workingDirectory, envVars, token);
         }
 
-        private static async Task ReadStreamAsync(
-            StreamReader reader, StringBuilder sb, CancellationToken ct)
-        {
-            string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
-            {
-                ct.ThrowIfCancellationRequested();
-                sb.AppendLine(line);
-            }
-        }
 
 
         public override async Task Connect()
