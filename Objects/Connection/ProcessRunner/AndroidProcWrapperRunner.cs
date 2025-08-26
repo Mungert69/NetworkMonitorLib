@@ -2,7 +2,10 @@
 #if ANDROID
 using Android.App;
 using Android.OS;
-using Java.IO;
+// Don't import Java.IO wholesale; alias the specific type we need:
+using JFile = Java.IO.File;
+using IOFile = System.IO.File;
+
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -106,7 +109,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         // List all files under native dir with permissions
         try
         {
-            var dir = new File(_nativeDir);
+            var dir = new JFile(_nativeDir);
             var files = dir.ListFiles();
             if (files is null)
             {
@@ -131,18 +134,19 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         {
             "libprocwrapper.so",
             "libopenssl_exec.so",     // recommended name for the exec payload
-            "libnmap_exec.so",         // older name (if still used)
+            "libnmap_exec.so",        // older name (if still used)
             "libssl.so",
             "libcrypto.so",
-            "openssl.so"
+            "openssl.so",
             "libc++_shared.so",
             "oqsprovider.so",         // your provider as shipped
             "liboqsprovider.so"       // if you ever rename to lib*.so
         };
+
         foreach (var name in expected.Distinct())
         {
             var p = System.IO.Path.Combine(_nativeDir, name);
-            var jf = new File(p);
+            var jf = new JFile(p);
             _logger.LogInformation("Check {Name}: exists={E} size={S} R={R} X={X}",
                 name, jf.Exists(), jf.Length(), jf.CanRead(), jf.CanExecute());
         }
@@ -156,7 +160,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
     private void PreflightExecutable(string exeFullPath)
     {
-        var jf = new File(exeFullPath);
+        var jf = new JFile(exeFullPath);
 
         // Quick existence check
         if (!jf.Exists())
@@ -181,7 +185,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         // Touch via managed IO to surface obvious issues early (not fatal)
         try
         {
-            using var _ = System.IO.File.OpenRead(exeFullPath);
+            using var _ = IOFile.OpenRead(exeFullPath);
         }
         catch (System.Exception ex)
         {
