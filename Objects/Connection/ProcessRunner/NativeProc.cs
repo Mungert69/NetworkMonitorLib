@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 namespace NetworkMonitor.Connection;
+
 public static class NativeProc
 {
     // ========= P/Invoke =========
@@ -27,9 +28,11 @@ public static class NativeProc
     private static extern int stop_process(int handle);
 
     // ========= argv helpers =========
-    private static IntPtr BuildArgv(string[] parts) {
+    private static IntPtr BuildArgv(string[] parts)
+    {
         IntPtr[] ptrs = new IntPtr[parts.Length + 1];
-        for (int i = 0; i < parts.Length; i++) {
+        for (int i = 0; i < parts.Length; i++)
+        {
             byte[] bytes = Encoding.UTF8.GetBytes(parts[i] + "\0");
             IntPtr mem = Marshal.AllocHGlobal(bytes.Length);
             Marshal.Copy(bytes, 0, mem, bytes.Length);
@@ -42,142 +45,221 @@ public static class NativeProc
         return argv;
     }
 
-    private static void FreeArgv(IntPtr argv, int count) {
-        for (int i = 0; i < count; i++) {
+    private static void FreeArgv(IntPtr argv, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
             IntPtr p = Marshal.ReadIntPtr(argv, i * IntPtr.Size);
             if (p != IntPtr.Zero) Marshal.FreeHGlobal(p);
         }
         Marshal.FreeHGlobal(argv);
     }
 
-  public class ProcessStream : IDisposable
-{
-    public event Action<string>? OnStdoutLine;
-    public event Action<string>? OnStderrLine;
-    public event Action<int>?    OnExited;
-    public ILogger? Logger { get; set; }
-
-    private int _handle = -1;
-    private CancellationTokenSource? _cts;
-    private Task? _readerTask;
-
-    // Signals when both pipes have been drained after exit
-    private TaskCompletionSource<bool>? _drainedTcs;
-
-    private const int BUF_SIZE = 4096;
-
-    public bool Start(string exePath, string[] args)
+    public class ProcessStream : IDisposable
     {
-        string[] argv = new string[args.Length + 1];
-        argv[0] = exePath;
-        Array.Copy(args, 0, argv, 1, args.Length);
+        public event Action<string>? OnStdoutLine;
+        public event Action<string>? OnStderrLine;
+        public event Action<int>? OnExited;
 
-        Logger?.LogInformation($"[proc] start: {exePath} {string.Join(" ", args)}");
+        public ILogger? Logger { get; set; }
 
         IntPtr nativeArgv = BuildArgv(argv);
         _handle = start_process(exePath, nativeArgv);
         FreeArgv(nativeArgv, argv.Length);
 
-        if (_handle < 0)
+        // NEW: signal when we've drained both stdout/stderr
+        private TaskCompletionSource<bool>? _drainedTcs;
+
+        private const int BUF_SIZE = 4096;
+
+        public bool Start(string exePath, string[] args)
         {
-            Logger?.LogInformation("[proc] start failed (handle < 0)");
-            return false;
+            string[] argv = new string[args.Length + 1];
+            argv[0] = exePath;
+            Array.Copy(args, 0, argv, 1, args.Length);
+
+            Logger?.LogInformation($"[proc] start: {exePath} {string.Join(" ", args)}");
+
+            IntPtr nativeArgv = BuildArgv(argv);
+            _handle = start_process(exePath, nativeArgv);
+            FreeArgv(nativeArgv, argv.Length);
+
+            if (_handle < 0)
+            {
+                Logger?.LogInformation("[proc] start failed (handle < 0)");
+                return false;
+            }
+
+            Logger?.LogInformation($"[proc] started handle={_handle}");
+
+            _cts = new CancellationTokenSource();
+            _drainedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _readerTask = Task.Run(() => ReaderLoop(_cts.Token));
+            return true;
         }
 
-        Logger?.LogInformation($"[proc] started handle={_handle}");
+        // NEW: await this after WaitForExitAsync to ensure tail has flushed
+        public Task WaitForDrainAsync() => _drainedTcs?.Task ?? Task.CompletedTask;
 
-        _cts = new CancellationTokenSource();
-        _drainedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _readerTask = Task.Run(() => ReaderLoop(_cts.Token));
-        return true;
-    }
-
-    /// <summary>Await after WaitForExitAsync to ensure trailing output is captured.</summary>
-    public Task WaitForDrainAsync() => _drainedTcs?.Task ?? Task.CompletedTask;
-
-    private async Task ReaderLoop(CancellationToken ct)
-    {
-        var stdoutBuf = Marshal.AllocHGlobal(BUF_SIZE);
-        var stderrBuf = Marshal.AllocHGlobal(BUF_SIZE);
-        var sbOut = new StringBuilder();
-        var sbErr = new StringBuilder();
-
-        bool sawExit = false;
-        int outZeroStreak = 0;
-        int errZeroStreak = 0;
-        const int EOF_STREAK = 2; // require a couple consecutive zero-reads post-exit
-
-        try
+        private async Task ReaderLoop(CancellationToken ct)
         {
-            while (!ct.IsCancellationRequested)
+            var stdoutBuf = Marshal.AllocHGlobal(BUF_SIZE);
+            var stderrBuf = Marshal.AllocHGlobal(BUF_SIZE);
+            var sbOut = new StringBuilder();
+            var sbErr = new StringBuilder();
+
+            bool sawExit = false;
+            bool outEof = false, errEof = false;
+
+            try
             {
-                int nOut = read_stdout(_handle, stdoutBuf, BUF_SIZE - 1);
-                if (nOut > 0)
+                while (!ct.IsCancellationRequested)
                 {
-                    outZeroStreak = 0;
-                    Logger?.LogInformation($"[proc] read stdout {nOut} bytes");
-                    byte[] tmp = new byte[nOut];
-                    Marshal.Copy(stdoutBuf, tmp, 0, nOut);
-                    sbOut.Append(Encoding.UTF8.GetString(tmp));
-                    EmitLines(sbOut, OnStdoutLine);
-                }
-                else if (nOut == 0 && sawExit)
-                {
-                    // zero after exit could be EAGAIN or EOF; count a short streak
-                    outZeroStreak = Math.Min(outZeroStreak + 1, EOF_STREAK);
-                }
-
-                int nErr = read_stderr(_handle, stderrBuf, BUF_SIZE - 1);
-                if (nErr > 0)
-                {
-                    errZeroStreak = 0;
-                    Logger?.LogInformation($"[proc] read stderr {nErr} bytes");
-                    byte[] tmp = new byte[nErr];
-                    Marshal.Copy(stderrBuf, tmp, 0, nErr);
-                    sbErr.Append(Encoding.UTF8.GetString(tmp));
-                    EmitLines(sbErr, OnStderrLine);
-                }
-                else if (nErr == 0 && sawExit)
-                {
-                    errZeroStreak = Math.Min(errZeroStreak + 1, EOF_STREAK);
-                }
-
-                int exitStatus = GetExitCode();
-                if (exitStatus == -1)
-                {
-                    Logger?.LogInformation("[proc] GetExitCode returned -1 (error/invalid)");
-                    OnExited?.Invoke(-1);
-                    break;
-                }
-
-                if (exitStatus >= 0)
-                {
-                    if (!sawExit)
+                    int nOut = read_stdout(_handle, stdoutBuf, BUF_SIZE - 1);
+                    if (nOut > 0)
                     {
-                        sawExit = true;
-                        Logger?.LogInformation("[proc] exit observed, draining...");
-                        // reset streaks on the first observation of exit
-                        outZeroStreak = 0;
-                        errZeroStreak = 0;
+                        Logger?.LogInformation($"[proc] read stdout {nOut} bytes");
+                        byte[] tmp = new byte[nOut];
+                        Marshal.Copy(stdoutBuf, tmp, 0, nOut);
+                        sbOut.Append(Encoding.UTF8.GetString(tmp));
+                        EmitLines(sbOut, OnStdoutLine);
+                    }
+                    else if (nOut == 0 && GetExitCode() >= 0)
+                    {
+                        // EOF on stdout (after exit observed)
+                        outEof = true;
                     }
 
-                    // when both streams have delivered a couple zero-reads, treat as drained
-                    if (outZeroStreak >= EOF_STREAK && errZeroStreak >= EOF_STREAK)
+                    int nErr = read_stderr(_handle, stderrBuf, BUF_SIZE - 1);
+                    if (nErr > 0)
                     {
-                        // flush trailing partial lines
-                        if (sbOut.Length > 0) OnStdoutLine?.Invoke(sbOut.ToString());
-                        if (sbErr.Length > 0) OnStderrLine?.Invoke(sbErr.ToString());
+                        Logger?.LogInformation($"[proc] read stderr {nErr} bytes");
+                        byte[] tmp = new byte[nErr];
+                        Marshal.Copy(stderrBuf, tmp, 0, nErr);
+                        sbErr.Append(Encoding.UTF8.GetString(tmp));
+                        EmitLines(sbErr, OnStderrLine);
+                    }
+                    else if (nErr == 0 && GetExitCode() >= 0)
+                    {
+                        // EOF on stderr (after exit observed)
+                        errEof = true;
+                    }
 
-                        Logger?.LogInformation($"[proc] exited with code {exitStatus}");
-                        OnExited?.Invoke(exitStatus);
+                    int exitStatus = GetExitCode();
+                    if (exitStatus == -1)
+                    {
+                        Logger?.LogInformation("[proc] GetExitCode returned -1 (error/invalid)");
+                        OnExited?.Invoke(-1);
                         break;
                     }
-                }
 
-                await Task.Delay(20, ct).ConfigureAwait(false);
+                    if (exitStatus >= 0)
+                    {
+                        if (!sawExit)
+                        {
+                            sawExit = true;
+                            Logger?.LogInformation("[proc] exit observed, draining...");
+                        }
+
+                        // Keep looping until both streams report EOF
+                        if (outEof && errEof)
+                        {
+                            // flush any trailing partial lines
+                            if (sbOut.Length > 0) OnStdoutLine?.Invoke(sbOut.ToString());
+                            if (sbErr.Length > 0) OnStderrLine?.Invoke(sbErr.ToString());
+
+                            Logger?.LogInformation($"[proc] exited with code {exitStatus}");
+                            OnExited?.Invoke(exitStatus);
+                            break;
+                        }
+                    }
+
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger?.LogInformation("[proc] reader cancelled");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(stdoutBuf);
+                Marshal.FreeHGlobal(stderrBuf);
+                _drainedTcs?.TrySetResult(true);
             }
         }
-        catch (OperationCanceledException)
+
+        private static void EmitLines(StringBuilder sb, Action<string>? callback)
+        {
+            if (callback == null) return;
+            string all = sb.ToString();
+            int start = 0, idx;
+            while ((idx = all.IndexOf('\n', start)) >= 0)
+            {
+                string line = all.Substring(start, idx - start).TrimEnd('\r');
+                callback(line);
+                start = idx + 1;
+            }
+            if (start > 0)
+            {
+                string rem = all.Substring(start);
+                sb.Clear();
+                sb.Append(rem);
+            }
+        }
+
+        public int GetExitCode()
+        {
+            if (_handle < 0) return -1;
+            try { return get_exit_code(_handle); }
+            catch { return -1; }
+        }
+
+        public Task<int> WaitForExitAsync(int pollMs = 50, CancellationToken cancellationToken = default)
+        {
+            var tcs = new TaskCreationSource<int>();
+            var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            Task.Run(async () =>
+            {
+                try
+                {
+                    while (!linked.Token.IsCancellationRequested)
+                    {
+                        int ec = GetExitCode();
+                        if (ec >= 0 || ec == -1) { tcs.TrySetResult(ec); return; }
+                        await Task.Delay(pollMs, linked.Token).ConfigureAwait(false);
+                    }
+                    tcs.TrySetCanceled(linked.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    tcs.TrySetCanceled(linked.Token);
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+            }, linked.Token);
+            return tcs.Task;
+        }
+
+        public void Stop()
+        {
+            Logger?.LogInformation("[proc] stop requested");
+            if (_handle >= 0)
+            {
+                try { stop_process(_handle); } catch { /* ignore */ }
+            }
+        }
+
+        public void Dispose()
+        {
+            Stop();
+            _cts?.Dispose();
+        }
+
+        // tiny helper so we can use TaskCompletionSource in netstandard-friendly way
+        private sealed class TaskCreationSource<T> : TaskCompletionSource<T>
         {
             Logger?.LogInformation("[proc] reader cancelled");
         }
@@ -264,6 +346,7 @@ public static class NativeProc
     {
         public TaskCreationSource() : base(TaskCreationOptions.RunContinuationsAsynchronously) { }
     }
+
 }
 
 }
