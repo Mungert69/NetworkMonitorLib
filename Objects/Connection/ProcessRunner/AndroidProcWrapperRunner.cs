@@ -63,7 +63,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        var ps = new NativeProc.ProcessStream { Debug = true };
+        var ps = new NativeProc.ProcessStream { Logger=_logger };
 
         // capture lines as they stream in
         ps.OnStdoutLine += line => { lock (stdout) stdout.AppendLine(line); _logger.LogTrace("[STDOUT] {Line}", line); };
