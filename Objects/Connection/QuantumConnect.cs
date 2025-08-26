@@ -55,8 +55,9 @@ namespace NetworkMonitor.Connection
         {
             string workingDirectory = string.IsNullOrEmpty(_nativeLibDir) ? _commandPath : _nativeLibDir;
             string providerPath = string.IsNullOrEmpty(_nativeLibDir) ? _oqsProviderPath : _nativeLibDir;
-            string opensslPath = Path.Combine(workingDirectory, "openssl" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "-exe.so"));
+            string opensslPath = Path.Combine(workingDirectory, "openssl" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : ""));
 
+            if (!string.IsNullOrEmpty(_nativeLibDir)) opensslPath = Path.Combine(workingDirectory, "libopenssl_exec.so");
             string arguments = $"s_client -curves {curve} -connect {address}:{port} " +
                                $"-provider-path {providerPath} -provider oqsprovider -provider default -msg";
 

@@ -1,10 +1,11 @@
 // AndroidProcWrapperRunner.cs
 #if ANDROID
 using Android.App;
+using Android.OS;
+using Java.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System.Linq;
@@ -18,7 +19,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
     /// <param name="nativeDir">
     /// If null/empty, defaults to Application.Context.ApplicationInfo.NativeLibraryDir
-    /// (That is where MAUI places .so files for each ABI and is executable on Android 14+.)
+    /// (where MAUI places .so files and which is exec-mounted on Android 14+)
     /// </param>
     public AndroidProcWrapperRunner(ILogger logger, string? nativeDir = null)
     {
@@ -35,35 +36,38 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         IDictionary<string, string>? envVars,
         CancellationToken token)
     {
-        // Resolve the executable path; on Android we want it in nativeLibraryDir
-        string exeFullPath = Path.IsPathRooted(executablePath)
+        // Resolve the executable path; on Android we expect it in nativeLibraryDir
+        string exeFullPath = System.IO.Path.IsPathRooted(executablePath)
             ? executablePath
-            : Path.Combine(_nativeDir, executablePath);
+            : System.IO.Path.Combine(_nativeDir, executablePath);
 
-        // Ensure env vars are inherited by the forked child (procwrapper uses fork/execv)
-        // Important for OpenSSL providers & local libs
-        // LD_LIBRARY_PATH must include _nativeDir; OPENSSL_MODULES should point there too.
+        // 🔎 Pre-flight diagnostics (what did Play actually give us?)
+        DumpNativeSetup(exeFullPath);
+
+        // Ensure env vars are inherited by the fork/execv (procwrapper)
         MergeEnv("LD_LIBRARY_PATH", _nativeDir);
-        SetEnvIfPresent("OPENSSL_MODULES", _nativeDir);
+        SetEnvIfPresent("OPENSSL_MODULES", _nativeDir); // harmless if not OpenSSL
 
         if (envVars is not null)
         {
             foreach (var kv in envVars)
             {
-                // allow overrides or additions from the caller
-                if (kv.Key.Equals("LD_LIBRARY_PATH", StringComparison.Ordinal))
+                if (kv.Key.Equals("LD_LIBRARY_PATH", System.StringComparison.Ordinal))
                     MergeEnv("LD_LIBRARY_PATH", kv.Value);
                 else
-                    Environment.SetEnvironmentVariable(kv.Key, kv.Value);
+                    System.Environment.SetEnvironmentVariable(kv.Key, kv.Value);
             }
         }
 
         // Build argv[] for the native wrapper
         string[] argv = BuildArgvVector(exeFullPath, arguments);
 
+        // 🧪 Last mile file checks (exists/exec) and best-effort +x
+        PreflightExecutable(exeFullPath);
+
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        var ps = new NativeProc.ProcessStream { Debug = true };
+        var ps = new NativeProc.ProcessStream { Logger = _logger };
 
         // capture lines as they stream in
         ps.OnStdoutLine += line => { lock (stdout) stdout.AppendLine(line); _logger.LogTrace("[STDOUT] {Line}", line); };
@@ -78,18 +82,111 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
         _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", exeFullPath, arguments);
 
-        // Start the loader+args OR the binary directly; on Android we start the binary directly
-        if (!ps.Start(exeFullPath, argv.Skip(1).ToArray())) // argv[0] is the exe itself
+        // Start the binary directly; argv[0] is the exe itself
+        if (!ps.Start(exeFullPath, argv.Skip(1).ToArray()))
         {
             _logger.LogError("Failed to start process: {Path}", exeFullPath);
             return $"Failed to start: {exeFullPath}";
         }
 
         var exit = await ps.WaitForExitAsync(50, token);
-
+        await ps.WaitForDrainAsync(); // ensure trailing output is captured
         _logger.LogInformation("Exit code: {Exit}", exit);
 
         return $"{stderr} : {stdout}";
+    }
+
+    private void DumpNativeSetup(string exeFullPath)
+    {
+        // Core locations/ABIs
+        _logger.LogInformation("NativeLibraryDir = {Dir}", _nativeDir);
+        _logger.LogInformation("Build.SUPPORTED_ABIS = {Abis}", string.Join(",", Build.SupportedAbis ?? new string[0]));
+        _logger.LogInformation("Exec candidate = {Exe}", exeFullPath);
+
+        // List all files under native dir with permissions
+        try
+        {
+            var dir = new File(_nativeDir);
+            var files = dir.ListFiles();
+            if (files is null)
+            {
+                _logger.LogWarning("ListFiles() returned null for {Dir}", _nativeDir);
+            }
+            else
+            {
+                foreach (var f in files)
+                {
+                    _logger.LogInformation(" • {Name} size={Size} R={R} X={X}",
+                        f.Name, f.Length(), f.CanRead(), f.CanExecute());
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enumerate {Dir}", _nativeDir);
+        }
+
+        // Check expected libs; include both naming variants so you see what's present
+        string[] expected = new[]
+        {
+            "libprocwrapper.so",
+            "libopenssl_exec.so",     // recommended name for the exec payload
+            "libnmap_exec.so",         // older name (if still used)
+            "libssl.so",
+            "libcrypto.so",
+            "openssl.so"
+            "libc++_shared.so",
+            "oqsprovider.so",         // your provider as shipped
+            "liboqsprovider.so"       // if you ever rename to lib*.so
+        };
+        foreach (var name in expected.Distinct())
+        {
+            var p = System.IO.Path.Combine(_nativeDir, name);
+            var jf = new File(p);
+            _logger.LogInformation("Check {Name}: exists={E} size={S} R={R} X={X}",
+                name, jf.Exists(), jf.Length(), jf.CanRead(), jf.CanExecute());
+        }
+
+        // Current env that will be inherited by the child
+        var ldlp = System.Environment.GetEnvironmentVariable("LD_LIBRARY_PATH") ?? "(null)";
+        var mods = System.Environment.GetEnvironmentVariable("OPENSSL_MODULES") ?? "(null)";
+        _logger.LogInformation("LD_LIBRARY_PATH = {LD}", ldlp);
+        _logger.LogInformation("OPENSSL_MODULES = {MODS}", mods);
+    }
+
+    private void PreflightExecutable(string exeFullPath)
+    {
+        var jf = new File(exeFullPath);
+
+        // Quick existence check
+        if (!jf.Exists())
+        {
+            _logger.LogError("Executable not found: {Path}", exeFullPath);
+        }
+
+        // Best-effort: ensure exec bit (may be ignored if FS is read-only)
+        if (!jf.CanExecute())
+        {
+            try
+            {
+                bool ok = jf.SetExecutable(true, /*ownerOnly*/ false);
+                _logger.LogInformation("SetExecutable({Path}) -> {Ok}", exeFullPath, ok);
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogWarning(ex, "SetExecutable failed for {Path}", exeFullPath);
+            }
+        }
+
+        // Touch via managed IO to surface obvious issues early (not fatal)
+        try
+        {
+            using var _ = System.IO.File.OpenRead(exeFullPath);
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogWarning(ex, "OpenRead failed for {Path}", exeFullPath);
+        }
     }
 
     private static string[] BuildArgvVector(string exe, string args)
@@ -97,25 +194,23 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         if (string.IsNullOrWhiteSpace(args))
             return new[] { exe };
 
-        // Simple tokenizer. If you need full quote/escape support, replace with a robust splitter.
-        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var parts = args.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
         var argv = new string[parts.Length + 1];
         argv[0] = exe;
-        Array.Copy(parts, 0, argv, 1, parts.Length);
+        parts.CopyTo(argv, 1);
         return argv;
     }
 
     private static void MergeEnv(string key, string prependDir)
     {
-        var old = Environment.GetEnvironmentVariable(key);
+        var old = System.Environment.GetEnvironmentVariable(key);
         string val = string.IsNullOrEmpty(old) ? prependDir : $"{prependDir}:{old}";
-        Environment.SetEnvironmentVariable(key, val);
+        System.Environment.SetEnvironmentVariable(key, val);
     }
 
     private static void SetEnvIfPresent(string key, string value)
     {
-        // set it unconditionally — harmless for non-OpenSSL launches
-        Environment.SetEnvironmentVariable(key, value);
+        System.Environment.SetEnvironmentVariable(key, value);
     }
 }
 #endif
