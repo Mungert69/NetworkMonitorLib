@@ -53,7 +53,7 @@ namespace NetworkMonitor.Connection
                     exePath = _netConfig.NativeLibDir;
                     workingDirectory = _netConfig.CommandPath;
                     LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
-                    opensslPath = Path.Combine(_netConfig.NativeLibDir, "openssl-exe.so");
+                    opensslPath = Path.Combine(_netConfig.NativeLibDir, "libopenssl_exec.so");
                 }
                 using (var process = new Process())
                 {
