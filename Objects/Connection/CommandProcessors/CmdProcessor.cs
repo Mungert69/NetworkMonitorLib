@@ -495,7 +495,7 @@ namespace NetworkMonitor.Connection
 
         protected virtual Dictionary<string, string> ParseArguments(string arguments)
         {
-            return NetworkMonitor.Utils.CliArgParser(arguments);
+            return NetworkMonitor.Utils.CliArgParser.Parse(arguments);
            /* var args = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             // Support both --key value and --key="value" and --key value
             var regex = new Regex(@"--(?<key>\w+)(?:[ =]+(?<value>""[^""]*""|\S+))?");
