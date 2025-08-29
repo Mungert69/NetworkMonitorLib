@@ -18,8 +18,6 @@ namespace NetworkMonitor.Connection
 {
     public class QuantumPortScannerCmdProcessor : QuantumTestBase
     {
-        private readonly string _nmapPath;
-        private const int _nmapTimeout = 30000;
         const int MaxPortsToScan = 20;
 
 
@@ -41,9 +39,7 @@ namespace NetworkMonitor.Connection
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                     return new ResultObj { Message = "Quantum security scanner not available" };
-                if (!File.Exists(_nmapPath))
-                    return new ResultObj { Message = $"Nmap executable not found at {_nmapPath}" };
-
+               
                 var parsedArgs = base.ParseArguments(arguments);
                 var target = GetPositionalArgument(arguments);
                 target = target.Replace("https://", "");
@@ -100,7 +96,7 @@ namespace NetworkMonitor.Connection
                 {
                     // Separate timeout just for nmap!
                     using var nmapCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    nmapCts.CancelAfter(_nmapTimeout);
+                    nmapCts.CancelAfter(_defaultTimeout);
                     try
                     {
                         ports = await RunNmapScan(config.Target, config.NmapOptions, nmapCts.Token);
@@ -110,7 +106,7 @@ namespace NetworkMonitor.Connection
                         return new ResultObj
                         {
                             Success = false,
-                            Message = $"Nmap scan exceeded timeout of {_nmapTimeout / 1000} seconds. Please specify a smaller port list (e.g., with --ports 443,8443)."
+                            Message = $"Nmap scan exceeded timeout of {_defaultTimeout / 1000} seconds. Please specify a smaller port list (e.g., with --ports 443,8443)."
                         };
                     }
                 }
