@@ -164,13 +164,13 @@ namespace NetworkMonitor.Connection
                 extraArg = " --system-dns ";
                 string exePath = _netConfig.CommandPath;
                 string workingDirectory = _netConfig.CommandPath;
-                string dataDir = "";
+                string dataDir = " --datadir " + _netConfig.CommandPath;
                 string nmapPath = Path.Combine(exePath, "nmap");
+                     
                 if (_netConfig.NativeLibDir != string.Empty)
                 {
                     exePath = _netConfig.NativeLibDir;
                     workingDirectory = _netConfig.CommandPath;
-                    dataDir = " --datadir " + _netConfig.CommandPath;
                     LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
                     nmapPath = Path.Combine(_netConfig.NativeLibDir, "libnmap_exec.so");
                 }
