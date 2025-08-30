@@ -31,6 +31,10 @@ namespace NetworkMonitor.Objects
 
         [JsonPropertyName("parameters")]
         public List<CmdProcessorFunctionParameter> Parameters { get; init; } = new();
+
+        // 👇 Optional explicit requireds list at the function level
+        [JsonPropertyName("required")]
+        public List<string>? Required { get; init; }
     }
 
     public sealed class CmdProcessorFunctionParameter
@@ -43,5 +47,9 @@ namespace NetworkMonitor.Objects
 
         [JsonPropertyName("description")]
         public string? Description { get; init; }
+
+        // 👇 Optional explicit required flag per parameter
+        [JsonPropertyName("required")]
+        public bool Required { get; init; } = false;
     }
 }
