@@ -212,7 +212,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmContextFileName = _config.GetValue<string>("LlmContextFileName") ?? "";
             mlParams.LlmHFModelID = _config.GetValue<string>("LlmHFModelID") ?? "";
             mlParams.LlmSpaceModelID = _config.GetValue<string>("LlmSpaceModelID") ?? "";
-            mlParams.LlmProvider= _config.GetValue<string>("LlmProvider") ?? "OpenAI";
+            mlParams.LlmProvider = _config.GetValue<string>("LlmProvider") ?? "OpenAI";
             mlParams.LlmHFKey = GetConfigValue("LlmHFKey");
             mlParams.DataRepoId = _config.GetValue<string>("DataRepoId") ?? "";
             mlParams.HFToken = GetConfigValue("HF_TOKEN");
@@ -230,6 +230,9 @@ namespace NetworkMonitor.Utils.Helpers
                     { "HugLLM",   "execute.api" },
                     { "TestLLM",  "execute.local" }
                 };
+            mlParams.PromptCacheDiscountFraction = decimal.TryParse(_config["PromptCacheDiscountFraction"], out var d) ? d : 0.90m;
+
+            mlParams.CompletionCostMultiplier = decimal.TryParse(_config["CompletionCostMultiplier"], out var k) ? k : 8.00m;
             mlParams.DefaultAgentLocation = _config.GetValue<string>("DefaultAgentLocation") ?? "Scanner - EU";
             mlParams.LlmTemp = _config.GetValue<string>("LlmTemp") ?? "0.1";
 

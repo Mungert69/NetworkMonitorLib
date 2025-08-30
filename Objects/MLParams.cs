@@ -17,57 +17,58 @@ public class MLParams
     private string _llmModelFileName = "";
     private string _llmContextFileName = "";
     private string _llmSystemPrompt = "";
-    private string _llmVersion="";
+    private string _llmVersion = "";
     private int _llmThreads = 4;
     private int _llmSystemPromptTimeout = 10;
     private int _llmUserPromptTimeout = 50;
     private int _llmSessionIdleTimeout = 60;
-    private string _llmReversePrompt="";
+    private string _llmReversePrompt = "";
     private string _llmPromptMode = "-if -sp";
-    private string _llmTemp="0.0";
-    private int _llmCtxSize=12000;
-    private int _llmOpenAICtxSize=32000;
-    private int _llmResponseTokens=4000;
+    private string _llmTemp = "0.0";
+    private int _llmCtxSize = 12000;
+    private int _llmOpenAICtxSize = 32000;
+    private int _llmResponseTokens = 4000;
     private int _llmPromptTokens = 28000;
-    private int _llmCtxRatio=6;
+    private int _llmCtxRatio = 6;
     private string _llmStartName = "monitor";
-    private string _llmRunnerType="TurboLLM";
-    private bool _llmNoInitMessage=false;
-    private bool _llmNoThink=false;
+    private string _llmRunnerType = "TurboLLM";
+    private bool _llmNoInitMessage = false;
+    private bool _llmNoThink = false;
     private bool _startThisTestLLM = true;
     private string _llmGptModel = "gpt-4o-mini";
     private string _llmHFModelID = "";
-    private string _llmHFKey ="";
-    private string _llmHFUrl="";
+    private string _llmHFKey = "";
+    private string _llmHFUrl = "";
     private bool _llmUseHF;
     private bool _isStream;
     private string _llmHFModelVersion;
-    private bool _llmReportProcess =false;
-    private bool _xmlFunctionParsing=false;
-    private string _embeddingModelDir="stsb-bert-tiny-onnx";
-    private int _embeddingModelVecDim=128;
-    private string _openSearchKey="";
-    private string _openSearchUser="admin";
-    private string _openSearchDefaultIndex="documents";
-    private string _openSearchUrl="";
-    private string _openAIApiKey="Missing";
-    private string _dataRepoId="";
-    private string _hFToken="";
-    private bool _addSystemRag=false;
-     private bool _addFunctionRag=false;
+    private bool _llmReportProcess = false;
+    private bool _xmlFunctionParsing = false;
+    private string _embeddingModelDir = "stsb-bert-tiny-onnx";
+    private int _embeddingModelVecDim = 128;
+    private string _openSearchKey = "";
+    private string _openSearchUser = "admin";
+    private string _openSearchDefaultIndex = "documents";
+    private string _openSearchUrl = "";
+    private string _openAIApiKey = "Missing";
+    private string _dataRepoId = "";
+    private string _hFToken = "";
+    private bool _addSystemRag = false;
+    private bool _addFunctionRag = false;
     private string _defaultAgentLocation = "";
     private bool _enableAgentFlow = false;
     private int _maxTokenLengthCap;
     private int _minTokenLengthCap;
-    private string _embeddingProvider ;
+    private string _embeddingProvider;
     private string _llmProvider = "OpenAI";
 
     private string _embeddingApiModel;
-    private string _embeddingApiUrl ;
+    private string _embeddingApiUrl;
     private float _llmTemperature = 0.2f;
-    private  float _llmTopP = 1.0f;
+    private float _llmTopP = 1.0f;
 
-
+    private decimal promptCacheDiscountFraction;
+    private decimal completionCostMultiplier;
     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -87,11 +88,11 @@ public class MLParams
     public int LlmSystemPromptTimeout { get => _llmSystemPromptTimeout; set => _llmSystemPromptTimeout = value; }
     public int LlmUserPromptTimeout { get => _llmUserPromptTimeout; set => _llmUserPromptTimeout = value; }
     public int LlmSessionIdleTimeout { get => _llmSessionIdleTimeout; set => _llmSessionIdleTimeout = value; }
-       public string LlmReversePrompt { get => _llmReversePrompt; set => _llmReversePrompt = value; }
+    public string LlmReversePrompt { get => _llmReversePrompt; set => _llmReversePrompt = value; }
     public string LlmPromptMode { get => _llmPromptMode; set => _llmPromptMode = value; }
-    public Dictionary<string,string> LlmFunctionDic { get => _llmFunctionDic; set => _llmFunctionDic = value; }
+    public Dictionary<string, string> LlmFunctionDic { get => _llmFunctionDic; set => _llmFunctionDic = value; }
     public int LlmCtxSize { get => _llmCtxSize; set => _llmCtxSize = value; }
-     public int LlmResponseTokens { get => _llmResponseTokens; set => _llmResponseTokens = value; }
+    public int LlmResponseTokens { get => _llmResponseTokens; set => _llmResponseTokens = value; }
     public int LlmPromptTokens { get => _llmPromptTokens; set => _llmPromptTokens = value; }
     public string LlmVersion { get => _llmVersion; set => _llmVersion = value; }
     public string LlmStartName { get => _llmStartName; set => _llmStartName = value; }
@@ -146,6 +147,8 @@ public class MLParams
     public global::System.Single LlmTemperature { get => _llmTemperature; set => _llmTemperature = value; }
     public global::System.Single LlmTopP { get => _llmTopP; set => _llmTopP = value; }
     public string LlmSpaceModelID { get => _llmSpaceModelID; set => _llmSpaceModelID = value; }
+    public global::System.Decimal PromptCacheDiscountFraction { get => promptCacheDiscountFraction; set => promptCacheDiscountFraction = value; }
+    public global::System.Decimal CompletionCostMultiplier { get => completionCostMultiplier; set => completionCostMultiplier = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)
