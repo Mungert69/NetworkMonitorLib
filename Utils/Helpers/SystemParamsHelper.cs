@@ -231,7 +231,7 @@ namespace NetworkMonitor.Utils.Helpers
                     { "TestLLM",  "execute.local" }
                 };
             mlParams.PromptCacheDiscountFraction = decimal.TryParse(_config["PromptCacheDiscountFraction"], out var d) ? d : 0.90m;
-
+            mlParams.MaxFunctionCallsInARow = int.TryParse(_config["MaxFunctionCallsInARow"], out int maxFuncCalls) ? maxFuncCalls : 10;
             mlParams.CompletionCostMultiplier = decimal.TryParse(_config["CompletionCostMultiplier"], out var k) ? k : 8.00m;
             mlParams.DefaultAgentLocation = _config.GetValue<string>("DefaultAgentLocation") ?? "Scanner - EU";
             mlParams.LlmTemp = _config.GetValue<string>("LlmTemp") ?? "0.1";

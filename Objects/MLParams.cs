@@ -67,8 +67,9 @@ public class MLParams
     private float _llmTemperature = 0.2f;
     private float _llmTopP = 1.0f;
 
-    private decimal promptCacheDiscountFraction;
-    private decimal completionCostMultiplier;
+    private decimal _promptCacheDiscountFraction;
+    private decimal _completionCostMultiplier;
+    private int _maxFunctionCallsInARow = 10;
     private Dictionary<string, string> _llmRunnerRoutingKeys = new();
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -147,8 +148,9 @@ public class MLParams
     public global::System.Single LlmTemperature { get => _llmTemperature; set => _llmTemperature = value; }
     public global::System.Single LlmTopP { get => _llmTopP; set => _llmTopP = value; }
     public string LlmSpaceModelID { get => _llmSpaceModelID; set => _llmSpaceModelID = value; }
-    public global::System.Decimal PromptCacheDiscountFraction { get => promptCacheDiscountFraction; set => promptCacheDiscountFraction = value; }
-    public global::System.Decimal CompletionCostMultiplier { get => completionCostMultiplier; set => completionCostMultiplier = value; }
+    public global::System.Decimal PromptCacheDiscountFraction { get => _promptCacheDiscountFraction; set => _promptCacheDiscountFraction = value; }
+    public global::System.Decimal CompletionCostMultiplier { get => _completionCostMultiplier; set => _completionCostMultiplier = value; }
+    public global::System.Int32 MaxFunctionCallsInARow { get => _maxFunctionCallsInARow; set => _maxFunctionCallsInARow = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)
