@@ -9,16 +9,19 @@ namespace NetworkMonitor.Objects.Factory;
 public class AccountTypeFactory
 {
     // Configuration for different account types
-    private static readonly Dictionary<string, (int hostLimit, int tokenLimit, int dailyTokens, int contextSize)> _accountTypeConfigurations =
-        new Dictionary<string, (int, int, int, int)>()
-        {
-            { "Default", (10,100000, 25000, 12000) },
-            { "Free", (10,100000, 25000, 12000) },
-            { "Standard", (50,200000, 50000, 12000) },
-            { "Professional", (300,750000, 250000, 32000) },
-            { "Enterprise", (500,2000000, 500000, 64000) },
-            { "God", (1000,10000000, 1000000,128000) }
-        };
+  // inside AccountTypeFactory
+private static readonly Dictionary<string, (int hostLimit, int tokenLimit, int dailyTokens, int contextSize)> _accountTypeConfigurations =
+    new()
+    {
+        { "Default",      (PlanLimits.FreeHosts,         PlanLimits.FreeMaxTokens,         PlanLimits.FreeDailyTokens,         PlanLimits.FreeContextSize) },
+        { "Free",         (PlanLimits.FreeHosts,         PlanLimits.FreeMaxTokens,         PlanLimits.FreeDailyTokens,         PlanLimits.FreeContextSize) },
+        { "Standard",     (PlanLimits.StandardHosts,     PlanLimits.StandardMaxTokens,     PlanLimits.StandardDailyTokens,     PlanLimits.StandardContextSize) },
+        { "Professional", (PlanLimits.ProfessionalHosts, PlanLimits.ProfessionalMaxTokens, PlanLimits.ProfessionalDailyTokens, PlanLimits.ProfessionalContextSize) },
+        { "Enterprise",   (PlanLimits.EnterpriseHosts,   PlanLimits.EnterpriseMaxTokens,   PlanLimits.EnterpriseDailyTokens,   PlanLimits.EnterpriseContextSize) },
+        { "God",          (PlanLimits.GodHosts,          PlanLimits.GodMaxTokens,          PlanLimits.GodDailyTokens,          PlanLimits.GodContextSize) }
+    };
+
+
 
     public static List<T> GetFunctionsForAccountType<T>(string accountType,
                                                                       T fn_are_functions_running,
