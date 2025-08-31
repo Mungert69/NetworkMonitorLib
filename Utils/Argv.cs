@@ -6,8 +6,8 @@ namespace NetworkMonitor.Utils
 {
     /// <summary>
     /// Robust command-line tokenizer & builder for Unix-style argv.
-    /// - Tokenize: split a single string into argv[] honoring quotes/escapes
-    /// - Build:    compose argv[] from option dictionary and positionals
+    /// <para>Tokenize: split a single string into argv[] honoring quotes/escapes</para>
+    /// <para>Build:    compose argv[] from option dictionary and positionals</para>
     /// </summary>
     public static class Argv
     {
