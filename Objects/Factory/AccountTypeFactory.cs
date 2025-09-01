@@ -9,19 +9,9 @@ namespace NetworkMonitor.Objects.Factory;
 public class AccountTypeFactory
 {
     // Configuration for different account types
-  // inside AccountTypeFactory
-private static readonly Dictionary<string, (int hostLimit, int tokenLimit, int dailyTokens, int contextSize)> _accountTypeConfigurations =
-    new()
-    {
-        { "Default",      (PlanLimits.FreeHosts,         PlanLimits.FreeMaxTokens,         PlanLimits.FreeDailyTokens,         PlanLimits.FreeContextSize) },
-        { "Free",         (PlanLimits.FreeHosts,         PlanLimits.FreeMaxTokens,         PlanLimits.FreeDailyTokens,         PlanLimits.FreeContextSize) },
-        { "Standard",     (PlanLimits.StandardHosts,     PlanLimits.StandardMaxTokens,     PlanLimits.StandardDailyTokens,     PlanLimits.StandardContextSize) },
-        { "Professional", (PlanLimits.ProfessionalHosts, PlanLimits.ProfessionalMaxTokens, PlanLimits.ProfessionalDailyTokens, PlanLimits.ProfessionalContextSize) },
-        { "Enterprise",   (PlanLimits.EnterpriseHosts,   PlanLimits.EnterpriseMaxTokens,   PlanLimits.EnterpriseDailyTokens,   PlanLimits.EnterpriseContextSize) },
-        { "God",          (PlanLimits.GodHosts,          PlanLimits.GodMaxTokens,          PlanLimits.GodDailyTokens,          PlanLimits.GodContextSize) }
-    };
-
-
+    // inside AccountTypeFactory
+    private static readonly Dictionary<string, (int hostLimit, int tokenLimit, int dailyTokens, int contextSize)>
+        _accountTypeConfigurations = PlanCatalog.BuildAccountTypeConfigurations();
 
     public static List<T> GetFunctionsForAccountType<T>(string accountType,
                                                                       T fn_are_functions_running,
