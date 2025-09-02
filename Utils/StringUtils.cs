@@ -19,6 +19,16 @@ public static class StringUtils
     {
         return Nanoid.Generate(size: 12);
     }
+
+     private const string Base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    // Default to 26; keep overload for custom sizes if you want
+    private static string GetNanoidSized(int size = 26) =>
+        Nanoid.Generate(Base62, size);
+
+    // Uniform tool_call_id creator
+    public static string NewToolCallId() => "call_" + GetNanoidSized();
+
     public static string Base36Encode(long value)
     {
         const string chars = "0123456789abcdefghijklmnopqrstuvwxyz";

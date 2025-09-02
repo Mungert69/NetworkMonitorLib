@@ -14,7 +14,7 @@ public class AccountTypeFactory
         _accountTypeConfigurations = PlanCatalog.BuildAccountTypeConfigurations();
 
     public static List<T> GetFunctionsForAccountType<T>(string accountType,
-                                                                      T fn_are_functions_running,
+                                                                      T fn_function_status_with_message_id,
                                                                       T fn_cancel_functions,
                                                                       T fn_add_host,
                                                                       T fn_edit_host,
@@ -32,7 +32,7 @@ public class AccountTypeFactory
     {
         return new List<T>
             {
-                fn_are_functions_running,
+                fn_function_status_with_message_id,
                 fn_cancel_functions,
                 fn_add_host,
                 fn_edit_host,
@@ -52,7 +52,7 @@ public class AccountTypeFactory
     {
         "Free" => new List<T>
         {
-            fn_are_functions_running,
+            fn_function_status_with_message_id,
             fn_add_host,
             fn_edit_host,
             fn_get_host_data,
@@ -62,7 +62,7 @@ public class AccountTypeFactory
         },
         "Standard" => new List<T>
         {
-            fn_are_functions_running,
+            fn_function_status_with_message_id,
             fn_add_host,
             fn_edit_host,
             fn_get_host_data,
@@ -74,7 +74,7 @@ public class AccountTypeFactory
         },
         "Professional" => new List<T>
         {
-            fn_are_functions_running,
+            fn_function_status_with_message_id,
             fn_add_host,
             fn_edit_host,
             fn_get_host_data,
@@ -87,7 +87,7 @@ public class AccountTypeFactory
         },
         "Enterprise" => new List<T>
         {
-            fn_are_functions_running,
+            fn_function_status_with_message_id,
             fn_add_host,
             fn_edit_host,
             fn_get_host_data,
@@ -101,7 +101,7 @@ public class AccountTypeFactory
         },
         "God" => new List<T>
         {
-            fn_are_functions_running,
+            fn_function_status_with_message_id,
             fn_add_host,
             fn_edit_host,
             fn_get_host_data,
@@ -174,7 +174,7 @@ public class AccountTypeFactory
         {
             "Free" => new List<string>
         {
-             "are_functions_running",
+             "function_status_with_message_id",
             "cancel_functions",
             "add_host",
             "edit_host",
@@ -211,7 +211,7 @@ public class AccountTypeFactory
         },
             "Standard" => new List<string>
         {
-            "are_functions_running",
+            "function_status_with_message_id",
             "cancel_functions",
             "add_host",
             "edit_host",
@@ -248,7 +248,7 @@ public class AccountTypeFactory
         },
             "Professional" => new List<string>
         {
-            "are_functions_running",
+            "function_status_with_message_id",
             "cancel_functions",
             "add_host",
             "edit_host",
@@ -289,7 +289,7 @@ public class AccountTypeFactory
         },
             "Enterprise" => new List<string>
         {
-            "are_functions_running",
+            "function_status_with_message_id",
             "cancel_functions",
             "add_host",
             "edit_host",
@@ -333,7 +333,7 @@ public class AccountTypeFactory
         },
             "God" => new List<string>
         {
-            "are_functions_running",
+            "function_status_with_message_id",
             "cancel_functions",
             "add_host",
             "edit_host",
@@ -377,7 +377,7 @@ public class AccountTypeFactory
         },
             _ => new List<string>
         {
-            "are_functions_running",
+            "function_status_with_message_id",
             "cancel_functions",
             "add_host",
             "edit_host",
