@@ -27,8 +27,6 @@
     <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.1.0" />
     <PackageReference Include="Markdig" Version="0.41.3" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.14.0" />
     <PackageReference Include="Nanoid" Version="3.1.0" />
     <PackageReference Include="PuppeteerSharp" Version="20.2.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.8" />
