@@ -7,7 +7,7 @@ using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Utils;
-using NetworkMonitor.Objects.ServiceMessage;    
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Connection
 {
@@ -22,21 +22,22 @@ namespace NetworkMonitor.Connection
         private readonly int _lingerMs;
         private readonly ILaunchHelper? _launchHelper;
 
+        private const int DefaultMicroTimeoutMs = 10_000;
+        private const int DefaultMacroTimeoutMs = 45_000;
+        private const int DefaultLingerMs = 8_000;
+
         public HugSpaceKeepAliveCmdProcessor(
             ILogger logger,
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper? launchHelper = null,
-            int microTimeoutMs = 10000,
-            int macroTimeoutMs = 45000,
-            int lingerMs = 8000)
-            : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
+            ILaunchHelper? launchHelper = null
+        ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
             _launchHelper = launchHelper;
-            _microTimeoutMs = microTimeoutMs;
-            _macroTimeoutMs = macroTimeoutMs;
-            _lingerMs = lingerMs;
+            _microTimeoutMs = DefaultMicroTimeoutMs;
+            _macroTimeoutMs = DefaultMacroTimeoutMs;
+            _lingerMs = DefaultLingerMs;
         }
 
         public override async Task<ResultObj> RunCommand(string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)

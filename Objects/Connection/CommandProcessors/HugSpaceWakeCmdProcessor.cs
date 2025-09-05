@@ -15,23 +15,27 @@ namespace NetworkMonitor.Connection
     /// </summary>
     public class HugSpaceWakeCmdProcessor : CmdProcessor
     {
-        private readonly int _microTimeout;  // selector waits
-        private readonly int _macroTimeout;  // overall budget
+         private readonly ILaunchHelper? _launchHelper;
+
+        private readonly int _microTimeout;
+        private readonly int _macroTimeout;
         private readonly ILaunchHelper? _launchHelper;
+
+        // Use constants or read from netConfig if you prefer
+        private const int DefaultMicroTimeoutMs = 10_000;
+        private const int DefaultMacroTimeoutMs = 60_000;
 
         public HugSpaceWakeCmdProcessor(
             ILogger logger,
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper? launchHelper = null,
-            int microTimeoutMs = 10000,
-            int macroTimeoutMs = 60000)
-            : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
+            ILaunchHelper? launchHelper = null
+        ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
             _launchHelper = launchHelper;
-            _microTimeout = microTimeoutMs;
-            _macroTimeout = macroTimeoutMs;
+            _microTimeout = DefaultMicroTimeoutMs;
+            _macroTimeout = DefaultMacroTimeoutMs;
         }
 
         public override async Task<ResultObj> RunCommand(string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
@@ -246,7 +250,7 @@ Notes:
             try
             {
                 var pollDelay = TimeSpan.FromMilliseconds(500);
-                var deadline  = DateTime.UtcNow + TimeSpan.FromSeconds(50);
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(50);
 
                 while (!ct.IsCancellationRequested && DateTime.UtcNow < deadline)
                 {
