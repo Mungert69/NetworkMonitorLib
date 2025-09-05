@@ -38,11 +38,11 @@ namespace NetworkMonitor.Connection
 
         private readonly List<string> _coreProcessorTypes = new()
         {
-            "Nmap", "Meta", "Openssl", "Busybox", "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite", "Ping", "QuantumConnect", "QuantumPortScanner", "QuantumInfo"
+            "Nmap", "Meta", "Openssl", "Busybox", "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite","HugSpaceWake","HugSpaceKeepAlive", "Ping", "QuantumConnect", "QuantumPortScanner", "QuantumInfo"
         };
         private readonly List<string> _requireLaunchHelper = new()
         {
-            "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite"
+            "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite","HugSpaceWake","HugSpaceKeepAlive"
         };
         private List<string> _processorTypes;
         private Dictionary<string, string> _sourceCodeFileMap = new();
