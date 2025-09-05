@@ -15,13 +15,12 @@ namespace NetworkMonitor.Connection
     /// Generates real client activity against a Hugging Face Space so it does not go idle.
     /// Accepts either wrapper URL or app URL.
     /// </summary>
-    public class HugSpaceKeepAliveCmdProcessor : CmdProcessor
+    public class HugSpaceKeepAliveCmdProcessor : CmdProcessor, ICmdProcessorFactory
     {
         private readonly int _microTimeoutMs;
         private readonly int _macroTimeoutMs;
         private readonly int _lingerMs;
         private readonly ILaunchHelper? _launchHelper;
-
         private const int DefaultMicroTimeoutMs = 10_000;
         private const int DefaultMacroTimeoutMs = 45_000;
         private const int DefaultLingerMs = 8_000;
@@ -39,6 +38,10 @@ namespace NetworkMonitor.Connection
             _macroTimeoutMs = DefaultMacroTimeoutMs;
             _lingerMs = DefaultLingerMs;
         }
+
+        public static string TypeKey => "HugSpaceKeepAlive";
+        public static ICmdProcessor Create(ILogger l, ILocalCmdProcessorStates s, IRabbitRepo r, NetConnectConfig c, ILaunchHelper? h = null)
+          => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, h);
 
         public override async Task<ResultObj> RunCommand(string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {

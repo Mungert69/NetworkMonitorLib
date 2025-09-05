@@ -13,14 +13,13 @@ namespace NetworkMonitor.Connection
     /// <summary>
     /// Wakes a sleeping Hugging Face Space by auto-clicking the "Restart this Space" button.
     /// </summary>
-    public class HugSpaceWakeCmdProcessor : CmdProcessor
+    public class HugSpaceWakeCmdProcessor : CmdProcessor, ICmdProcessorFactory
     {
          private readonly ILaunchHelper? _launchHelper;
 
         private readonly int _microTimeout;
         private readonly int _macroTimeout;
-        private readonly ILaunchHelper? _launchHelper;
-
+      
         // Use constants or read from netConfig if you prefer
         private const int DefaultMicroTimeoutMs = 10_000;
         private const int DefaultMacroTimeoutMs = 60_000;
@@ -37,6 +36,10 @@ namespace NetworkMonitor.Connection
             _microTimeout = DefaultMicroTimeoutMs;
             _macroTimeout = DefaultMacroTimeoutMs;
         }
+
+          public static string TypeKey => "HugSpaceWake";
+  public static ICmdProcessor Create(ILogger l, ILocalCmdProcessorStates s, IRabbitRepo r, NetConnectConfig c, ILaunchHelper? h=null)
+    => new HugSpaceWakeCmdProcessor(l, s, r, c, h);
 
         public override async Task<ResultObj> RunCommand(string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
