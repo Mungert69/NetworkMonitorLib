@@ -171,40 +171,9 @@ namespace NetworkMonitor.Connection
                 _logger.LogInformation($"Computed fingerprint: {fingerprint}");
             }
         }
-        public async Task StealthAsync(IPage page)
-        {
-            await page.EvaluateFunctionOnNewDocumentAsync(@"
-        () => {
-            // Overwrite the `navigator.webdriver` property
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-            // Mock plugins
-            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
-
-            // Mock languages
-            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-
-            // Fix screen resolution
-            Object.defineProperty(screen, 'width', { get: () => 1920 });
-            Object.defineProperty(screen, 'height', { get: () => 1080 });
-
-            // Chrome runtime check spoof
-            window.chrome = {
-                runtime: {},
-                loadTimes: () => { return {}; },
-                csi: () => { return {}; }
-            };
-
-            // Navigator.permissions spoof
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                Promise.resolve({ state: Notification.permission }) :
-                originalQuery(parameters)
-            );
-        }
-    ");
-        }
+        // in SearchWebHelper
+        public Task StealthAsync(IPage page)
+            => WebAutomationHelper.ApplyStealthAsync(page);
 
         private async Task DumpPageHtml(IPage page, string tag)
         {
@@ -265,7 +234,7 @@ namespace NetworkMonitor.Connection
         private static int RandomInterval(int minMs, int maxMs) =>
             new Random().Next(minMs, maxMs);
 
-       
+
 
         private static readonly Regex RegexStripNumbers =
             new Regex(@"[\-\d]+", RegexOptions.Compiled);

@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Threading;
+using System.IO; // ← needed for DumpPageHtml
 using PuppeteerSharp;
 using PuppeteerSharp.Input;
 using Microsoft.Extensions.Logging;
@@ -22,21 +23,25 @@ namespace NetworkMonitor.Connection
         private readonly Random _random = new Random();
         ILaunchHelper? _launchHelper = null;
 
-        public SearchEngageCmdProcessor(ILogger logger,
+        public SearchEngageCmdProcessor(
+            ILogger logger,
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
-            NetConnectConfig netConfig, ILaunchHelper launchHelper)
+            NetConnectConfig netConfig,
+            ILaunchHelper launchHelper)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
             _launchHelper = launchHelper;
         }
 
-        public override async Task<ResultObj> RunCommand(string arguments,
+        public override async Task<ResultObj> RunCommand(
+            string arguments,
             CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
             string output = string.Empty;
+
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
@@ -47,35 +52,42 @@ namespace NetworkMonitor.Connection
                     result.Success = false;
                     return result;
                 }
+
                 if (_launchHelper == null)
                 {
-                    _logger.LogWarning($" Error : PuppeteerSharp browser missing.");
-                    output = $"PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.\n";
-                    result.Message = await SendMessage(output, processorScanDataObj);
+                    const string m = "PuppeteerSharp browser is not available on this agent. Check installation.";
+                    _logger.LogWarning(m);
+                    result.Message = await SendMessage(m, processorScanDataObj);
                     result.Success = false;
                     return result;
                 }
-                var parsedArgs = ParseArguments(arguments);
-                var searchTerm = parsedArgs.GetString("search_term", "");
+
+                var parsedArgs   = ParseArguments(arguments);
+                var searchTerm   = parsedArgs.GetString("search_term", "");
                 var targetDomain = parsedArgs.GetString("target_domain", "");
 
-                if (string.IsNullOrEmpty(searchTerm)) throw new ArgumentException("Search term required");
+                if (string.IsNullOrEmpty(searchTerm))   throw new ArgumentException("Search term required");
                 if (string.IsNullOrEmpty(targetDomain)) throw new ArgumentException("Target domain required");
 
-                bool useHeadless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var launchOptions = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
+                // ► New: centralize launch + UA/headers + stealth in WebAutomationHelper
+                var session = await WebAutomationHelper.OpenSessionAsync(
+                    _launchHelper, _netConfig, _logger, cancellationToken,
+                    defaultPageTimeoutMs: _searchTimeout / 4,
+                    options: new WebAutomationHelper.BrowserSessionOptions
+                    {
+                        ApplyStealth = true,
+                        UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                                    "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                                    "Chrome/115.0.0.0 Safari/537.36",
+                        ExtraHeaders = new Dictionary<string, string>
+                        {
+                            ["Accept-Language"] = "en-US,en;q=0.9"
+                        }
+                    });
 
-                using var browser = await Puppeteer.LaunchAsync(launchOptions);
-                using var page = await browser.NewPageAsync();
+                await using var __ = session;
+                var page   = session.Page;
                 var helper = new SearchWebHelper(_logger, _netConfig, _searchTimeout / 4, _searchTimeout * 2);
-
-                await helper.StealthAsync(page);
-                // Configure browser to appear more human-like
-                await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36");
-                await page.SetExtraHttpHeadersAsync(new Dictionary<string, string>
-                {
-                    ["Accept-Language"] = "en-US,en;q=0.9"
-                });
 
                 // Phase 1: Perform Search using SearchWebHelper
                 var urlResult = await helper.FetchGoogleSearchUrlsAsync(page, searchTerm, cancellationToken);
@@ -92,7 +104,6 @@ namespace NetworkMonitor.Connection
                     Uri.TryCreate(l, UriKind.Absolute, out var uri) &&
                     (uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase) ||
                      uri.Host.Contains(targetDomain, StringComparison.OrdinalIgnoreCase)));
-
 
                 if (string.IsNullOrEmpty(targetLink))
                 {
@@ -114,7 +125,7 @@ namespace NetworkMonitor.Connection
 
                 result.Success = engagementResult.Success;
                 result.Message = engagementResult.Message;
-                result.Data = engagementResult.Data;
+                result.Data    = engagementResult.Data;
             }
             catch (Exception ex)
             {
@@ -122,8 +133,10 @@ namespace NetworkMonitor.Connection
                 result.Success = false;
                 result.Message = $"Error: {ex.Message}";
             }
+
             return result;
         }
+
         private async Task DumpPageHtml(IPage page, string label = "page_debug")
         {
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
@@ -136,7 +149,6 @@ namespace NetworkMonitor.Connection
             _logger.LogInformation($"✅ Saved page HTML to: {fileName}");
         }
 
-
         private async Task<ResultObj> ExecuteEngagementFlow(IPage page, CancellationToken ct)
         {
             var result = new ResultObj();
@@ -146,38 +158,30 @@ namespace NetworkMonitor.Connection
                 {
                     await ScrollLikeHuman(page);
                     await RandomDelay();
-                }
-                catch { }
-                // Simulate reading behavior
+                } catch { }
 
                 try
                 {
                     await ClickRandomLink(page);
                     await RandomDelay();
-                }
-                catch { }
-                // Interact with page elements
+                } catch { }
 
                 try
                 {
                     await ScrollLikeHuman(page, fastScroll: false);
                     await HoverOverElements(page);
-                }
-                catch { }
-                // Simulate deeper engagement
+                } catch { }
 
-
-                // Collect engagement metrics
                 var metrics = new EngagementMetrics
                 {
-                    TimeOnSite = _engagementTimeout,
+                    TimeOnSite   = _engagementTimeout,
                     PagesVisited = 2,
                     Interactions = 3
                 };
 
                 result.Success = true;
                 result.Message = "Engagement simulation completed successfully";
-                result.Data = metrics;
+                result.Data    = metrics;
             }
             catch (Exception ex)
             {
@@ -200,13 +204,12 @@ namespace NetworkMonitor.Connection
 
         private async Task ScrollLikeHuman(IPage page, bool fastScroll = true)
         {
-            var scrollSteps = fastScroll ? 5 : 20;
+            var scrollSteps  = fastScroll ? 5 : 20;
             var scrollAmount = await page.EvaluateExpressionAsync<int>("document.body.scrollHeight");
 
             for (int i = 0; i < scrollSteps; i++)
             {
-                await page.EvaluateExpressionAsync(
-                    $"window.scrollBy(0, {scrollAmount / scrollSteps})");
+                await page.EvaluateExpressionAsync($"window.scrollBy(0, {scrollAmount / scrollSteps})");
                 await Task.Delay(Random.Shared.Next(100, 300));
             }
         }
@@ -221,10 +224,7 @@ namespace NetworkMonitor.Connection
             await page.Mouse.MoveAsync(
                 rect.X + rect.Width / 2 + _random.Next(-5, 5),
                 rect.Y + rect.Height / 2 + _random.Next(-5, 5),
-                new MoveOptions
-                {
-                    Steps = _random.Next(3, 10)
-                });
+                new MoveOptions { Steps = _random.Next(3, 10) });
 
             await RandomDelay();
             await element.ClickAsync();
@@ -247,7 +247,7 @@ namespace NetworkMonitor.Connection
             var elements = await page.QuerySelectorAllAsync("a, button, .hover-element");
             foreach (var element in elements)
             {
-                if (Random.Shared.NextDouble() < 0.3) // 30% chance to hover
+                if (Random.Shared.NextDouble() < 0.3)
                 {
                     await element.HoverAsync();
                     await Task.Delay(Random.Shared.Next(500, 1500));
@@ -261,9 +261,7 @@ namespace NetworkMonitor.Connection
         }
         #endregion
 
-        public override string GetCommandHelp()
-        {
-            return @"
+        public override string GetCommandHelp() => @"
 ## Search Engagement Command Processor
 
 Simulates organic search behavior to improve website rankings through:
@@ -293,18 +291,12 @@ Simulates organic search behavior to improve website rankings through:
 - Time spent on site
 - Pages visited
 - Interaction count
-
-### Notes:
-- Maintains consistent browser context
-- Simulates real user interaction patterns
-- Includes random delays between actions
 ";
-        }
     }
 
     public class EngagementMetrics
     {
-        public int TimeOnSite { get; set; }
+        public int TimeOnSite   { get; set; }
         public int PagesVisited { get; set; }
         public int Interactions { get; set; }
     }

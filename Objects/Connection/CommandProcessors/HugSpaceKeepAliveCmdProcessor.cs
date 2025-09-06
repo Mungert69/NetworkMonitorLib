@@ -6,7 +6,6 @@ using PuppeteerSharp;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Connection;
-using NetworkMonitor.Utils;
 using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Connection
@@ -21,9 +20,10 @@ namespace NetworkMonitor.Connection
         private readonly int _macroTimeoutMs;
         private readonly int _lingerMs;
         private readonly ILaunchHelper? _launchHelper;
+
         private const int DefaultMicroTimeoutMs = 10_000;
         private const int DefaultMacroTimeoutMs = 45_000;
-        private const int DefaultLingerMs = 8_000;
+        private const int DefaultLingerMs      = 8_000;
 
         public HugSpaceKeepAliveCmdProcessor(
             ILogger logger,
@@ -33,17 +33,18 @@ namespace NetworkMonitor.Connection
             ILaunchHelper? launchHelper = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _launchHelper   = launchHelper;
             _microTimeoutMs = DefaultMicroTimeoutMs;
             _macroTimeoutMs = DefaultMacroTimeoutMs;
-            _lingerMs = DefaultLingerMs;
+            _lingerMs       = DefaultLingerMs;
         }
 
         public static string TypeKey => "HugSpaceKeepAlive";
         public static ICmdProcessor Create(ILogger l, ILocalCmdProcessorStates s, IRabbitRepo r, NetConnectConfig c, ILaunchHelper? h = null)
-          => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, h);
+            => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, h);
 
-        public override async Task<ResultObj> RunCommand(string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
+        public override async Task<ResultObj> RunCommand(
+            string url, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
             try
             {
@@ -63,49 +64,33 @@ namespace NetworkMonitor.Connection
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                bool headless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var launchOptions = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless);
-
-                using var browser = await Puppeteer.LaunchAsync(launchOptions);
-                using var page = await browser.NewPageAsync();
-                page.DefaultTimeout = _microTimeoutMs;
-                await page.SetViewportAsync(new ViewPortOptions { Width = 1280, Height = 800 });
-
                 using var opCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 opCts.CancelAfter(_macroTimeoutMs);
 
-                // 1) Normalize to app origin if wrapper URL given
-                var targetAppUrl = await ResolveAppOrigin(url, page, _logger, opCts.Token);
+                // Open prepared browser session (UA, headers, stealth, viewport)
+                var session = await WebAutomationHelper.OpenSessionAsync(
+                    _launchHelper, _netConfig, _logger, opCts.Token, _microTimeoutMs);
 
-                // 2) Navigate to app origin (this counts as real activity)
+                await using var _ = session;
+
+                // Resolve wrapper -> app origin if needed
+                var targetAppUrl = await WebAutomationHelper.ResolveHuggingFaceAppOriginAsync(
+                    session.Page, url, _logger, opCts.Token);
+
+                // Navigate with cache-buster
                 _logger.LogInformation("KeepAlive: navigating to {url}", targetAppUrl);
-                await page.GoToAsync(targetAppUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
+                await WebAutomationHelper.GoToWithCacheBusterAsync(session.Page, targetAppUrl);
 
-                // 3) Look for Gradio queue traffic to ensure JS has executed
-                var queueSeenTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                // If Gradio, wait for queue traffic (or just delay ~8s)
+                await WebAutomationHelper.WaitForGradioQueueOrDelayAsync(
+                    session.Page, TimeSpan.FromSeconds(8), opCts.Token);
 
-                void MaybeResolveQueue(PuppeteerSharp.IRequest req)
-                {
-                    try
-                    {
-                        var u = req.Url ?? "";
-                        if (u.Contains("/queue/join", StringComparison.OrdinalIgnoreCase) ||
-                            u.Contains("/queue/data", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!queueSeenTcs.Task.IsCompleted) queueSeenTcs.TrySetResult(true);
-                        }
-                    }
-                    catch { /* ignore */ }
-                }
+                // Extra fetch to ensure an additional server hit (helps static sites)
+                await WebAutomationHelper.FireNoStoreFetchAsync(session.Page, "/");
 
-                page.Request += (_, e) => MaybeResolveQueue(e.Request);
+                // Let it idle a bit, then linger
+                await WebAutomationHelper.WaitForNetworkIdleSafeAsync(session.Page, idleMs: 800, timeoutMs: 5000);
 
-                var queueTask = queueSeenTcs.Task;
-                var delayTask = Task.Delay(8000, opCts.Token);
-                await Task.WhenAny(queueTask, delayTask);
-
-                // 4) Let it idle then linger
-                try { await page.WaitForNetworkIdleAsync(new() { IdleTime = 800, Timeout = 5000 }); } catch { /* ignore */ }
                 if (_lingerMs > 0)
                 {
                     _logger.LogInformation("KeepAlive: lingering for {ms}ms", _lingerMs);
@@ -138,55 +123,7 @@ Usage:
 
 Behavior:
   • If given the wrapper URL, resolves the iframe app origin and navigates there.
-  • Runs JS long enough for the front-end to open its queue/websocket endpoints.
-  • Lingers briefly so sockets stay open.";
-
-        private static bool IsWrapperUrl(string u) =>
-            !string.IsNullOrWhiteSpace(u) && u.Contains("huggingface.co/spaces/", StringComparison.OrdinalIgnoreCase);
-
-        private static async Task<string> ResolveAppOrigin(string inputUrl, IPage page, ILogger logger, CancellationToken ct)
-        {
-            if (!IsWrapperUrl(inputUrl)) return inputUrl;
-
-            await page.GoToAsync(inputUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
-
-            // Primary: parse Svelte hydrater props / direct iframe src
-            var appUrl = await page.EvaluateExpressionAsync<string>(@"
-                (function () {
-                  try {
-                    const hydraters = [...document.querySelectorAll('.SVELTE_HYDRATER[data-target=""SpacePageInner""]')];
-                    for (const el of hydraters) {
-                      const props = el.getAttribute('data-props');
-                      if (props) {
-                        try {
-                          const obj = JSON.parse(props);
-                          if (obj && obj.space && obj.space.iframe && obj.space.iframe.src) return obj.space.iframe.src;
-                          if (obj && obj.iframeSrc) return obj.iframeSrc;
-                        } catch {}
-                      }
-                    }
-                  } catch {}
-                  const ifr = document.querySelector('iframe[src*="".hf.space""]');
-                  if (ifr) return ifr.getAttribute('src');
-                  return '';
-                })()
-            ") ?? "";
-
-            if (!string.IsNullOrWhiteSpace(appUrl)) return appUrl;
-
-            // Fallback: scan body for a visible hf.space URL
-            var sub = await page.EvaluateExpressionAsync<string>(@"
-                (function(){
-                  const t = document.body ? document.body.innerHTML : '';
-                  const m = t.match(/https?:\/\/([a-z0-9-]+)\.hf\.space/ig);
-                  return m && m[0] ? m[0] : '';
-                })()
-            ") ?? "";
-
-            if (!string.IsNullOrWhiteSpace(sub)) return sub;
-
-            logger.LogInformation("Could not auto-resolve app origin; using the input URL as-is.");
-            return inputUrl;
-        }
+  • Loads with cache-busting & no-store headers, triggers JS & (if Gradio) queue calls.
+  • Sends one extra fetch and lingers briefly so sockets stay open.";
     }
 }
