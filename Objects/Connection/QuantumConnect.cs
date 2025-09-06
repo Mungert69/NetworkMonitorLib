@@ -43,8 +43,7 @@ namespace NetworkMonitor.Connection
             IsLongRunning = true;
         }
 
-        /*───────────────────────────  ★ SINGLE SEAM: RUN PROCESS ★  ───────────────────────────*/
-
+     
         protected virtual async Task<string> RunCommandAsync(
             string oqsCodepoint,
             string curve,
@@ -53,15 +52,16 @@ namespace NetworkMonitor.Connection
             bool addEnv,
             CancellationToken token)
         {
-            string providerName="oqsprovider";
+            string providerName = "oqsprovider";
             string workingDirectory = string.IsNullOrEmpty(_nativeLibDir) ? _commandPath : _nativeLibDir;
             string providerPath = string.IsNullOrEmpty(_nativeLibDir) ? _oqsProviderPath : _nativeLibDir;
             string opensslPath = Path.Combine(workingDirectory, "openssl" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : ""));
 
-            if (!string.IsNullOrEmpty(_nativeLibDir)) {
+            if (!string.IsNullOrEmpty(_nativeLibDir))
+            {
                 opensslPath = Path.Combine(workingDirectory, "libopenssl_exec.so");
-                providerName="liboqsprovider";
-                }
+                providerName = "liboqsprovider";
+            }
             string arguments = $"s_client -curves {curve} -connect {address}:{port} " +
                                $"-provider-path {providerPath} -provider {providerName} -provider default -msg";
 
@@ -74,7 +74,7 @@ namespace NetworkMonitor.Connection
 
             envVars["LD_LIBRARY_PATH"] = workingDirectory;
 
-            _logger.LogInformation("Preparing to run OpenSSL/OQS: {Cmd} {Args}", opensslPath, arguments);
+            _logger.LogInformation("Preparing to run openssl: {Cmd} {Args}", opensslPath, arguments);
 
             return await _runner.RunAsync(opensslPath, arguments, workingDirectory, envVars, token);
         }
@@ -129,9 +129,10 @@ namespace NetworkMonitor.Connection
             if (successfulHandshake)
             {
                 // Console.WriteLine("The handshake was successful.");
-                var serverHelloHelper = new ServerHelloHelper();
+                var serverHelloHelper = new ServerHelloHelper(_algorithmInfoList);
+
                 KemExtension kemExtension = serverHelloHelper.FindServerHello(output);
-                //Console.WriteLine("OUTPUT ServerHelloHelper :: "+serverHelloHelper.Sb.ToString());
+                _logger.LogInformation("OUTPUT ServerHelloHelper :: " + serverHelloHelper.Sb.ToString());
                 if (kemExtension.IsQuantumSafe)
                 {
                     result.Success = true;
@@ -235,8 +236,10 @@ namespace NetworkMonitor.Connection
             string output = await RunCommandAsync(string.Empty, curves, address, port, false, Cts.Token);
 
             // ServerHello and KEM extension parsing logic (reuse your existing code)
-            var serverHelloHelper = new ServerHelloHelper();
+            var serverHelloHelper = new ServerHelloHelper(_algorithmInfoList);
+
             KemExtension kemExtension = serverHelloHelper.FindServerHello(output);
+            _logger.LogInformation("OUTPUT ServerHelloHelper :: " + serverHelloHelper.Sb.ToString());
 
             if (kemExtension.IsQuantumSafe)
             {
