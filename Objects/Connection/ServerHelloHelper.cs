@@ -19,117 +19,184 @@ class ServerHelloHelper
 
     public StringBuilder Sb { get => _sb; set => _sb = value; }
 
+    private static readonly byte[] HrrRandom =
+        Org.BouncyCastle.Utilities.Encoders.Hex.Decode(
+            "cf21ad74e59a6111be1d8c021e65b891c2a211167abb8c5e079e09e2c8a8339c");
+
+    private static bool IsHelloRetryRequestRandom(byte[] random)
+    {
+        return random != null && random.Length == 32 && random.SequenceEqual(HrrRandom);
+    }
+
     public KemExtension FindServerHello(string input)
     {
-        KemExtension kemExtension = new KemExtension();
-        string[] lines = input.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+        var kemExtension = new KemExtension();
+        var lines = input.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
 
-        bool foundServerHello = false;
-        string serverHelloHex = "";
+        // 1) Collect ALL ServerHello hex blobs from the transcript
+        var serverHelloHexes = new List<string>();
+        bool collecting = false;
+        var sbHex = new StringBuilder();
 
-        foreach (string line in lines)
+        foreach (var rawLine in lines)
         {
-            if (foundServerHello && (line.StartsWith("<<<") || line.StartsWith(">>>")))
+            var line = rawLine.Trim();
+
+            // Start of a ServerHello block (OpenSSL prints “…, ServerHello” on the same line)
+            if (line.IndexOf("ServerHello", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                break;
+                // If we were somehow collecting, flush previous first
+                if (collecting && sbHex.Length > 0)
+                {
+                    serverHelloHexes.Add(sbHex.ToString());
+                    sbHex.Clear();
+                }
+                collecting = true;
+                continue;
             }
-            if (line.Contains("ServerHello"))
+
+            // Any new record header (“<<< …” or “>>> …”) ends a ServerHello block
+            if (collecting && (line.StartsWith("<<<") || line.StartsWith(">>>")))
             {
-                foundServerHello = true;
+                if (sbHex.Length > 0)
+                {
+                    serverHelloHexes.Add(sbHex.ToString());
+                    sbHex.Clear();
+                }
+                collecting = false;
+                // keep scanning; there may be more ServerHellos later
+                continue;
             }
-            else if (foundServerHello && !line.StartsWith("<<<"))
+
+            // While collecting, accumulate hex lines
+            if (collecting)
             {
-                // remove everything after >>> (if present)
-
-
-                // remove leading and trailing white space
-                string hexString = line.Trim();
-
-                // remove any white space within the hex string
-                hexString = hexString.Replace(" ", "");
-                // concatenate the hex string to the output string
-
-
-                serverHelloHex += hexString;
-            }
-            else
-            {
-                foundServerHello = false;
+                // Strip spaces from hex
+                sbHex.Append(line.Replace(" ", ""));
             }
         }
+        // Flush tail if file ended mid-block
+        if (collecting && sbHex.Length > 0)
+        {
+            serverHelloHexes.Add(sbHex.ToString());
+        }
 
-        Sb.Append("SERVERHELLO is : " + serverHelloHex);
-        if (serverHelloHex == "")
+        if (serverHelloHexes.Count == 0)
         {
             Sb.Append("No ServerHello found.");
             return kemExtension;
         }
-        byte[] tlsRecordBytes = Hex.Decode(serverHelloHex); // Use Bouncy Castle's Hex.Decode method
-        byte[] serverHelloBytes = ExtractServerHelloMessage(tlsRecordBytes);
-        ServerHello serverHello = ParseServerHello(serverHelloBytes);
 
-        // Write all fields in serverHello to console
-        Sb.Append("ServerHello:");
-        Sb.Append($"- Version: {serverHello.Version}");
-        Sb.Append($"- Random: {BitConverter.ToString(serverHello.Random).Replace("-", "")}");
-        Sb.Append($"- SessionID: {BitConverter.ToString(serverHello.SessionID).Replace("-", "")}");
-        Sb.Append($"- CipherSuite: {serverHello.CipherSuite}");
-
-        Sb.Append("- Extensions:");
-        foreach (var extension in serverHello.Extensions)
+        // 2) Parse each ServerHello; PASS on first non-HRR that is quantum-safe
+        KemExtension lastSeen = new KemExtension();
+        foreach (var shHex in serverHelloHexes)
         {
-            Sb.Append($"  - ExtensionType: {extension.Key} (0x{extension.Key:X})");
-            Sb.Append($"  - ExtensionData: {BitConverter.ToString(extension.Value).Replace("-", "")}");
-            var pair = new KeyValuePair<int, byte[]>(extension.Key, extension.Value);
-            kemExtension = DecodeKeyShareExtension(pair);
-            if (kemExtension.IsQuantumSafe)
+            Sb.Append("SERVERHELLO is : " + shHex);
+
+            try
             {
-                break;
+                var tlsHandshakeBytes = Hex.Decode(shHex);        // this should be the raw ServerHello handshake (starts with 0x02)
+                var serverHelloBytes = ExtractServerHelloMessage(tlsHandshakeBytes);
+                var serverHello = ParseServerHello(serverHelloBytes);
+
+                // Basic logging
+                Sb.Append("ServerHello:");
+                Sb.Append($"- Version: {serverHello.Version}");
+                Sb.Append($"- Random: {BitConverter.ToString(serverHello.Random).Replace("-", "")}");
+                Sb.Append($"- SessionID: {BitConverter.ToString(serverHello.SessionID).Replace("-", "")}");
+                Sb.Append($"- CipherSuite: {serverHello.CipherSuite}");
+
+                bool isHrr = IsHelloRetryRequestRandom(serverHello.Random);
+                if (isHrr) Sb.Append("This ServerHello looks like an HRR (HelloRetryRequest) shim.");
+
+                // Extensions
+                Sb.Append("- Extensions:");
+                var thisKem = new KemExtension();
+                foreach (var extension in serverHello.Extensions)
+                {
+                    Sb.Append($"  - ExtensionType: {extension.Key} (0x{extension.Key:X})");
+                    Sb.Append($"  - ExtensionData: {BitConverter.ToString(extension.Value).Replace("-", "")}");
+
+                    // your existing decoder decides if it’s “quantum safe”
+                    var pair = new KeyValuePair<int, byte[]>(extension.Key, extension.Value);
+                    thisKem = DecodeKeyShareExtension(pair);
+
+                    if (thisKem.IsQuantumSafe)
+                    {
+                        // Record longness based on this SH
+                        if (serverHelloBytes.Length > 100) thisKem.LongServerHello = true;
+
+                        if (!isHrr)
+                        {
+                            // success: first non-HRR PQ/hybrid SH — return it
+                            return thisKem;
+                        }
+                        else
+                        {
+                            // HRR hinted PQ/hybrid; keep for diagnostics but continue looking for final SH
+                            lastSeen = thisKem;
+                            Sb.Append("HRR indicated PQ/hybrid group; continuing to final ServerHello.");
+                            break;
+                        }
+                    }
+                }
+
+                // keep the last seen (non-PQ) for possible return if nothing PQ shows up
+                if (!thisKem.IsQuantumSafe)
+                {
+                    if (serverHelloBytes.Length > 100) thisKem.LongServerHello = true;
+                    lastSeen = thisKem;
+                }
+            }
+            catch (Exception ex)
+            {
+                Sb.Append($"Failed to parse a ServerHello block: {ex.Message}");
+                // continue to next block
             }
         }
-        if (serverHelloBytes.Length > 100)
-        {
-            kemExtension.LongServerHello = true;
-        }
-        return kemExtension;
+
+        // 3) If we reach here, no non-HRR ServerHello had PQ/hybrid — return best effort (likely not PQ)
+        return lastSeen;
     }
 
     public KemExtension DecodeKeyShareExtension(KeyValuePair<int, byte[]> extension)
     {
         KemExtension kemExtension = new KemExtension();
-       try {
-          int extensionType = extension.Key;
-
-        if (extensionType == 0x0033) // 0x0033 corresponds to key_share extension
+        try
         {
-            Sb.Append("This is a key_share extension.");
+            int extensionType = extension.Key;
 
-            // Create a KemExtension object from the above data
-
-            kemExtension.GroupHexStringID = "0x" + BitConverter.ToString(extension.Value.Take(2).ToArray()).Replace("-", "");
-            kemExtension.GroupID = (extension.Value[0] << 8) + extension.Value[1];
-            Sb.Append("KemExtension object created:");
-            Sb.Append($"- GroupHexID: {kemExtension.GroupHexStringID}");
-            Sb.Append($"- GroupID: {kemExtension.GroupID}");
-            kemExtension.IsQuantumSafe = true;
-            if (extension.Value.Length > 2)
+            if (extensionType == 0x0033) // 0x0033 corresponds to key_share extension
             {
-                kemExtension.KeyShareLength = (extension.Value[2] << 8) + extension.Value[3];
-                kemExtension.Data = extension.Value.Skip(4).Take(kemExtension.KeyShareLength).ToArray();
-                Sb.Append($"- KeyShareLength: {kemExtension.KeyShareLength}");
-                Sb.Append($"- Data: {BitConverter.ToString(kemExtension.Data).Replace("-", "")}");
+                Sb.Append("This is a key_share extension.");
+
+                // Create a KemExtension object from the above data
+
+                kemExtension.GroupHexStringID = "0x" + BitConverter.ToString(extension.Value.Take(2).ToArray()).Replace("-", "");
+                kemExtension.GroupID = (extension.Value[0] << 8) + extension.Value[1];
+                Sb.Append("KemExtension object created:");
+                Sb.Append($"- GroupHexID: {kemExtension.GroupHexStringID}");
+                Sb.Append($"- GroupID: {kemExtension.GroupID}");
+                kemExtension.IsQuantumSafe = true;
+                if (extension.Value.Length > 2)
+                {
+                    kemExtension.KeyShareLength = (extension.Value[2] << 8) + extension.Value[3];
+                    kemExtension.Data = extension.Value.Skip(4).Take(kemExtension.KeyShareLength).ToArray();
+                    Sb.Append($"- KeyShareLength: {kemExtension.KeyShareLength}");
+                    Sb.Append($"- Data: {BitConverter.ToString(kemExtension.Data).Replace("-", "")}");
+                }
+            }
+            else
+            {
+                Sb.Append("This is not a key_share extension.");
             }
         }
-        else
+        catch
         {
-            Sb.Append("This is not a key_share extension.");
-        }
-       }
-       catch {
-        // Dont do anthing with an exception as we want as much data as possible from the extension.
+            // Dont do anthing with an exception as we want as much data as possible from the extension.
 
-       }
-      
+        }
+
 
         return kemExtension;
     }

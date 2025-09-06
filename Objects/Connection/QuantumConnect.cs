@@ -120,7 +120,7 @@ namespace NetworkMonitor.Connection
             string[] successIndicators = new[] {
                         "ServerHello",
                         //"EncryptedExtensions",
-                        "Certificate",
+                        //"Certificate",
                         //"CertificateVerify",
                         //"Finished"
                         };
