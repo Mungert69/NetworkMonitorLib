@@ -87,7 +87,7 @@ namespace NetworkMonitor.Connection
         private string _commandPath = "";
         private bool _loadChromium = false;
         private string _oqsProviderPathReadOnly = "";
-        private string _opensslVersion = "openssl-3.4.2";
+        private string _opensslVersion = "openssl-3.5.2";
         private string _clientAuthUrl = "";
         private string _authKey = "";
         private string _baseFusionAuthURL = "";
