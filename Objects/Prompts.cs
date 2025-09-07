@@ -16,7 +16,7 @@ namespace NetworkMonitor.Objects;
 public static class Prompts
 { 
 
-   public static string CmdProcessorPrompt () => 
+public static string CmdProcessorPrompt () => 
 @"**.NET Source Code in add_cmd_processor**:
 When adding a cmd processor, supply its source code in the 'source_code' parameter. The code must inherit from the base class CmdProcessor
 For reference and outline of the CmdProcesor Base class is given below :
@@ -127,20 +127,20 @@ namespace NetworkMonitor.Connection
             return result;
         }
 
-        // You can use this helper method in your cmd processor for argument parsing
+        // Argument parsing guidance:
+        // Prefer schema-based parsing with CliArgParser in derived processors:
+        //   var parse = CliArgParser.Parse(arguments, _schema, allowUnknown: false, fillDefaults: true);
+        //   if (!parse.Success) { var err = CliArgParser.BuildErrorMessage(_cmdProcessorStates.CmdDisplayName, parse, _schema); ... }
+        //   var val = parse.GetString(""key""); var n = parse.GetInt(""num""); var b = parse.GetBool(""flag"");
+        //
+        // This base helper returns raw --key value pairs using CliArgParser's raw parser,
+        // for simple cases or backward compatibility.
         protected virtual Dictionary<string, string> ParseArguments(string arguments)
         {
-            var args = new Dictionary<string, string>();
-            var regex = new Regex(@""--(?<key>\w+)(?:\s+(?<value>""[^""]*""|\S+))?"");
-            var matches = regex.Matches(arguments);
+            // Uses NetworkMonitor.Utils.CliArgParser.Parse(string) overload (raw).
+            return CliArgParser.Parse(arguments);
+        }
 
-            foreach (Match match in matches)
-            {
-                args[match.Groups[""key""].Value.ToLower()] = match.Groups[""value""].Value;
-            }
-
-            return args;
-        }      
         public virtual string GetCommandHelp()
         {
             // override this method and provide the help as a returned string.

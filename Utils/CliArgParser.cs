@@ -67,12 +67,168 @@ namespace NetworkMonitor.Utils
 
     public static class CliArgParser
     {
-        // Your existing tokenizing parser:
         public static Dictionary<string, string> Parse(string arguments)
         {
-            /* unchanged in your project */
-            throw new NotImplementedException();
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(arguments)) return dict;
+
+            var tokens = Tokenize(arguments);
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                var t = tokens[i];
+
+                // Long form: --key[=value] or --key value
+                if (t.StartsWith("--"))
+                {
+                    var rest = t.Substring(2);
+                    if (string.IsNullOrWhiteSpace(rest)) continue;
+
+                    string key, value;
+                    var eq = rest.IndexOf('=');
+                    if (eq >= 0)
+                    {
+                        key = rest[..eq].Trim();
+                        value = Unquote(rest[(eq + 1)..].Trim());
+                    }
+                    else
+                    {
+                        key = rest.Trim();
+                        if (i + 1 < tokens.Count && !IsLikelyOption(tokens[i + 1]))
+                        {
+                            value = Unquote(tokens[++i]);
+                        }
+                        else
+                        {
+                            // bare flag -> true (schema will normalize if needed)
+                            value = "true";
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(key))
+                        dict[key] = value;
+                    continue;
+                }
+
+                // Short form: -k[=value] or -k value (no -abc compaction)
+                if (t.StartsWith("-") && t.Length > 1)
+                {
+                    var rest = t.Substring(1);
+                    string key = rest, value;
+
+                    var eq = rest.IndexOf('=');
+                    if (eq >= 0)
+                    {
+                        key = rest[..eq].Trim();
+                        value = Unquote(rest[(eq + 1)..].Trim());
+                    }
+                    else
+                    {
+                        if (i + 1 < tokens.Count && !IsLikelyOption(tokens[i + 1]))
+                        {
+                            value = Unquote(tokens[++i]);
+                        }
+                        else
+                        {
+                            value = "true";
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(key))
+                        dict[key] = value;
+                    continue;
+                }
+
+                // Positional tokens ignored by design
+            }
+
+            return dict;
+
+            static bool IsLikelyOption(string s)
+            {
+                if (string.IsNullOrEmpty(s) || s[0] != '-') return false;
+
+                // --long or -k where next char is a letter => option
+                if (s.StartsWith("--")) return true;
+                if (s.Length >= 2 && char.IsLetter(s[1])) return true;
+
+                // Looks like a negative number (-123, -3.14) -> treat as value, not option
+                return false;
+            }
+
+            static string Unquote(string s)
+            {
+                if (string.IsNullOrEmpty(s)) return string.Empty;
+                s = s.Trim();
+                if ((s.Length >= 2 && s[0] == '"' && s[^1] == '"') ||
+                    (s.Length >= 2 && s[0] == '\'' && s[^1] == '\''))
+                {
+                    s = s.Substring(1, s.Length - 2);
+                }
+                // unescape simple cases
+                s = s.Replace("\\\"", "\"").Replace("\\'", "'").Replace("\\\\", "\\");
+                return s;
+            }
+
+            // Tokenizer that preserves quoted substrings for the space-separated form
+            static List<string> Tokenize(string s)
+            {
+                var list = new List<string>();
+                var sb = new StringBuilder();
+                bool inSingle = false, inDouble = false, escaped = false;
+
+                for (int i = 0; i < s.Length; i++)
+                {
+                    char c = s[i];
+
+                    if (escaped)
+                    {
+                        sb.Append(c);
+                        escaped = false;
+                        continue;
+                    }
+
+                    if (c == '\\')
+                    {
+                        escaped = true;
+                        continue;
+                    }
+
+                    if (c == '\'' && !inDouble)
+                    {
+                        inSingle = !inSingle;
+                        sb.Append(c);
+                        continue;
+                    }
+
+                    if (c == '"' && !inSingle)
+                    {
+                        inDouble = !inDouble;
+                        sb.Append(c);
+                        continue;
+                    }
+
+                    if (!inSingle && !inDouble && char.IsWhiteSpace(c))
+                    {
+                        Flush();
+                        continue;
+                    }
+
+                    sb.Append(c);
+                }
+
+                if (escaped) sb.Append('\\');
+                Flush();
+                return list;
+
+                void Flush()
+                {
+                    if (sb.Length == 0) return;
+                    list.Add(sb.ToString());
+                    sb.Clear();
+                }
+            }
         }
+
 
         /// <summary>
         /// Schema-based parsing: validates values, fills defaults, reports unknown/missing/invalid.
