@@ -163,7 +163,7 @@ namespace NetworkMonitor.Connection
             if (!string.IsNullOrWhiteSpace(sub))
                 return sub;
 
-            logger.LogInformation("Could not auto-resolve app origin; using the input URL as-is.");
+            logger.LogInformation($"Could not auto-resolve app origin; using the input URL {inputUrl} as-is.");
             return inputUrl;
         }
 

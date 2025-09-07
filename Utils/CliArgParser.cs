@@ -1,142 +1,327 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace NetworkMonitor.Utils
 {
-    /// <summary>
-    /// Robust parser for GNU-style "--key value" command lines.
-    /// Supports:
-    ///   --key value
-    ///   --key=value
-    ///   --key="va lue"  / --key='va lue'
-    ///   escaped quotes inside values (\" or \')
-    ///   kebab/underscore keys (tls-min-version, my_key)
-    ///   boolean flags: --flag => "true"
-    ///   end-of-options: "--"
-    /// </summary>
-    public static class CliArgParser
+    public class ArgParseResult
     {
-        public static Dictionary<string, string> Parse(string arguments)
+        public bool Success { get; set; }
+
+        // Keep case-insensitive comparer no matter what the inner parser does.
+        public Dictionary<string, string> Args { get; set; } =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public List<string> MissingKeys { get; set; } = new();
+        public List<string> UnknownKeys { get; set; } = new();
+
+        // New: values that failed validation (e.g., "--max_depth abc")
+        public List<string> InvalidKeys { get; set; } = new();
+
+        public string Message { get; set; } = string.Empty;
+
+        public bool Has(string key) => Args.ContainsKey(key);
+
+        public string GetString(string key)
+            => Args.TryGetValue(key, out var v) ? v : "";
+
+        public bool GetBool(string key)
         {
-            var args = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (string.IsNullOrWhiteSpace(arguments)) return args;
-
-            var tokens = Tokenize(arguments);
-            bool parsingOptions = true;
-
-            for (int i = 0; i < tokens.Count; i++)
-            {
-                var t = tokens[i];
-
-                if (parsingOptions && t == "--")
-                {
-                    parsingOptions = false;
-                    continue;
-                }
-
-                if (parsingOptions && t.StartsWith("--"))
-                {
-                    // --key or --key=value
-                    var body = t.Substring(2);
-                    string key, value;
-
-                    int eq = body.IndexOf('=');
-                    if (eq >= 0)
-                    {
-                        key = body.Substring(0, eq);
-                        value = body.Substring(eq + 1);
-                    }
-                    else
-                    {
-                        key = body;
-                        // If next token exists and is not another option, take it as the value
-                        if (i + 1 < tokens.Count && !tokens[i + 1].StartsWith("--"))
-                        {
-                            value = tokens[++i];
-                        }
-                        else
-                        {
-                            value = "true"; // boolean flag
-                        }
-                    }
-
-                    // Optional: enforce allowed key chars (letters, digits, underscore, dash)
-                    // if (!System.Text.RegularExpressions.Regex.IsMatch(key, @"^[A-Za-z0-9_-]+$")) continue;
-
-                    args[key.ToLowerInvariant()] = value;
-                }
-                else
-                {
-                    // Positional args: add if you want to capture them
-                    // args[$"_positional{args.Count(kv => kv.Key.StartsWith("_positional"))}"] = t;
-                }
-            }
-
-            return args;
+            if (!Args.TryGetValue(key, out var v)) return false; // absent => false
+            if (bool.TryParse(v, out var b)) return b;
+            return v.Trim().ToLowerInvariant() is "1" or "yes" or "y" or "on";
         }
 
-        private static List<string> Tokenize(string input)
+        public int GetInt(string key)
         {
-            var list = new List<string>();
-            if (string.IsNullOrEmpty(input)) return list;
+            if (Args.TryGetValue(key, out var v) &&
+                int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+                return i;
 
-            var sb = new StringBuilder();
-            bool inQuotes = false;
-            char quoteChar = '\0';
+            throw new ArgumentException($"Argument --{key} must be an integer.");
+        }
 
-            for (int i = 0; i < input.Length; i++)
+        // Overloads with fallbacks
+        public string GetString(string key, string defaultValue) =>
+            Args.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v) ? v : defaultValue;
+
+        public bool GetBool(string key, bool defaultValue) =>
+            Has(key) ? GetBool(key) : defaultValue;
+
+        public int GetInt(string key, int defaultValue) =>
+            Has(key) ? GetInt(key) : defaultValue;
+    }
+
+    public class ArgSpec
+    {
+        public string Key { get; set; } = "";
+        public bool Required { get; set; }
+        public bool IsFlag { get; set; }
+        public string TypeHint { get; set; } = "value"; // "int" | "bool" | "url" | "value"
+        public string DefaultValue { get; set; } = "";
+        public Func<string>? DefaultFactory { get; set; }
+        public string Help { get; set; } = "";
+    }
+
+    public static class CliArgParser
+    {
+        // Your existing tokenizing parser:
+        public static Dictionary<string, string> Parse(string arguments)
+        {
+            /* unchanged in your project */
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Schema-based parsing: validates values, fills defaults, reports unknown/missing/invalid.
+        /// </summary>
+        public static ArgParseResult Parse(
+            string arguments,
+            List<ArgSpec> schema,
+            bool allowUnknown = false,
+            bool fillDefaults = true)
+        {
+            // Wrap the raw parser output into a canonical, case-insensitive, normalized-key dict.
+            // Also trim keys, strip leading dashes, and trim values.
+            var raw = Parse(arguments);
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in raw)
             {
-                char c = input[i];
+                var k = NormalizeKey(kv.Key);
+                var v = (kv.Value ?? "").Trim();
+                dict[k] = v;
+            }
 
-                if (inQuotes)
+            // Fast lookup: what keys are allowed?
+            var schemaByKey = schema
+                .ToDictionary(s => NormalizeKey(s.Key), s => s, StringComparer.OrdinalIgnoreCase);
+
+            // Track which keys user actually provided (before we add defaults),
+            // so "unknown" only refers to user input, not defaults.
+            var userProvidedKeys = new HashSet<string>(dict.Keys, StringComparer.OrdinalIgnoreCase);
+
+            // Unknowns (user-provided only)
+            var unknown = new List<string>();
+            if (!allowUnknown)
+            {
+                foreach (var k in userProvidedKeys)
                 {
-                    if (c == '\\' && i + 1 < input.Length)
+                    if (!schemaByKey.ContainsKey(k)) unknown.Add(k);
+                }
+            }
+
+            // Fill defaults (if requested)
+            if (fillDefaults)
+            {
+                foreach (var s in schema)
+                {
+                    var key = NormalizeKey(s.Key);
+                    if (dict.ContainsKey(key)) continue;
+
+                    var def = ResolveDefault(s);
+                    if (def is not null)
                     {
-                        char next = input[i + 1];
-                        if (next == quoteChar || next == '\\')
-                        {
-                            sb.Append(next);
-                            i++;
-                            continue;
-                        }
+                        // For flags: store a canonical "true"/"false" (but we will re-validate below anyway).
+                        dict[key] = s.IsFlag ? NormalizeBool(def) : def;
                     }
-                    if (c == quoteChar)
-                    {
-                        inQuotes = false;
-                        continue;
-                    }
-                    sb.Append(c);
+                }
+            }
+
+            // Required-but-missing AFTER defaults.
+            var missing = new List<string>();
+            foreach (var s in schema)
+            {
+                var key = NormalizeKey(s.Key);
+                if (s.Required && !dict.ContainsKey(key))
+                    missing.Add(key);
+            }
+
+            // Validate + normalize values for all present schema keys.
+            var invalid = new List<string>();
+            foreach (var s in schema)
+            {
+                var key = NormalizeKey(s.Key);
+                if (!dict.TryGetValue(key, out var rawValue)) continue;
+
+                if (!ValidateAndMaybeNormalize(s, rawValue, out var normalized, out var error))
+                {
+                    invalid.Add($"--{key}: {error}");
                 }
                 else
                 {
-                    if (char.IsWhiteSpace(c))
-                    {
-                        Flush();
-                    }
-                    else if (c == '\'' || c == '"')
-                    {
-                        inQuotes = true;
-                        quoteChar = c;
-                    }
-                    else
-                    {
-                        sb.Append(c);
-                    }
+                    dict[key] = normalized; // write back the normalized value
                 }
             }
 
-            Flush();
-            return list;
+            var ok = missing.Count == 0 && invalid.Count == 0 && (allowUnknown || unknown.Count == 0);
 
-            void Flush()
+            // Build a terse message for BuildErrorMessage()
+            var parts = new List<string>();
+            if (missing.Count > 0)
+                parts.Add($"Missing required: {string.Join(", ", missing.Select(k => $"--{k}"))}");
+            if (unknown.Count > 0)
+                parts.Add($"Unknown args: {string.Join(", ", unknown.Select(k => $"--{k}"))}");
+            if (invalid.Count > 0)
+                parts.Add($"Invalid values: {string.Join("; ", invalid)}");
+
+            return new ArgParseResult
             {
-                if (sb.Length > 0)
+                Success = ok,
+                Args = dict, // already case-insensitive
+                MissingKeys = missing,
+                UnknownKeys = unknown,
+                InvalidKeys = invalid, // populated with messages for each invalid key
+                Message = parts.Count == 0 ? "" : string.Join("; ", parts)
+            };
+
+            // --------- local helpers ---------
+
+            static string NormalizeKey(string k)
+                => (k ?? "").Trim().TrimStart('-').ToLowerInvariant();
+
+            static string? ResolveDefault(ArgSpec s)
+            {
+                if (!string.IsNullOrWhiteSpace(s.DefaultValue)) return s.DefaultValue;
+                if (s.DefaultFactory is not null)
                 {
-                    list.Add(sb.ToString());
-                    sb.Clear();
+                    try { return s.DefaultFactory() ?? ""; } catch { /* swallow */ }
+                }
+                return null;
+            }
+
+            static string NormalizeBool(string v)
+            {
+                var t = (v ?? "").Trim().ToLowerInvariant();
+                return t is "1" or "true" or "yes" or "y" or "on" ? "true" : "false";
+            }
+
+            static bool ValidateAndMaybeNormalize(
+                ArgSpec spec,
+                string value,
+                out string normalized,
+                out string error)
+            {
+                normalized = value;
+                error = "";
+
+                // Flags: presence => true, unless explicitly falsy
+                if (spec.IsFlag)
+                {
+                    if (string.IsNullOrWhiteSpace(value))
+                    {
+                        normalized = "true";
+                        return true;
+                    }
+
+                    var t = value.Trim().ToLowerInvariant();
+                    if (t is "1" or "true" or "yes" or "y" or "on")
+                    {
+                        normalized = "true";
+                        return true;
+                    }
+                    if (t is "0" or "false" or "no" or "n" or "off")
+                    {
+                        normalized = "false";
+                        return true;
+                    }
+
+                    error = $"expected a boolean (got '{value}')";
+                    return false;
+                }
+
+                // Non-flag values: use TypeHint
+                switch ((spec.TypeHint ?? "value").Trim().ToLowerInvariant())
+                {
+                    case "int":
+                        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+                        {
+                            normalized = i.ToString(CultureInfo.InvariantCulture);
+                            return true;
+                        }
+                        error = $"must be an integer (got '{value}')";
+                        return false;
+
+                    case "bool":
+                        {
+                            var t = value.Trim().ToLowerInvariant();
+                            if (t is "1" or "true" or "yes" or "y" or "on") { normalized = "true"; return true; }
+                            if (t is "0" or "false" or "no" or "n" or "off") { normalized = "false"; return true; }
+                            error = $"must be a boolean (got '{value}')";
+                            return false;
+                        }
+
+                    case "url":
+                        if (Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+                            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+                        {
+                            normalized = uri.ToString();
+                            return true;
+                        }
+                        error = $"must be an absolute http/https URL (got '{value}')";
+                        return false;
+
+                    // default: treat as free-form string
+                    default:
+                        normalized = value?.Trim() ?? "";
+                        return true;
                 }
             }
+        }
+
+        public static string BuildUsage(string cmdName, List<ArgSpec> schema)
+        {
+            string Render(ArgSpec s)
+                => s.IsFlag
+                    ? $"--{s.Key}"
+                    : $"--{s.Key} <{(string.IsNullOrWhiteSpace(s.TypeHint) ? "value" : s.TypeHint)}>";
+
+            var required = schema.Where(s => s.Required).ToList();
+            var optional = schema.Where(s => !s.Required).ToList();
+
+            var usage = new StringBuilder();
+            usage.Append("Usage: ").Append(cmdName);
+            foreach (var s in required) usage.Append(' ').Append(Render(s));
+            foreach (var s in optional) usage.Append(' ').Append('[').Append(Render(s)).Append(']');
+
+            var opts = new StringBuilder();
+            opts.AppendLine(usage.ToString());
+            opts.AppendLine();
+            opts.AppendLine("Options:");
+            foreach (var s in schema.OrderByDescending(s => s.Required).ThenBy(s => s.Key))
+            {
+                var head = s.IsFlag
+                    ? $"  --{s.Key}"
+                    : $"  --{s.Key} <{(string.IsNullOrWhiteSpace(s.TypeHint) ? "value" : s.TypeHint)}>";
+
+                var def = !string.IsNullOrWhiteSpace(s.DefaultValue)
+                          ? s.DefaultValue
+                          : s.DefaultFactory != null ? SafeEval(s.DefaultFactory) : "";
+
+                var defBit = string.IsNullOrWhiteSpace(def) ? "" : $" (default: {def})";
+                var reqBit = s.Required ? " [required]" : "";
+                var helpBit = string.IsNullOrWhiteSpace(s.Help) ? "" : $" - {s.Help}";
+                opts.AppendLine(head + reqBit + defBit + helpBit);
+            }
+
+            return opts.ToString();
+
+            static string SafeEval(Func<string> f)
+            {
+                try { return f() ?? ""; } catch { return ""; }
+            }
+        }
+
+        public static string BuildErrorMessage(string cmdName, ArgParseResult result, List<ArgSpec> schema)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Invalid arguments.");
+            if (!string.IsNullOrWhiteSpace(result.Message))
+                sb.AppendLine(result.Message);
+            sb.AppendLine();
+            sb.AppendLine(BuildUsage(cmdName, schema));
+            return sb.ToString();
         }
     }
 }

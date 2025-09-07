@@ -15,7 +15,7 @@ namespace NetworkMonitor.Connection
     {
         private ICmdProcessor? _cmdProcessor;
         private string _baseArg;
-
+       
         public CrawlSiteCmdConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
         {
 

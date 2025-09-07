@@ -12,14 +12,15 @@ using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Utils.Helpers;
 using System.Text;
-using System.Runtime.InteropServices;
+using NetworkMonitor.Utils;
 
 namespace NetworkMonitor.Connection
 {
     public class QuantumPortScannerCmdProcessor : QuantumTestBase
     {
-        const int MaxPortsToScan = 20;
+        private const int MaxPortsToScan = 20;
 
+        private readonly List<ArgSpec> _schema;
 
         public QuantumPortScannerCmdProcessor(
             ILogger logger,
@@ -29,29 +30,93 @@ namespace NetworkMonitor.Connection
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig,
                   "quantum-scan", "Quantum Security Scanner", queueLength: 10)
         {
-
+            _schema = new()
+            {
+                // Optional so we still support positional target
+                new()
+                {
+                    Key = "target",
+                    Required = true,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Hostname (or URL). If omitted, the first positional token is used."
+                },
+                new()
+                {
+                    Key = "algorithms",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Algorithms list. Supports comma, space, semicolon, or colon separators."
+                },
+                new()
+                {
+                    Key = "ports",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Explicit ports list (e.g., \"443,8443\"). If omitted, nmap is used."
+                },
+                new()
+                {
+                    Key = "timeout",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = _defaultTimeout.ToString(),
+                    Help = "Per-port scan timeout in ms."
+                },
+                new()
+                {
+                    Key = "nmap-options",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    DefaultValue = "-T4 --open",
+                    Help = "Custom nmap options (used when --ports not provided)."
+                }
+            };
         }
 
-        public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken,
+        public override async Task<ResultObj> RunCommand(
+            string arguments,
+            CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null)
         {
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
-                    return new ResultObj { Message = "Quantum security scanner not available" };
-               
-                var parsedArgs = base.ParseArguments(arguments);
-                var target = GetPositionalArgument(arguments);
-                target = target.Replace("https://", "");
-                target = target.Replace("http://", "");
-                if (string.IsNullOrEmpty(target))
-                    return new ResultObj { Message = "Missing required target parameter" };
+                    return new ResultObj { Success = false, Message = "Quantum security scanner not available" };
 
-                // Don't supply default here, so you can detect empty:
-                var userAlgos = parsedArgs.GetList("algorithms", new());
+                // Parse args with validation for ints + defaults
+                var parsed = CliArgParser.Parse(arguments, _schema, allowUnknown: false, fillDefaults: true);
+                if (!parsed.Success)
+                {
+                    var err = CliArgParser.BuildErrorMessage(_cmdProcessorStates.CmdDisplayName, parsed, _schema);
+                    _logger.LogWarning("Arguments not valid {args}. {msg}", arguments, parsed.Message);
+                    return new ResultObj { Success = false, Message = err };
+                }
+
+                // Resolve target (support both --target and positional)
+                var target = parsed.GetString("target");
+                if (string.IsNullOrWhiteSpace(target))
+                {
+                    target = GetPositionalArgument(arguments);
+                }
+                target = NormalizeTarget(target);
+
+                if (string.IsNullOrWhiteSpace(target))
+                {
+                    return new ResultObj { Success = false, Message = "Missing required target.\n\n" + GetCommandHelp() };
+                }
+
+                // Algorithms: flexible separators; no validation/aliasing
+                var algoRaw = parsed.GetString("algorithms");
+                var userAlgos = ParseList(algoRaw);
+
                 List<string> algosToUse;
                 bool batch;
-                if (userAlgos == null || userAlgos.Count == 0)
+                if (userAlgos.Count == 0)
                 {
                     algosToUse = GetDefaultAlgorithms();
                     batch = true;
@@ -62,46 +127,56 @@ namespace NetworkMonitor.Connection
                     batch = false;
                 }
 
+                // Ports: flexible separators; integers only
+                var portsRaw = parsed.GetString("ports");
+                var (ports, portError) = ParsePorts(portsRaw);
+                if (!string.IsNullOrEmpty(portError))
+                {
+                    return new ResultObj { Success = false, Message = portError + "\n\n" + GetCommandHelp() };
+                }
+
                 var config = new QuantumScanConfig(
                     Target: target,
-                    Ports: parsedArgs.GetList("ports", new List<string>()).Select(int.Parse).ToList(),
+                    Ports: ports,
                     Algorithms: algosToUse,
-                    Timeout: parsedArgs.GetInt("timeout", _defaultTimeout),
-                    NmapOptions: parsedArgs.GetString("nmap-options", "-T4 --open"),
+                    Timeout: parsed.GetInt("timeout", _defaultTimeout),
+                    NmapOptions: parsed.GetString("nmap-options", "-T4 --open"),
                     batch: batch
                 );
 
                 return await ExecuteFullScan(config, cancellationToken);
-
+            }
+            catch (OperationCanceledException)
+            {
+                return new ResultObj { Success = false, Message = "Quantum scan canceled or timed out.\n" };
             }
             catch (Exception ex)
             {
-                return new ResultObj { Message = $"Quantum scan failed: {ex.Message}" };
+                _logger.LogError(ex, "Quantum scan failed");
+                return new ResultObj { Success = false, Message = $"Quantum scan failed: {ex.Message}" };
             }
         }
 
         private async Task<ResultObj> ExecuteFullScan(QuantumScanConfig config, CancellationToken ct)
         {
-            // Outer token for the entire scan phase (OpenSSL loop)
-
-            List<int> ports;
             try
             {
-                // If ports not specified, run nmap with its own dedicated timeout!
+                // 1) Resolve the port list
+                List<int> ports;
                 if (config.Ports.Any())
                 {
                     ports = config.Ports;
                 }
                 else
                 {
-                    // Separate timeout just for nmap!
+                    // Use nmap (with its own timeout)
                     using var nmapCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     nmapCts.CancelAfter(_defaultTimeout);
                     try
                     {
                         ports = await RunNmapScan(config.Target, config.NmapOptions, nmapCts.Token);
                     }
-                    catch (TimeoutException)
+                    catch (OperationCanceledException)
                     {
                         return new ResultObj
                         {
@@ -124,15 +199,16 @@ namespace NetworkMonitor.Connection
                     };
                 }
 
+                // 2) Per-port scans (parallel with cap)
                 var results = new List<PortResult>();
                 var semaphore = new SemaphoreSlim(_maxParallelTests);
-                var portTasks = new List<Task<PortResult>>();
+                var tasks = new List<Task<PortResult>>();
 
                 foreach (var port in ports)
                 {
                     await semaphore.WaitAsync(ct);
 
-                    portTasks.Add(Task.Run(async () =>
+                    tasks.Add(Task.Run(async () =>
                     {
                         using var portCts = new CancellationTokenSource(config.Timeout);
 
@@ -145,19 +221,10 @@ namespace NetworkMonitor.Connection
                                 Timeout: config.Timeout
                             );
 
-                            List<AlgorithmResult> algoResults;
-                            if (config.batch)
-                            {
-                                // Batch mode: single OpenSSL call for all algos
-                                algoResults = await base.ProcessAlgorithmGroup(portConfig, config.Algorithms, portCts.Token);
-                            }
-                            else
-                            {
-                                // One-by-one mode
-                                algoResults = await base.ProcessAlgorithmGroupOneByOne(portConfig, config.Algorithms, portCts.Token);
-                            }
+                            List<AlgorithmResult> algoResults = config.batch
+                                ? await base.ProcessAlgorithmGroup(portConfig, config.Algorithms, portCts.Token)
+                                : await base.ProcessAlgorithmGroupOneByOne(portConfig, config.Algorithms, portCts.Token);
 
-                            // Combine/flatten algoResults for port (your existing logic for summarizing can remain)
                             var portResult = base.ProcessTestResults(algoResults);
                             return new PortResult(port, portResult);
                         }
@@ -183,19 +250,15 @@ namespace NetworkMonitor.Connection
                         {
                             semaphore.Release();
                         }
-                    }));
+                    }, ct));
                 }
 
-                // Wait for all scans to finish (whether completed or timed out)
-                var completedResults = await Task.WhenAll(portTasks);
-
-                return ProcessScanResults(completedResults.ToList());
-
-
+                var completed = await Task.WhenAll(tasks);
+                return ProcessScanResults(completed.ToList());
             }
             catch (Exception e)
             {
-                return new ResultObj { Message = $"Quantum scan failed: {e.Message}" };
+                return new ResultObj { Success = false, Message = $"Quantum scan failed: {e.Message}" };
             }
         }
 
@@ -217,19 +280,23 @@ namespace NetworkMonitor.Connection
                 nmapPath = Path.Combine(_netConfig.NativeLibDir, "libnmap_exec.so");
             }
 
-            using var process = new Process();
-            process.StartInfo.FileName = nmapPath;
-            process.StartInfo.Arguments = arguments  + dataDir;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            process.StartInfo.CreateNoWindow = true;
-            process.StartInfo.WorkingDirectory = workingDirectory;
-
+            using var process = new Process
+            {
+                StartInfo =
+                {
+                    FileName = nmapPath,
+                    Arguments = arguments + dataDir,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = workingDirectory
+                }
+            };
 
             var output = new StringBuilder();
             process.OutputDataReceived += (_, e) => LogAndCapture(e.Data, output);
-            process.ErrorDataReceived += (_, e) => LogAndCapture(e.Data, output);
+            process.ErrorDataReceived  += (_, e) => LogAndCapture(e.Data, output);
 
             process.Start();
             process.BeginOutputReadLine();
@@ -237,8 +304,7 @@ namespace NetworkMonitor.Connection
 
             using (ct.Register(() =>
             {
-                if (!process.HasExited)
-                    process.Kill();
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { /* ignore */ }
             }))
             {
                 await process.WaitForExitAsync(ct);
@@ -250,22 +316,27 @@ namespace NetworkMonitor.Connection
             return ParseNmapOutput(outputFile);
         }
 
+        private static void LogAndCapture(string? line, StringBuilder sb)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            sb.AppendLine(line);
+        }
+
         private List<int> ParseNmapOutput(string xmlPath)
         {
             var doc = XDocument.Load(xmlPath);
             return doc.Descendants("port")
                 .Where(p => p.Element("state")?.Attribute("state")?.Value == "open")
-                .Select(p => p.Attribute("portid")?.Value) // Get the string value safely
-                .Where(portid => int.TryParse(portid, out _)) // Ensure it's a valid int
-                .Select(portid => int.Parse(portid!)) // Parse safely
+                .Select(p => p.Attribute("portid")?.Value)
+                .Where(portid => int.TryParse(portid, out _))
+                .Select(portid => int.Parse(portid!))
                 .ToList();
         }
-
 
         private ResultObj ProcessScanResults(List<PortResult> results)
         {
             var successResults = results.Where(r => r.QuantumResult.Success).ToList();
-            var failedResults = results.Where(r => !r.QuantumResult.Success).ToList();
+            var failedResults  = results.Where(r => !r.QuantumResult.Success).ToList();
             var output = new StringBuilder();
 
             if (successResults.Any())
@@ -303,19 +374,87 @@ namespace NetworkMonitor.Connection
             };
         }
 
-        public override string GetCommandHelp()
+        public override string GetCommandHelp() => @"
+Scan a host for quantum-ready TLS across one or more ports.
+
+Usage:
+  --target <host|url> [--algorithms <list>] [--ports <list>] [--timeout <ms>] [--nmap-options ""...""]
+  (You may also pass the target as the first positional argument.)
+
+Arguments:
+  --target          Hostname or URL. If a URL is passed, the scheme is stripped.
+  --algorithms      Algorithms list; separators: comma, space, semicolon, or colon.
+                    Examples:
+                      --algorithms mlkem768
+                      --algorithms ""mlkem512, mlkem768, p256_mlkem512""
+                      --algorithms x25519_mlkem512 p384_mlkem768
+                      --algorithms ""frodo640aes:frodo640shake; p256_frodo640aes x25519_frodo640shake""
+  --ports           Explicit ports (same separators). Example: ""443,8443""
+                    If omitted, nmap is used to discover open ports.
+  --timeout         Per-port scan timeout in ms (default from config).
+  --nmap-options    Options passed to nmap when --ports is omitted (default: ""-T4 --open"").
+
+Required:
+ only --target is required.
+
+Notes:
+  • At most 20 ports may be scanned per invocation.
+  • If nmap discovery times out, try specifying a smaller port list via --ports.";
+
+        // ---------- helpers ----------
+
+        private static string NormalizeTarget(string? s)
         {
-            var baseHelp = base.GetCommandHelp();
-            return $@"
-{baseHelp}
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            var t = s.Trim();
+            if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase))  t = t.Substring("http://".Length);
+            else if (t.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) t = t.Substring("https://".Length);
+            if (t.EndsWith("/")) t = t.TrimEnd('/');
+            return t;
+        }
 
-Additional Nmap Options:
-  --nmap-options Custom Nmap options (default: ""-T4 --open"")
+        private static List<string> ParseList(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return new();
+            var tokens = raw.Split(new[] { ',', ';', ':', ' ', '\t', '\r', '\n' },
+                                   StringSplitOptions.RemoveEmptyEntries);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<string>();
+            foreach (var tok in tokens)
+            {
+                var v = tok.Trim();
+                if (v.Length == 0) continue;
+                if (seen.Add(v)) result.Add(v);
+            }
+            return result;
+        }
 
-Examples:
-  example.com --ports 443,8443
-  example.com --nmap-options ""-T4 -p 1-1000"" --timeout 120000
-";
+        private static (List<int> ports, string? error) ParsePorts(string? raw)
+        {
+            var ports = new List<int>();
+            if (string.IsNullOrWhiteSpace(raw)) return (ports, null);
+
+            var tokens = raw.Split(new[] { ',', ';', ':', ' ', '\t', '\r', '\n' },
+                                   StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var tok in tokens)
+            {
+                if (!int.TryParse(tok.Trim(), out var p) || p < 1 || p > 65535)
+                {
+                    return (new List<int>(), $"Invalid port '{tok}'. Ports must be integers between 1 and 65535.");
+                }
+                ports.Add(p);
+            }
+
+            // de-dupe, preserve order
+            var seen = new HashSet<int>();
+            var dedup = new List<int>();
+            foreach (var p in ports)
+            {
+                if (seen.Add(p)) dedup.Add(p);
+            }
+
+            return (dedup, null);
         }
 
         private record QuantumScanConfig(

@@ -496,36 +496,7 @@ namespace NetworkMonitor.Connection
         protected virtual Dictionary<string, string> ParseArguments(string arguments)
         {
             return NetworkMonitor.Utils.CliArgParser.Parse(arguments);
-           /* var args = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            // Support both --key value and --key="value" and --key value
-            var regex = new Regex(@"--(?<key>\w+)(?:[ =]+(?<value>""[^""]*""|\S+))?");
-
-            var matches = regex.Matches(arguments);
-
-            if (matches.Count == 0)
-            {
-                // No matches found, return empty dictionary
-                return args;
-            }
-
-            foreach (Match match in matches)
-            {
-                string key = match.Groups["key"].Value.ToLower();
-                string value = match.Groups["value"].Success ? match.Groups["value"].Value : "true"; // Boolean flags get "true"
-
-                // Remove quotes if the value is quoted
-                if (value.StartsWith("\"") && value.EndsWith("\""))
-                {
-                    value = value.Substring(1, value.Length - 2);
-                }
-
-                args[key] = value; // Overwrites duplicate keys
-            }
-
-            return args;*/
         }
-
-
 
     }
 }

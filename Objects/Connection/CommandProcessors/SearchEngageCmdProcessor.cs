@@ -1,8 +1,9 @@
 using System;
-using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
-using System.IO; // ← needed for DumpPageHtml
+using System.Threading.Tasks;
+using System.IO; // DumpPageHtml
 using PuppeteerSharp;
 using PuppeteerSharp.Input;
 using Microsoft.Extensions.Logging;
@@ -16,12 +17,15 @@ namespace NetworkMonitor.Connection
 {
     public class SearchEngageCmdProcessor : CmdProcessor
     {
-        private readonly int _searchTimeout = 60000;
-        private readonly int _engagementTimeout = 60000;
-        private readonly int _interactionDelayMin = 20000;
-        private readonly int _interactionDelayMax = 60000;
+        // Defaults (overridable via CLI)
+        private readonly int _searchTimeout = 60_000;
+        private readonly int _engagementTimeout = 60_000;
+        private readonly int _interactionDelayMin = 20_000;
+        private readonly int _interactionDelayMax = 60_000;
+
         private readonly Random _random = new Random();
-        ILaunchHelper? _launchHelper = null;
+        private readonly ILaunchHelper? _launchHelper;
+        private readonly List<ArgSpec> _schema;
 
         public SearchEngageCmdProcessor(
             ILogger logger,
@@ -32,6 +36,62 @@ namespace NetworkMonitor.Connection
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
             _launchHelper = launchHelper;
+
+            _schema = new()
+            {
+                new()
+                {
+                    Key = "search_term",
+                    Required = true,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Term to search for (required)."
+                },
+                new()
+                {
+                    Key = "target_domain",
+                    Required = true,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Domain to match in results (required), e.g. example.com."
+                },
+                new()
+                {
+                    Key = "search_timeout",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "60000",
+                    Help = "Search navigation timeout in ms (default 60000)."
+                },
+                new()
+                {
+                    Key = "engagement_timeout",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "60000",
+                    Help = "Engagement phase budget in ms (default 60000)."
+                },
+                new()
+                {
+                    Key = "interaction_delay_min",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "20000",
+                    Help = "Minimum random delay between interactions in ms."
+                },
+                new()
+                {
+                    Key = "interaction_delay_max",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "60000",
+                    Help = "Maximum random delay between interactions in ms."
+                }
+            };
         }
 
         public override async Task<ResultObj> RunCommand(
@@ -39,40 +99,50 @@ namespace NetworkMonitor.Connection
             CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null)
         {
-            var result = new ResultObj();
-            string output = string.Empty;
-
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
-                    _logger.LogWarning($"{_cmdProcessorStates.CmdDisplayName} is not available");
-                    output = $"{_cmdProcessorStates.CmdDisplayName} not available";
-                    result.Message = await SendMessage(output, processorScanDataObj);
-                    result.Success = false;
-                    return result;
+                    var m = $"{_cmdProcessorStates.CmdDisplayName} not available";
+                    _logger.LogWarning(m);
+                    return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
 
                 if (_launchHelper == null)
                 {
                     const string m = "PuppeteerSharp browser is not available on this agent. Check installation.";
                     _logger.LogWarning(m);
-                    result.Message = await SendMessage(m, processorScanDataObj);
-                    result.Success = false;
-                    return result;
+                    return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
 
-                var parsedArgs   = ParseArguments(arguments);
-                var searchTerm   = parsedArgs.GetString("search_term", "");
-                var targetDomain = parsedArgs.GetString("target_domain", "");
+                // Parse args (validate ints, fill defaults)
+                var parsed = CliArgParser.Parse(arguments, _schema, allowUnknown: false, fillDefaults: true);
+                if (!parsed.Success)
+                {
+                    var err = CliArgParser.BuildErrorMessage(_cmdProcessorStates.CmdDisplayName, parsed, _schema);
+                    _logger.LogWarning("Arguments not valid {args}. {msg}", arguments, parsed.Message);
+                    return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
+                }
 
-                if (string.IsNullOrEmpty(searchTerm))   throw new ArgumentException("Search term required");
-                if (string.IsNullOrEmpty(targetDomain)) throw new ArgumentException("Target domain required");
+                var searchTerm         = parsed.GetString("search_term");
+                var targetDomain       = parsed.GetString("target_domain");
+                var searchTimeout      = parsed.GetInt("search_timeout", _searchTimeout);
+                var engagementTimeout  = parsed.GetInt("engagement_timeout", _engagementTimeout);
+                var delayMin           = parsed.GetInt("interaction_delay_min", _interactionDelayMin);
+                var delayMax           = parsed.GetInt("interaction_delay_max", _interactionDelayMax);
 
-                // ► New: centralize launch + UA/headers + stealth in WebAutomationHelper
+                if (delayMax < delayMin)
+                {
+                    // Swap to be forgiving rather than failing
+                    (delayMin, delayMax) = (delayMax, delayMin);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Open prepared browser session (UA, headers, stealth, viewport)
                 var session = await WebAutomationHelper.OpenSessionAsync(
                     _launchHelper, _netConfig, _logger, cancellationToken,
-                    defaultPageTimeoutMs: _searchTimeout / 4,
+                    defaultPageTimeoutMs: Math.Max(1000, searchTimeout / 4),
                     options: new WebAutomationHelper.BrowserSessionOptions
                     {
                         ApplyStealth = true,
@@ -87,19 +157,20 @@ namespace NetworkMonitor.Connection
 
                 await using var __ = session;
                 var page   = session.Page;
-                var helper = new SearchWebHelper(_logger, _netConfig, _searchTimeout / 4, _searchTimeout * 2);
+                var helper = new SearchWebHelper(_logger, _netConfig, Math.Max(1000, searchTimeout / 4), searchTimeout * 2);
 
-                // Phase 1: Perform Search using SearchWebHelper
+                // Phase 1: Perform search
                 var urlResult = await helper.FetchGoogleSearchUrlsAsync(page, searchTerm, cancellationToken);
-
                 if (!urlResult.Success || urlResult.Data == null || urlResult.Data.Count == 0)
                 {
-                    result.Success = false;
-                    result.Message = urlResult.Message ?? "No search results found";
-                    return result;
+                    return new ResultObj
+                    {
+                        Success = false,
+                        Message = await SendMessage(urlResult.Message ?? "No search results found", processorScanDataObj)
+                    };
                 }
 
-                // Find the first link where the host equals or contains the target domain
+                // Find the first link where host equals or contains target domain
                 var targetLink = urlResult.Data.FirstOrDefault(l =>
                     Uri.TryCreate(l, UriKind.Absolute, out var uri) &&
                     (uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase) ||
@@ -108,73 +179,85 @@ namespace NetworkMonitor.Connection
                 if (string.IsNullOrEmpty(targetLink))
                 {
                     _logger.LogInformation("Target domain not found in links.");
-                    result.Success = false;
-                    result.Message = "Target site not found in search results";
-                    return result;
+                    return new ResultObj
+                    {
+                        Success = false,
+                        Message = await SendMessage("Target site not found in search results", processorScanDataObj)
+                    };
                 }
 
-                // Click the result
+                // Click the result / navigate
                 await page.GoToAsync(targetLink, new NavigationOptions
                 {
-                    Timeout = _searchTimeout,
+                    Timeout = searchTimeout,
                     WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
                 });
 
                 // Phase 2: Engagement Simulation
-                var engagementResult = await ExecuteEngagementFlow(page, cancellationToken);
+                var engagementResult = await ExecuteEngagementFlow(page, delayMin, delayMax, engagementTimeout, cancellationToken);
 
-                result.Success = engagementResult.Success;
-                result.Message = engagementResult.Message;
-                result.Data    = engagementResult.Data;
+                return new ResultObj
+                {
+                    Success = engagementResult.Success,
+                    Message = engagementResult.Message,
+                    Data    = engagementResult.Data
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                return new ResultObj { Success = false, Message = "Search engagement canceled or timed out.\n" };
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Search engagement failed: {ex.Message}");
-                result.Success = false;
-                result.Message = $"Error: {ex.Message}";
+                _logger.LogError(ex, "Search engagement failed");
+                return new ResultObj { Success = false, Message = $"Error: {ex.Message}" };
             }
-
-            return result;
         }
 
         private async Task DumpPageHtml(IPage page, string label = "page_debug")
         {
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            var safeLabel = label.Replace(" ", "_");
-
+            var safeLabel = (label ?? "page_debug").Replace(" ", "_");
             var html = await page.GetContentAsync();
             var fileName = $"debug_{safeLabel}_{timestamp}.html";
-
             File.WriteAllText(fileName, html);
-            _logger.LogInformation($"✅ Saved page HTML to: {fileName}");
+            _logger.LogInformation("Saved page HTML to: {file}", fileName);
         }
 
-        private async Task<ResultObj> ExecuteEngagementFlow(IPage page, CancellationToken ct)
+        private async Task<ResultObj> ExecuteEngagementFlow(
+            IPage page,
+            int delayMin,
+            int delayMax,
+            int engagementTimeout,
+            CancellationToken ct)
         {
             var result = new ResultObj();
             try
             {
+                using var opCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                opCts.CancelAfter(engagementTimeout);
+
                 try
                 {
                     await ScrollLikeHuman(page);
-                    await RandomDelay();
-                } catch { }
+                    await RandomDelay(delayMin, delayMax, opCts.Token);
+                } catch { /* best effort */ }
 
                 try
                 {
                     await ClickRandomLink(page);
-                    await RandomDelay();
-                } catch { }
+                    await RandomDelay(delayMin, delayMax, opCts.Token);
+                } catch { /* best effort */ }
 
                 try
                 {
                     await ScrollLikeHuman(page, fastScroll: false);
                     await HoverOverElements(page);
-                } catch { }
+                } catch { /* best effort */ }
 
                 var metrics = new EngagementMetrics
                 {
-                    TimeOnSite   = _engagementTimeout,
+                    TimeOnSite   = engagementTimeout,
                     PagesVisited = 2,
                     Interactions = 3
                 };
@@ -182,6 +265,11 @@ namespace NetworkMonitor.Connection
                 result.Success = true;
                 result.Message = "Engagement simulation completed successfully";
                 result.Data    = metrics;
+            }
+            catch (OperationCanceledException)
+            {
+                result.Success = false;
+                result.Message = "Engagement timed out.";
             }
             catch (Exception ex)
             {
@@ -209,7 +297,7 @@ namespace NetworkMonitor.Connection
 
             for (int i = 0; i < scrollSteps; i++)
             {
-                await page.EvaluateExpressionAsync($"window.scrollBy(0, {scrollAmount / scrollSteps})");
+                await page.EvaluateExpressionAsync($"window.scrollBy(0, {Math.Max(1, scrollAmount / Math.Max(1, scrollSteps))})");
                 await Task.Delay(Random.Shared.Next(100, 300));
             }
         }
@@ -220,13 +308,14 @@ namespace NetworkMonitor.Connection
             if (element == null) return;
 
             var rect = await element.BoundingBoxAsync();
+            if (rect == null) return;
 
             await page.Mouse.MoveAsync(
                 rect.X + rect.Width / 2 + _random.Next(-5, 5),
                 rect.Y + rect.Height / 2 + _random.Next(-5, 5),
                 new MoveOptions { Steps = _random.Next(3, 10) });
 
-            await RandomDelay();
+            await Task.Delay(_random.Next(200, 600));
             await element.ClickAsync();
             await Task.Delay(_random.Next(1000, 3000));
         }
@@ -234,11 +323,12 @@ namespace NetworkMonitor.Connection
         private async Task ClickRandomLink(IPage page)
         {
             var links = await page.QuerySelectorAllAsync("a");
-            if (links.Count() > 0)
+            var count = links.Count();
+            if (count > 0)
             {
-                var randomLink = links[Random.Shared.Next(links.Count())];
+                var randomLink = links[Random.Shared.Next(count)];
                 await randomLink.ClickAsync();
-                await page.WaitForNavigationAsync();
+                try { await page.WaitForNavigationAsync(); } catch { /* ignore */ }
             }
         }
 
@@ -255,42 +345,41 @@ namespace NetworkMonitor.Connection
             }
         }
 
-        private async Task RandomDelay()
+        private static async Task RandomDelay(int minMs, int maxMs, CancellationToken ct)
         {
-            await Task.Delay(Random.Shared.Next(_interactionDelayMin, _interactionDelayMax));
+            var dur = Random.Shared.Next(Math.Max(0, minMs), Math.Max(minMs + 1, maxMs));
+            await Task.Delay(dur, ct);
         }
         #endregion
 
         public override string GetCommandHelp() => @"
-## Search Engagement Command Processor
+SearchEngageCmdProcessor
 
-Simulates organic search behavior to improve website rankings through:
-1. Search term entry
-2. Search result navigation
-3. Targeted site engagement
+Simulates organic search behavior:
+  1) Search entry
+  2) Result navigation
+  3) On-site engagement
 
-### Arguments:
---search_term: Term to search for (required)
---target_domain: Domain to find in results (required)
+Usage:
+  --search_term ""<query>"" --target_domain ""<domain>"" 
+  [--search_timeout <ms>] [--engagement_timeout <ms>]
+  [--interaction_delay_min <ms>] [--interaction_delay_max <ms>]
 
-### Features:
-- Human-like search input simulation
-- Context-aware result navigation
-- Behavioral engagement patterns:
-  - Natural scrolling
-  - Randomized clicking
-  - Element hovering
-  - Reading pauses
-- Session persistence
-- Anti-detection mechanisms
+Arguments:
+  --search_term            Term to search for (required)
+  --target_domain          Domain to find in results (required)
+  --search_timeout         Search navigation timeout (default 60000)
+  --engagement_timeout     Engagement budget (default 60000)
+  --interaction_delay_min  Min delay between interactions (default 20000)
+  --interaction_delay_max  Max delay between interactions (default 60000)
 
-### Usage Example:
---search_term=""network security tools"" --target_domain=""example.com""
+Example:
+  --search_term ""network security tools"" --target_domain ""example.com""
 
-### Metrics Collected:
-- Time spent on site
-- Pages visited
-- Interaction count
+Metrics returned:
+  • TimeOnSite (ms)
+  • PagesVisited
+  • Interactions
 ";
     }
 

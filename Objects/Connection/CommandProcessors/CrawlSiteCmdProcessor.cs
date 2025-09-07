@@ -26,11 +26,42 @@ namespace NetworkMonitor.Connection
         private static readonly Random _random = new Random();
         ILaunchHelper? _launchHelper = null;
 
+        private  List<ArgSpec> _schema;
+
+
 
         public CrawlSiteCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, ILaunchHelper? launchHelper = null)
 : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
             _launchHelper = launchHelper;
+            _schema = new()
+        {
+            new() {
+                Key = "url",
+                Required = true,
+                IsFlag = false,
+                TypeHint = "url",
+               Help = "Starting URL to crawl"
+            },
+            new() {
+                Key = "max_depth",
+                Required = false,
+                IsFlag = false,
+                TypeHint = "int",
+                DefaultValue = "3",
+                Help = "Maximum link depth"
+            },
+            new() {
+                Key = "max_pages",
+                Required = false,
+                IsFlag = false,
+                TypeHint = "int",
+                DefaultValue = "10",
+                Help = "Maximum pages to visit"
+            },
+            // Example flag with default off:
+            // new() { Key = "headless", Required = false, IsFlag = true, DefaultValue = "false", Help = "Force headless mode" },
+        };
         }
         public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
@@ -55,12 +86,23 @@ namespace NetworkMonitor.Connection
                     return result;
                 }
 
-                var parsedArgs = ParseCommandLineArguments(arguments, 3, 10); // Defaults: maxDepth=3, maxPages=10
-                int maxDepth = parsedArgs.MaxDepth;
-                int maxPages = parsedArgs.MaxPages;
+                var parseResult = CliArgParser.Parse(arguments, _schema, allowUnknown: false, fillDefaults: true);
+                if (!parseResult.Success)
+                {
+                    var err = CliArgParser.BuildErrorMessage(_cmdProcessorStates.CmdDisplayName, parseResult, _schema);
+                    _logger.LogWarning($" arguments not valid {arguments}. {parseResult.Message}");
+                    result.Message = await SendMessage(err, processorScanDataObj);
+                    result.Success = false;
+                    return result;
+                }
+
+                var url = parseResult.GetString("url");
+                var maxDepth = parseResult.GetInt("max_depth"); // safe: parser validated TypeHint "int"
+                var maxPages = parseResult.GetInt("max_pages"); // safe: ditto
+
 
                 // Call the CrawlSite method
-                var contentResult = await CrawlSite(parsedArgs.Url, maxPages, maxDepth);
+                var contentResult = await CrawlSite(url, maxPages, maxDepth);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 if (contentResult.Success)
@@ -94,7 +136,7 @@ The CrawlSiteCmdProcessor is designed to simulate user browsing behavior on a we
 - Provide the starting URL and optional arguments for maximum crawl depth and page limits.
 
 ### Supported Arguments:
-1. **--url** (string): The starting URL of the website to crawl. Defaults to the Frontend URL.
+1. **--url** (string): The starting URL of the website to crawl.
    - Example: `--url https://example.com`
 
 2. **--max_depth** (int): The maximum depth of link traversal. Defaults to 3.
@@ -102,6 +144,9 @@ The CrawlSiteCmdProcessor is designed to simulate user browsing behavior on a we
 
 3. **--max_pages** (int): The maximum number of pages to visit during the crawl. Defaults to 10.
    - Example: `--max_pages 20`
+
+### Required:
+ only --url is required.
 
 ### Features:
 
@@ -176,42 +221,6 @@ Crawls the default Frontend URL, with a depth of 3 and a limit of 10 pages.
 The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extracting site content, and generating traffic. It efficiently handles dynamic content, internal link navigation, and cookie consent, providing a realistic simulation of user activity.
 ";
         }
-        private (string Url, int MaxDepth, int MaxPages) ParseCommandLineArguments(string arguments, int defaultDepth, int defaultPages)
-        {
-            string url = AppConstants.FrontendUrl;
-            int maxDepth = defaultDepth;
-            int maxPages = defaultPages;
-
-            string[] tokens = arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            for (int i = 0; i < tokens.Length; i++)
-            {
-                switch (tokens[i])
-                {
-                    case "--url":
-                        if (i + 1 < tokens.Length && !tokens[i + 1].StartsWith("--"))
-                        {
-                            url = tokens[++i];
-                        }
-                        break;
-                    case "--max_depth":
-                        if (i + 1 < tokens.Length && int.TryParse(tokens[++i], out int depth))
-                        {
-                            maxDepth = depth;
-                        }
-                        break;
-                    case "--max_pages":
-                        if (i + 1 < tokens.Length && int.TryParse(tokens[++i], out int pages))
-                        {
-                            maxPages = pages;
-                        }
-                        break;
-                }
-            }
-
-            return (url, maxDepth, maxPages);
-        }
-
         private async Task<TResultObj<string>> CrawlSite(string startUrl, int maxPages, int maxDepth)
         {
 
@@ -227,7 +236,7 @@ The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extrac
 
             PuppeteerSharp.CookieParam[] storedCookies = Array.Empty<PuppeteerSharp.CookieParam>();
 
-            bool useHeadless = _launchHelper!.CheckDisplay(_logger,_netConfig.ForceHeadless);
+            bool useHeadless = _launchHelper!.CheckDisplay(_logger, _netConfig.ForceHeadless);
 
             var lo = await _launchHelper!.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
             using (var browser = await Puppeteer.LaunchAsync(lo))
