@@ -40,12 +40,12 @@ namespace NetworkMonitor.Connection
             var algorithmInfoList = CsvParser.ParseAlgorithmInfoCsv(csvFilePath);
 
             // Load the list of supported curves
-            List<string> curves = File.ReadAllLines(Path.Combine(netConfig.OqsProviderPath, "curves")).ToList();
+            List<string> groups = File.ReadAllLines(Path.Combine(netConfig.OqsProviderPath, "curves")).ToList();
 
             // Enable algorithms that are in the curves file
             foreach (AlgorithmInfo algoInfo in algorithmInfoList)
             {
-                algoInfo.Enabled = curves.Contains(algoInfo.AlgorithmName);
+                algoInfo.Enabled = groups.Contains(algoInfo.AlgorithmName);
             }
 
             return algorithmInfoList;

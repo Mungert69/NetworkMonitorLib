@@ -46,7 +46,7 @@ namespace NetworkMonitor.Connection
      
         protected virtual async Task<string> RunCommandAsync(
             string oqsCodepoint,
-            string curve,
+            string groups,
             string address,
             int port,
             bool addEnv,
@@ -62,7 +62,7 @@ namespace NetworkMonitor.Connection
                 opensslPath = Path.Combine(workingDirectory, "libopenssl_exec.so");
                 providerName = "liboqsprovider";
             }
-            string arguments = $"s_client -curves {curve} -connect {address}:{port} " +
+            string arguments = $"s_client -groups {groups} -connect {address}:{port} " +
                                $"-provider-path {providerPath} -provider {providerName} -provider default -msg";
 
             var envVars = new Dictionary<string, string>();
@@ -232,8 +232,8 @@ namespace NetworkMonitor.Connection
                 return result;
             }
 
-            string curves = string.Join(":", algorithms.Select(a => a.AlgorithmName));
-            string output = await RunCommandAsync(string.Empty, curves, address, port, false, Cts.Token);
+            string groups = string.Join(":", algorithms.Select(a => a.AlgorithmName));
+            string output = await RunCommandAsync(string.Empty, groups, address, port, false, Cts.Token);
 
             // ServerHello and KEM extension parsing logic (reuse your existing code)
             var serverHelloHelper = new ServerHelloHelper(_algorithmInfoList);
