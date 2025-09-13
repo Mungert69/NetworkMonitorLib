@@ -53,9 +53,9 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections"),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans"),
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans"),
-            new EndpointType("crawlsite", "AdsClickIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
-            new EndpointType("dailycrawl", "AdsClickIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites"),
-             new EndpointType("dailyhugkeepalive", "AccessAlarmIcon", "Daily HuggingFace Wake Up {Traffic Generator}", "Generate once daily traffic to awake up a huggingface space")
+            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
+            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites"),
+             new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Wake Up {Traffic Generator}", "Generate once daily traffic to awake up a huggingface space")
 
         };
 
