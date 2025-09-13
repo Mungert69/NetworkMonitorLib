@@ -32,8 +32,8 @@ namespace NetworkMonitor.Objects.Factory
     }
     public static class EndPointTypeFactory
     {
-      
-         private static readonly List<EndpointType> _endpointTypes = new List<EndpointType>
+
+        private static readonly List<EndpointType> _endpointTypes = new List<EndpointType>
         {
             new EndpointType("icmp", "PingIcon", "ICMP (Simple Ping)", "Simple ICMP Ping"),
             new EndpointType("http", "HttpIcon", "Http (Website Ping)", "Ping a website via HTTP"),
@@ -53,15 +53,17 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections"),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans"),
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans"),
-            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
-            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites")
+            new EndpointType("crawlsite", "AdsClickIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
+            new EndpointType("dailycrawl", "AdsClickIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites"),
+             new EndpointType("dailyhugkeepalive", "AccessAlarmIcon", "Daily HuggingFace Wake Up {Traffic Generator}", "Generate once daily traffic to awake up a huggingface space")
+
         };
 
-         public static string GetProcessingTimeEstimate(string? endpointType)
+        public static string GetProcessingTimeEstimate(string? endpointType)
         {
             endpointType = endpointType?.ToLower() ?? "";
-            if (endpointType.Contains("dailycrawl"))
-                return "One day (daily crawsite only runs once a day)";
+            if (endpointType.Contains("daily"))
+                return "One day (daily only runs once a day)";
             if (endpointType.Contains("nmap"))
                 return "15-30 minutes (comprehensive network scans take longer)";
             if (endpointType.Contains("crawlsite"))
@@ -75,9 +77,9 @@ namespace NetworkMonitor.Objects.Factory
 
             return "2-10 minutes";
         }
-/// <summary>
-///  Dictionary of values for the response time thresholds that are considered to be either excellent , good or fair. there are two sets because the port zero can do more work for some endpoint types (nmap).
-/// </summary>
+        /// <summary>
+        ///  Dictionary of values for the response time thresholds that are considered to be either excellent , good or fair. there are two sets because the port zero can do more work for some endpoint types (nmap).
+        /// </summary>
         public static readonly Dictionary<string, ResponseTimeThreshold> ResponseTimeThresholds = new()
 {
     { "icmp", new ResponseTimeThreshold(new ThresholdValues(50, 100, 200), new ThresholdValues(50, 100, 200)) },
@@ -111,6 +113,8 @@ namespace NetworkMonitor.Objects.Factory
     { "nmapvuln", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
      { "crawlsite", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
      {"dailycrawl", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+      {"dailyhugkeepalive", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) }
+
 };
 
 
@@ -148,13 +152,13 @@ namespace NetworkMonitor.Objects.Factory
                    ?? throw new ArgumentException("Invalid internal type provided.");
         }
 
-         public static EndpointType GetEndpointTypeByName(string friendlyName)
+        public static EndpointType GetEndpointTypeByName(string friendlyName)
         {
             return _endpointTypes.FirstOrDefault(et => et.Name.Equals(friendlyName, StringComparison.OrdinalIgnoreCase))
                    ?? throw new ArgumentException("Invalid friendly name provided.");
         }
 
-         public static List<string> GetEnabledEndPoints(List<string> disabledEndPointTypes)
+        public static List<string> GetEnabledEndPoints(List<string> disabledEndPointTypes)
         {
             // Get the list of all internal types
             var allInternalTypes = GetInternalTypes();
@@ -167,9 +171,9 @@ namespace NetworkMonitor.Objects.Factory
             return enabledEndpoints;
         }
 
-    
+
         // Method to create the correct INetConnect instance based on type
-        public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper=null, string nativeLibDir="")
+        public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper = null, string nativeLibDir = "")
         {
             return type switch
             {
@@ -186,6 +190,7 @@ namespace NetworkMonitor.Objects.Factory
                 "nmapvuln" => new NmapCmdConnect(cmdProcessorProvider, "--script vuln"),
                 "crawlsite" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 3 --max_pages 10"),
                 "dailycrawl" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 4 --max_pages 20"),
+                "dailyhugkeepalive" => new HugSpaceKeepAliveConnect(cmdProcessorProvider, ""),
                 _ => new ICMPConnect(),
             };
         }
