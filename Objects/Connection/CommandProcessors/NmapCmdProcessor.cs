@@ -159,84 +159,21 @@ namespace NetworkMonitor.Connection
                     return result;
                 }
 
-                string xmlOutput = processorScanDataObj == null ? " -oX -" : "";
-                string extraArg = "";
-                extraArg = " --system-dns ";
-                string exePath = _netConfig.CommandPath;
-                string workingDirectory = _netConfig.CommandPath;
-                string dataDir = " --datadir " + _netConfig.CommandPath;
-                string nmapPath = Path.Combine(exePath, "nmap");
-                     
-                if (_netConfig.NativeLibDir != string.Empty)
-                {
-                    exePath = _netConfig.NativeLibDir;
-                    workingDirectory = _netConfig.CommandPath;
-                    LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
-                    nmapPath = Path.Combine(_netConfig.NativeLibDir, "libnmap_exec.so");
-                }
+                var env = new NmapEnvironment(_netConfig, _logger);
+                var runner = env.CreateRunner(_logger);
 
-                using var process = new Process();
-                process.StartInfo.FileName = nmapPath;
-                process.StartInfo.Arguments = arguments + xmlOutput + extraArg + dataDir;
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.CreateNoWindow = true;
-                process.StartInfo.WorkingDirectory = workingDirectory;
+                var xmlOutput = processorScanDataObj == null ? " -oX -" : "";
+                var extraArg = " --system-dns ";
 
-                var outputBuilder = new StringBuilder();
-                var errorBuilder = new StringBuilder();
+                var (success, outputProcess) = await runner.RunAsync(
+                    env.NmapPath,
+                    arguments + xmlOutput + extraArg + env.DataDir,
+                    cancellationToken
+                );
 
-                process.OutputDataReceived += (sender, e) =>
-                {
-                    if (e.Data != null)
-                    {
-                        outputBuilder.AppendLine(e.Data);
-                    }
-                };
+                result.Success = success;
+                output = outputProcess;
 
-                process.ErrorDataReceived += (sender, e) =>
-                {
-                    if (e.Data != null)
-                    {
-                        errorBuilder.AppendLine(e.Data);
-                    }
-                };
-
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                using (cancellationToken.Register(() =>
-                {
-                    if (!process.HasExited)
-                    {
-                        _logger.LogInformation("Cancellation requested, killing the Nmap process...");
-                        try
-                        {
-                            process.Kill();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"Error killing process: {ex.Message}");
-                        }
-                    }
-                }))
-                {
-                    // Wait for the process to exit or the cancellation token to be triggered
-                    await process.WaitForExitAsync(cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested(); // Check if cancelled before processing output
-
-                    output = outputBuilder.ToString();
-                    string errorOutput = errorBuilder.ToString();
-
-                    if (!string.IsNullOrWhiteSpace(errorOutput) && processorScanDataObj != null)
-                    {
-                        output = $"RedirectStandardError : {errorOutput}. \n RedirectStandardOutput : {output}";
-                    }
-
-                    result.Success = true;
-                }
             }
             catch (OperationCanceledException)
             {

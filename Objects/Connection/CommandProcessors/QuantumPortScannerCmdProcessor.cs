@@ -265,52 +265,16 @@ namespace NetworkMonitor.Connection
         private async Task<List<int>> RunNmapScan(string target, string nmapOptions, CancellationToken ct)
         {
             var outputFile = Path.GetTempFileName();
-            var arguments = $"{nmapOptions} -oX {outputFile} {target}";
+            var env = new NmapEnvironment(_netConfig, _logger);
+            var runner = env.CreateRunner(_logger);
 
-            string exePath = _netConfig.CommandPath;
-            string workingDirectory = _netConfig.CommandPath;
-            string dataDir = "";
-            string nmapPath = Path.Combine(exePath, "nmap");
-            if (_netConfig.NativeLibDir != string.Empty)
-            {
-                exePath = _netConfig.NativeLibDir;
-                workingDirectory = _netConfig.CommandPath;
-                dataDir = " --datadir " + _netConfig.CommandPath;
-                LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
-                nmapPath = Path.Combine(_netConfig.NativeLibDir, "libnmap_exec.so");
-            }
+            var (success, output) = await runner.RunAsync(
+                env.NmapPath,
+                $"{nmapOptions} -oX {outputFile} {target} {env.DataDir}",
+                ct
+            );
 
-            using var process = new Process
-            {
-                StartInfo =
-                {
-                    FileName = nmapPath,
-                    Arguments = arguments + dataDir,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    WorkingDirectory = workingDirectory
-                }
-            };
-
-            var output = new StringBuilder();
-            process.OutputDataReceived += (_, e) => LogAndCapture(e.Data, output);
-            process.ErrorDataReceived  += (_, e) => LogAndCapture(e.Data, output);
-
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            using (ct.Register(() =>
-            {
-                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { /* ignore */ }
-            }))
-            {
-                await process.WaitForExitAsync(ct);
-            }
-
-            if (process.ExitCode != 0)
+            if (!success)
                 throw new Exception($"Nmap scan failed: {output}");
 
             return ParseNmapOutput(outputFile);
@@ -336,7 +300,7 @@ namespace NetworkMonitor.Connection
         private ResultObj ProcessScanResults(List<PortResult> results)
         {
             var successResults = results.Where(r => r.QuantumResult.Success).ToList();
-            var failedResults  = results.Where(r => !r.QuantumResult.Success).ToList();
+            var failedResults = results.Where(r => !r.QuantumResult.Success).ToList();
             var output = new StringBuilder();
 
             if (successResults.Any())
@@ -407,7 +371,7 @@ Notes:
         {
             if (string.IsNullOrWhiteSpace(s)) return "";
             var t = s.Trim();
-            if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase))  t = t.Substring("http://".Length);
+            if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) t = t.Substring("http://".Length);
             else if (t.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) t = t.Substring("https://".Length);
             if (t.EndsWith("/")) t = t.TrimEnd('/');
             return t;
