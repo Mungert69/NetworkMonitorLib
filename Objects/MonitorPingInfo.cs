@@ -157,7 +157,7 @@ namespace NetworkMonitor.Objects
             Enabled = copy.Enabled;
             PingInfos = new List<PingInfo>();
             Username = copy.Username;
-            Password = copy.Password;
+            Password= copy.Password;
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
@@ -231,7 +231,7 @@ namespace NetworkMonitor.Objects
         /// The endpoint type. Endpoint types are: quantum is a quantum safe encryption test, http is a website ping, https is an SSL certificate check, httphtml is a website HTML load, icmp is a host ping, dns is a DNS lookup, smtp is an email server helo message confirmation, rawconnect is a low-level raw socket connection, nmap is a nmap service scan of the host, nmapvuln is a nmap vulnerability scan of the host and crawlsite performs a simulated user crawl of the site that generates site traffic using chrome browser.
         /// </summary>
 
-        [MaxLength(10)]
+        [MaxLength(50)]
         public string EndPointType { get; set; } = "";
         /// <summary>
         /// The total number of host up or event success for this host in this data set.
