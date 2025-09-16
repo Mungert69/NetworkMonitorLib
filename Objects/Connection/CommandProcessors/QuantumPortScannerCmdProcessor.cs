@@ -68,7 +68,7 @@ namespace NetworkMonitor.Connection
                 },
                 new()
                 {
-                    Key = "nmap-options",
+                    Key = "nmap_options",
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
@@ -140,7 +140,7 @@ namespace NetworkMonitor.Connection
                     Ports: ports,
                     Algorithms: algosToUse,
                     Timeout: parsed.GetInt("timeout", _defaultTimeout),
-                    NmapOptions: parsed.GetString("nmap-options", "-T4 --open"),
+                    NmapOptions: parsed.GetString("nmap_options", "-T4 --open"),
                     batch: batch
                 );
 
@@ -342,7 +342,7 @@ namespace NetworkMonitor.Connection
 Scan a host for quantum-ready TLS across one or more ports.
 
 Usage:
-  --target <host|url> [--algorithms <list>] [--ports <list>] [--timeout <ms>] [--nmap-options ""...""]
+  --target <host|url> [--algorithms <list>] [--ports <list>] [--timeout <ms>] [--nmap_options ""...""]
   (You may also pass the target as the first positional argument.)
 
 Arguments:
@@ -356,7 +356,7 @@ Arguments:
   --ports           Explicit ports (same separators). Example: ""443,8443""
                     If omitted, nmap is used to discover open ports.
   --timeout         Per-port scan timeout in ms (default from config).
-  --nmap-options    Options passed to nmap when --ports is omitted (default: ""-T4 --open"").
+  --nmap_options    Options passed to nmap when --ports is omitted (default: ""-T4 --open"").
 
 Required:
  only --target is required.
