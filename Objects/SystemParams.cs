@@ -27,6 +27,7 @@ namespace NetworkMonitor.Objects
         private string _defaultRegion = "";
         private int _sendReportsTimeSpan = 48;
         private string _audioServiceUrl;
+        private List<string> _audioServiceUrls;
         private string _audioServiceOutputDir;
         private string _dbPassword = "";
 
@@ -86,5 +87,6 @@ namespace NetworkMonitor.Objects
         public Dictionary<string, string> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
         public string DbPassword { get => _dbPassword; set => _dbPassword = value; }
         public string DataDir { get => _dataDir; set => _dataDir = value; }
+        public List<global::System.String> AudioServiceUrls { get => _audioServiceUrls; set => _audioServiceUrls = value; }
     }
 }
