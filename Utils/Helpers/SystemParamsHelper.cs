@@ -232,6 +232,8 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmCtxRatio = int.TryParse(_config["LlmCtxRatio"], out int llmCtxRatio) ? llmCtxRatio : 6;
 
             mlParams.StartThisTestLLM = _config.GetValue<bool?>("StartThisTestLLM") ?? true;
+            mlParams.NoNShot = _config.GetValue<bool?>("NoNShot") ?? false;
+           
             mlParams.LlmNoThink = _config.GetValue<bool?>("LlmNoThink") ?? false;
             mlParams.LlmPromptTokens = int.TryParse(_config["LlmPromptTokens"], out int llmPromptTokens) ? llmPromptTokens : 28000;
             mlParams.LlmGptModel = _config.GetValue<string>("LlmGptModel") ?? "gpt-4o-mini";

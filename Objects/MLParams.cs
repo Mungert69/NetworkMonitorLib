@@ -24,6 +24,7 @@ public class MLParams
     private int _llmSessionIdleTimeout = 60;
     private string _llmReversePrompt = "";
     private string _llmPromptMode = "-if -sp";
+    private bool _noNShot = false;
     private string _llmTemp = "0.0";
     private int _llmCtxSize = 12000;
     private int _llmOpenAICtxSize = 32000;
@@ -151,6 +152,7 @@ public class MLParams
     public global::System.Decimal PromptCacheDiscountFraction { get => _promptCacheDiscountFraction; set => _promptCacheDiscountFraction = value; }
     public global::System.Decimal CompletionCostMultiplier { get => _completionCostMultiplier; set => _completionCostMultiplier = value; }
     public global::System.Int32 MaxFunctionCallsInARow { get => _maxFunctionCallsInARow; set => _maxFunctionCallsInARow = value; }
+    public global::System.Boolean NoNShot { get => _noNShot; set => _noNShot = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)
