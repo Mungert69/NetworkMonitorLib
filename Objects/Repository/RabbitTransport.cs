@@ -38,7 +38,7 @@ namespace NetworkMonitor.Objects.Repository
         {
             _rabbitRepo = rabbitRepo ?? throw new ArgumentNullException(nameof(rabbitRepo));
             _sys = sys ?? throw new ArgumentNullException(nameof(sys));
-            _routingKey = routingKey ?? string.Empty;
+            _routingKey = routingKey ?? "execute.api";
             _log = log;
         }
 

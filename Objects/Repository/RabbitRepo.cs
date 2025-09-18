@@ -18,7 +18,7 @@ namespace NetworkMonitor.Objects.Repository
     {
         SystemUrl SystemUrl { get; set; }
         Task Shutdown();
-
+        string GetExchangeType(string exchangeName);
         Task PublishAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class;
         Task PublishAsync(string exchangeName, object? obj, string routingKey = "");
         Task<string> PublishJsonZAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class;
@@ -122,7 +122,7 @@ namespace NetworkMonitor.Objects.Repository
 
         }
 #pragma warning restore CS8618
-        private string GetExchangeType(string exchangeName)
+        public string GetExchangeType(string exchangeName)
         {
             if (exchangeName.StartsWith("oa.", StringComparison.OrdinalIgnoreCase))
             {
