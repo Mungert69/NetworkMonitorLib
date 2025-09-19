@@ -47,7 +47,7 @@ namespace NetworkMonitor.Objects.Repository
         private readonly object _isRunningLock = new();
         private bool _isReconnecting = false;
         private readonly object _reconnectLock = new();
-        private readonly Dictionary<string, string> _exchangeTypes;
+        private readonly Dictionary<string, string> _exchangeTypes= new Dictionary<string, string>();
 
 
         public bool IsRunning

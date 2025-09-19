@@ -56,7 +56,10 @@ namespace NetworkMonitor.Objects.Repository
                             rabbitMQObj.ConnectChannel = null;
                         }
                     }
-                    catch { }
+                    catch
+                    {
+                        _logger.LogWarning($"RabbitMQ channel for exchange {rabbitMQObj.ExchangeName} already closed or could not be closed.");
+                    }
                 }
 
                 // Close and dispose of all channels
@@ -72,6 +75,7 @@ namespace NetworkMonitor.Objects.Repository
                     }
                     catch (EndOfStreamException)
                     {
+                        _logger.LogWarning("RabbitMQ connection already closed.");
                     }
                     _connection = null;
                 }
@@ -141,8 +145,36 @@ namespace NetworkMonitor.Objects.Repository
             //_publishChannel = _connection.CreateModel();
             var channelTasks = _rabbitMQObjs.Select(async rabbitMQObj =>
             {
-                rabbitMQObj.ConnectChannel = await _connection.CreateChannelAsync();
+                try
+                {
+                    rabbitMQObj.ConnectChannel = await _connection.CreateChannelAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Failed to create channel for RabbitMQ object: {rabbitMQObj}");
+                    throw; // Rethrow to be caught by Task.WhenAll below
+                }
             });
+
+            try
+            {
+                await Task.WhenAll(channelTasks);
+            }
+            catch (AggregateException aggEx)
+            {
+                foreach (var ex in aggEx.InnerExceptions)
+                {
+                    _logger.LogError(ex, "Exception occurred during channel creation.");
+                }
+                // Handle partial setup or cleanup if necessary
+                throw; // Optionally rethrow or handle as needed
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception occurred during channel creation.");
+                // Handle partial setup or cleanup if necessary
+                throw; // Optionally rethrow or handle as needed
+            }
 
             await Task.WhenAll(channelTasks);
 
@@ -349,14 +381,23 @@ namespace NetworkMonitor.Objects.Repository
             {
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
-                json, typeof(CloudEvent), SourceGenerationContext.Default)
-                as CloudEvent;
-                if (cloudEvent != null && cloudEvent.data != null && cloudEvent.data is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
+                    json, typeof(CloudEvent), SourceGenerationContext.Default)
+                    as CloudEvent;
+                if (cloudEvent != null && cloudEvent.data != null)
                 {
-                    result = JsonSerializer.Deserialize(
-            jsonElement.GetRawText(), typeof(T), SourceGenerationContext.Default)
-            as T;
+                    if (cloudEvent.data is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
+                    {
+                        result = JsonSerializer.Deserialize(
+                            jsonElement.GetRawText(), typeof(T), SourceGenerationContext.Default)
+                            as T;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("CloudEvent.data is not a JsonElement object. Actual type: {DataType}", cloudEvent.data.GetType().FullName);
+                    }
                 }
+                else _logger.LogWarning("CloudEvent or CloudEvent.data is null.");
+
             }
             catch (Exception e)
             {
