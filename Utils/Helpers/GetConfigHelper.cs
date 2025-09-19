@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-
+using DotNetEnv;
 namespace NetworkMonitor.Utils.Helpers;
 
 public class GetConfigHelper
