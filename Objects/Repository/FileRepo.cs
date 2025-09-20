@@ -131,7 +131,7 @@ namespace NetworkMonitor.Objects.Repository
         }
 
         private string GetFilePath(string key)
-            => _isRunningOnMauiAndroid ? Path.Combine(_prefixPath, key) : key;
+            => Path.Combine(_prefixPath, key);
 
         private static void EnsureDirectoryFor(string path)
         {
