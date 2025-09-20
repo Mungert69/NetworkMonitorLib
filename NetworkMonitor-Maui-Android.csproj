@@ -12,18 +12,17 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
   </PropertyGroup>
-  <!-- <snippet_SuppressWarnings> -->
   <PropertyGroup>
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
-  <!-- </snippet_SuppressWarnings> -->
   <ItemGroup>
-  <PackageReference Include="DotNetEnv" Version="3.1.1" />
-  <PackageReference Include="FluentFTP" Version="52.1.0" />
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+      <PackageReference Include="FluentFTP" Version="52.1.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.2" />
     <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.1.0" />
     <PackageReference Include="Markdig" Version="0.41.3" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="9.0.8" />
     <PackageReference Include="Nanoid" Version="3.1.0" />
     <PackageReference Include="PuppeteerSharp" Version="20.2.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.8" />
@@ -40,8 +39,6 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
     <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
-
-              
   </ItemGroup>
    <ItemGroup>
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -52,4 +49,5 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Moq" Version="4.20.72" />
   </ItemGroup>
+
 </Project>
