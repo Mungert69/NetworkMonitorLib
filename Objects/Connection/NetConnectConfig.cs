@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Connection;
+using NetworkMonitor.Utils.Helpers;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.IO;
@@ -200,7 +201,7 @@ namespace NetworkMonitor.Connection
         public string ChatServer { get => _chatServer; set => _chatServer = value; }
         public bool IsChatMode { get => _isChatMode; set => _isChatMode = value; }
         public string TranscribeAudioUrl { get => _transcribeAudioUrl; set => _transcribeAudioUrl = value; }
-        public string NativeLibDir { get => _nativeLibDir;}
+        public string NativeLibDir { get => _nativeLibDir; }
         public string AppName { get => _appName; set => _appName = value; }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -230,6 +231,15 @@ namespace NetworkMonitor.Connection
                 _nativeLibDir = nativeLibDir;
                 BaseFusionAuthURL = config["BaseFusionAuthURL"] ?? "";
                 ClientId = config["ClientId"] ?? "";
+                string rabbitPassword = rabbitPassword = config["LocalSystemUrl:RabbitPassword"] ?? "";
+                
+                if (rabbitPassword == ".env" ) rabbitPassword = GetConfigHelper.GetEnv("RabbitPassword","");
+                else if (string.IsNullOrEmpty(rabbitPassword))
+                {
+                    rabbitPassword = GetConfigHelper.GetConfigValue(config, "RabbitPassword", "");
+                }
+
+
                 LocalSystemUrl = new SystemUrl
                 {
                     ExternalUrl = config["LocalSystemUrl:ExternalUrl"] ?? "",
@@ -238,11 +248,12 @@ namespace NetworkMonitor.Connection
                     RabbitPort = ushort.TryParse(config["LocalSystemUrl:RabbitPort"], out ushort rabbitPort) ? rabbitPort : (ushort)55671,
                     RabbitInstanceName = config["LocalSystemUrl:RabbitInstanceName"] ?? "",
                     RabbitUserName = config["LocalSystemUrl:RabbitUserName"] ?? "",
-                    RabbitPassword = config["LocalSystemUrl:RabbitPassword"] ?? "",
+                    RabbitPassword = rabbitPassword,
                     RabbitVHost = config["LocalSystemUrl:RabbitVHost"] ?? "",
                     MaxLoad = int.TryParse(config["LocalSystemUrl:MaxLoad"], out int maxLoad) ? maxLoad : 1500,
                     MaxRuntime = int.TryParse(config["LocalSystemUrl:MaxRuntime"], out int maxRuntime) ? maxRuntime : 60,
                 };
+
                 AppID = config["AppID"] ?? "";
                 AppName = config["AppName"] ?? "";
                 LoadServer = config["LoadServer"] ?? $"loadserver.{AppConstants.AppDomain}";
