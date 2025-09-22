@@ -148,6 +148,7 @@ namespace NetworkMonitor.Connection
         {
             var result = new ResultObj();
             string output = "";
+            string error = "";
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
@@ -164,16 +165,33 @@ namespace NetworkMonitor.Connection
 
                 var xmlOutput = processorScanDataObj == null ? " -oX -" : "";
                 var extraArg = " --system-dns ";
+                var fullArgs = arguments + xmlOutput + extraArg + env.DataDir;
 
-                var (success, outputProcess) = await runner.RunAsync(
-                    env.NmapPath,
-                    arguments + xmlOutput + extraArg + env.DataDir,
-                    cancellationToken
-                );
-
-                result.Success = success;
-                output = outputProcess;
-
+                if (IsXmlOutput(fullArgs, processorScanDataObj))
+                {
+                    // Use the XML-aware runner method
+                    var (success, stdOut, stdErr) = await runner.RunXmlAsync(
+                        env.NmapPath,
+                        fullArgs,
+                        cancellationToken
+                    );
+                    result.Success = success;
+                    output = stdOut;
+                    error = stdErr;
+                    if (!string.IsNullOrWhiteSpace(error))
+                        _logger.LogWarning("Nmap stderr: {stderr}", error);
+                }
+                else
+                {
+                    // Use the original runner method
+                    var (success, combinedOutput) = await runner.RunAsync(
+                        env.NmapPath,
+                        fullArgs,
+                        cancellationToken
+                    );
+                    result.Success = success;
+                    output = combinedOutput;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -478,6 +496,16 @@ This processor simplifies running Nmap by handling the tool's setup internally, 
                     else
                         return "icmp";
             }
+        }
+
+        private bool IsXmlOutput(string arguments, ProcessorScanDataObj? processorScanDataObj)
+        {
+            // If processorScanDataObj is null, you are adding -oX - yourself
+            if (processorScanDataObj == null)
+                return true;
+
+            // Or, if the arguments already contain -oX or --output-xml
+            return arguments.Contains("-oX") || arguments.Contains("--output-xml");
         }
 
     }
