@@ -14,25 +14,25 @@ namespace NetworkMonitor.Objects
         public const int FreeHosts = 10;
         public const int FreeMaxTokens = 250_000;
         public const int FreeDailyTokens = 25_000;
-        public const int FreeContext = 12_000;
+        public const int FreeContext = 24_000;
 
         // Standard
         public const int StandardHosts = 50;
         public const int StandardMaxTokens = 500_000;
         public const int StandardDailyTokens = 100_000;
-        public const int StandardContext = 16_000;
+        public const int StandardContext = 32_000;
 
         // Professional
         public const int ProfessionalHosts = 300;
         public const int ProfessionalMaxTokens = 2_500_000;
         public const int ProfessionalDailyTokens = 500_000;
-        public const int ProfessionalContext = 32_000;
+        public const int ProfessionalContext = 48_000;
 
         // Enterprise
         public const int EnterpriseHosts = 500;
         public const int EnterpriseMaxTokens = 7_500_000;
         public const int EnterpriseDailyTokens = 1_000_000;
-        public const int EnterpriseContext = 32_000;
+        public const int EnterpriseContext = 64_000;
 
         // God (internal)
         public const int GodHosts = 1000;
