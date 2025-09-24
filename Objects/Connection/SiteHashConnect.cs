@@ -30,25 +30,24 @@ namespace NetworkMonitor.Connection
                     return;
                 }
 
-                // Build a proper absolute URI (respect optional port)
+                // Build absolute URI with optional port
                 UriBuilder targetUri;
                 if (Uri.TryCreate(MpiStatic.Address, UriKind.Absolute, out var uriResult) &&
                     (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
                 {
                     targetUri = new UriBuilder(uriResult);
-                    if (MpiStatic.Port != 0)
-                        targetUri.Port = MpiStatic.Port;
+                    if (MpiStatic.Port != 0) targetUri.Port = MpiStatic.Port;
                 }
                 else
                 {
-                    string addressWithScheme = MpiStatic.Address.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                                               MpiStatic.Address.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                                               ? MpiStatic.Address
-                                               : "http://" + MpiStatic.Address;
+                    string addressWithScheme =
+                        MpiStatic.Address.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                        MpiStatic.Address.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                            ? MpiStatic.Address
+                            : "http://" + MpiStatic.Address;
 
                     targetUri = new UriBuilder(addressWithScheme);
-                    if (MpiStatic.Port != 0)
-                        targetUri.Port = MpiStatic.Port;
+                    if (MpiStatic.Port != 0) targetUri.Port = MpiStatic.Port;
                 }
 
                 var finalUri = targetUri.Uri;
@@ -62,38 +61,39 @@ namespace NetworkMonitor.Connection
                 using var browser = await Puppeteer.LaunchAsync(launchOptions);
                 using var page = await browser.NewPageAsync();
 
-                // Navigate and wait until network is (mostly) idle to reduce DOM churn
+                // Navigate and wait for network to go idle to reduce DOM churn
                 var navOptions = new NavigationOptions
                 {
                     WaitUntil = new[] { WaitUntilNavigation.Networkidle2 },
-                    Timeout = (int)Math.Max(0, MpiStatic.Timeout) // assumes Timeout is in ms
+                    Timeout = (int)Math.Max(0, MpiStatic.Timeout) // assumes milliseconds
                 };
                 await page.GoToAsync(finalUri.ToString(), navOptions);
 
-                // A brief quiet window helps catch late micro-mutations
-                await page.WaitForTimeoutAsync(750);
+                // Extra quiet window for late micro-mutations
+                await page.WaitForNetworkIdleAsync(new WaitForNetworkIdleOptions { Timeout = (int)Math.Max(0, MpiStatic.Timeout) });
+                await Task.Delay(500);
 
-                // Create a deterministic text snapshot:
-                //  - remove highly volatile nodes
-                //  - use innerText (visible text)
+                // Deterministic text snapshot:
+                //  - strip volatile nodes
+                //  - use visible text (innerText)
                 //  - normalize whitespace
                 string snapshot = await page.EvaluateFunctionAsync<string>(
                     @"() => {
-                        try {
-                            const sel = 'script,style,noscript,template,iframe,svg,canvas,meta,link[rel=""preload""],link[rel=""prefetch""]';
-                            document.querySelectorAll(sel).forEach(n => n.remove());
-                            const text = document.body?.innerText ?? '';
-                            return text.replace(/\s+/g, ' ').trim();
-                        } catch (e) {
-                            return '';
-                        }
-                    }");
+                try {
+                    const sel = 'script,style,noscript,template,iframe,svg,canvas,meta,link[rel=""preload""],link[rel=""prefetch""]';
+                    document.querySelectorAll(sel).forEach(n => n.remove());
+                    const text = document.body?.innerText ?? '';
+                    return text.replace(/\s+/g, ' ').trim();
+                } catch (e) {
+                    return '';
+                }
+            }");
 
                 Timer.Stop();
 
-                string hash = HashHelper.ComputeSha256Hash(snapshot);
+                var hash = HashHelper.ComputeSha256Hash(snapshot);
 
-                // First run: initialize and return OK
+                // First run: initialize and report OK
                 if (string.IsNullOrWhiteSpace(MpiConnect.SiteHash))
                 {
                     SetSiteHash(hash);
