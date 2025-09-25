@@ -1,25 +1,21 @@
-
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.ServiceMessage;
 using System;
 using System.Text.RegularExpressions;
-using System.Net;
 using System.Threading.Tasks;
-using System.Threading;
-using System.Net.Http;
-using System.Diagnostics;
 
 namespace NetworkMonitor.Connection
 {
     public class HugSpaceKeepAliveConnect : NetConnect
     {
-        private ICmdProcessor? _cmdProcessor;
-        private string _baseArg;
-       
+        private readonly ICmdProcessor? _cmdProcessor;
+        private readonly string _baseArg;
+
         public HugSpaceKeepAliveConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
         {
+            if (cmdProcessorProvider != null)
+                _cmdProcessor = cmdProcessorProvider.GetProcessor("HugSpaceKeepAlive");
 
-            if (cmdProcessorProvider != null) _cmdProcessor = cmdProcessorProvider.GetProcessor("HugSpaceKeepAlive");
             _baseArg = baseArg;
             IsLongRunning = true;
         }
@@ -36,46 +32,74 @@ namespace NetworkMonitor.Connection
             }
 
             PreConnect();
-            var result = new ResultObj();
             ushort responseTime = 0;
+
             try
             {
-                string address = MpiStatic.Address;
-                if (!address.StartsWith("https://") || !address.StartsWith("http://")) address = "https://" + address;
-                ushort port = MpiStatic.Port;
-                string arguments = $"--url {address}";
-                if (MpiStatic.Port != 0)
+                // Build absolute URL (fix scheme check: use AND, not OR)
+                var address = MpiStatic.Address?.Trim() ?? string.Empty;
+
+                // If no scheme provided, default to https
+                if (!address.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+                    !address.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
                 {
-                    arguments = $"--url {address}:{port}";
+                    address = "https://" + address;
                 }
-                arguments += $" {_baseArg}";
+
+                // Robust URL building with optional port
+                UriBuilder uriBuilder;
+                if (Uri.TryCreate(address, UriKind.Absolute, out var parsed))
+                {
+                    uriBuilder = new UriBuilder(parsed);
+                }
+                else
+                {
+                    uriBuilder = new UriBuilder(address);
+                }
+
+                if (MpiStatic.Port != 0)
+                    uriBuilder.Port = MpiStatic.Port;
+
+                var targetUrl = uriBuilder.Uri.AbsoluteUri;
+
+                // Build CLI args for the processor
+                string arguments = $"--url {targetUrl}";
+                if (!string.IsNullOrWhiteSpace(_baseArg))
+                    arguments += $" {_baseArg}";
 
                 Timer.Reset();
                 Timer.Start();
+
                 var processorScanDataObj = new ProcessorScanDataObj
                 {
                     Arguments = arguments,
                     SendMessage = false
                 };
-                result = await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
+
+                var result = await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
+
                 Timer.Stop();
-
-                string filteredString = result.Message;
-
-                bool isUp = true;
-                var (isHostUp, hostStatus) = GetCrawlStatus(filteredString);
-                string statusMessage = hostStatus;
                 responseTime = (ushort)Timer.ElapsedMilliseconds;
-                // Set response time to max value if host is down
+
+                var output = result.Message ?? string.Empty;
+
+                // Interpret result
+                var (isHostUp, hostStatus) = GetCrawlStatus(output);
+
+                // If the processor itself failed, treat as down
+                if (!result.Success)
+                    isHostUp = false;
+
                 if (!isHostUp)
                 {
+                    // Use max value to indicate failure per your convention
                     responseTime = ushort.MaxValue;
-                    isUp = false;
+                    ProcessException(output, hostStatus);
                 }
-
-
-                if (isUp) ProcessStatus(statusMessage, responseTime, filteredString);
-                else ProcessException(filteredString, statusMessage);
+                else
+                {
+                    ProcessStatus(hostStatus, responseTime, output);
+                }
             }
             catch (Exception e)
             {
@@ -87,26 +111,18 @@ namespace NetworkMonitor.Connection
             }
         }
 
-
-        private (bool, string) GetCrawlStatus(string input)
+        private static (bool isUp, string status) GetCrawlStatus(string input)
         {
-            string upPattern = @"Alive";
-            string downPattern = @"Error";
+            const string upPattern = @"Alive";
+            const string downPattern = @"Error";
 
-            if (Regex.IsMatch(input, upPattern, RegexOptions.IgnoreCase))
-            {
+            if (Regex.IsMatch(input ?? string.Empty, upPattern, RegexOptions.IgnoreCase))
                 return (true, "Hug Space is Alive");
-            }
-            else if (Regex.IsMatch(input, downPattern, RegexOptions.IgnoreCase))
-            {
+
+            if (Regex.IsMatch(input ?? string.Empty, downPattern, RegexOptions.IgnoreCase))
                 return (false, "Hug Space Keep Alive Failed");
-            }
-            else
-            {
-                return (false, "Hug Space Keep Alive Status Unknown");
-            }
+
+            return (false, "Hug Space Keep Alive Status Unknown");
         }
-
-
     }
 }

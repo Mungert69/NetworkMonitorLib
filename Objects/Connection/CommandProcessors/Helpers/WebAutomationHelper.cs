@@ -22,8 +22,8 @@ namespace NetworkMonitor.Connection
             public Dictionary<string, string>? ExtraHeaders { get; set; } = new()
             {
                 ["Cache-Control"] = "no-cache, no-store, must-revalidate",
-                ["Pragma"]        = "no-cache",
-                ["Expires"]       = "0",
+                ["Pragma"] = "no-cache",
+                ["Expires"] = "0",
                 ["Accept-Language"] = "en-US,en;q=0.9"
             };
             public bool ApplyStealth { get; set; } = true;
@@ -87,6 +87,29 @@ namespace NetworkMonitor.Connection
 
             return new BrowserSession(browser, page);
         }
+        // in WebAutomationHelper
+        public static async Task PreparePageAsync(
+            IPage page,
+            int defaultPageTimeoutMs = 10_000,
+            BrowserSessionOptions? options = null)
+        {
+            options ??= new BrowserSessionOptions();
+            page.DefaultTimeout = defaultPageTimeoutMs;
+
+            if (options.Viewport is not null)
+                await page.SetViewportAsync(options.Viewport);
+
+            if (!string.IsNullOrWhiteSpace(options.UserAgent))
+                await page.SetUserAgentAsync(options.UserAgent);
+
+            if (options.ExtraHeaders is not null && options.ExtraHeaders.Count > 0)
+                await page.SetExtraHttpHeadersAsync(options.ExtraHeaders);
+
+            if (options.ApplyStealth)
+                await ApplyStealthAsync(page);
+        }
+
+        // (Optional) keep OpenSessionAsync for legacy callers; internally call PreparePageAsync(page,...)
 
         /// <summary>Light stealth shim: removes webdriver, sets languages/plugins/screen & nudges chrome object.</summary>
         public static async Task ApplyStealthAsync(IPage page)

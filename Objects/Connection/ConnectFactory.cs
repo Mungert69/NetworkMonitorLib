@@ -14,7 +14,7 @@ using System;
 using System.Globalization;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using PuppeteerSharp;
+
 
 //using PuppeteerSharp;
 using Microsoft.Extensions.Logging;
@@ -37,14 +37,14 @@ namespace NetworkMonitor.Connection
         private List<AlgorithmInfo> _algorithmInfoList = new List<AlgorithmInfo>();
         private NetConnectConfig? _netConfig;
         private ILogger _logger;
-        private ILaunchHelper? _launchHelper;
+        private IBrowserHost? _browserHost;
 
-        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper = null)
+        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null)
         {
             _logger = logger;
             _netConfig = netConfig;
             _cmdProcessorProvider = cmdProcessorProvider;
-            _launchHelper = launchHelper;
+            _browserHost = browserHost;
 
             var sockerHttpHandler = new SocketsHttpHandler()
             {
@@ -126,38 +126,44 @@ namespace NetworkMonitor.Connection
         {
             return GetNetConnectObj(pingInfo, pingParams).Connect();
         }*/
-
         public async Task<ResultObj> SetupChromium(NetConnectConfig? netConfig)
         {
             var result = new ResultObj();
             try
             {
-
-                if (netConfig != null && netConfig.LoadChromium && _launchHelper != null)
+                if (netConfig?.LoadChromium == true && _browserHost != null)
                 {
+                    // Prewarm: triggers download/launch if needed
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                    await _browserHost.GetBrowserAsync(cts.Token);
 
-                    await _launchHelper.GetLauncher(netConfig.CommandPath, _logger);
                     result.Success = true;
-                    result.Message = " Success : Chromium Loaded OK";
+                    result.Message = " Success : Chromium prewarmed via BrowserHost.";
+                }
+                else if (netConfig?.LoadChromium == true && _browserHost == null)
+                {
+                    result.Success = false;
+                    result.Message = "Chromium not prewarmed (no BrowserHost provided).";
                 }
                 else
                 {
-                    result.Success = false;
-                    result.Message = $"Chromium is not loaded, netConfig is null, LoadChromium is not true. or null lanchHelper was passed";
-
+                    // Not an error; just not requested
+                    result.Success = true;
+                    result.Message = "Chromium preload skipped (LoadChromium = false).";
                 }
             }
             catch (Exception e)
             {
                 result.Success = false;
-                result.Message = $" Error : Failed to Load Chromium . Error was : {e.Message}";
-
+                result.Message = $" Error : Failed to prewarm Chromium. Error was : {e.Message}";
             }
+
             if (result.Success) _logger.LogInformation(result.Message);
             else _logger.LogError(result.Message);
             return result;
-
         }
+
+
         public void UpdateNetConnectionInfo(INetConnect netConnect, MonitorPingInfo monitorPingInfo, PingParams? pingParams = null)
         {
             if (monitorPingInfo != null)
@@ -190,7 +196,7 @@ namespace NetworkMonitor.Connection
         {
             if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = pingParams.Timeout;
             string? type = monitorPingInfo.EndPointType;
-            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList,_netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _launchHelper, _netConfig.NativeLibDir!  );
+            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, _netConfig.NativeLibDir!);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }

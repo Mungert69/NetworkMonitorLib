@@ -24,7 +24,9 @@ namespace NetworkMonitor.Connection
         private readonly int _interactionDelayMax = 60_000;
 
         private readonly Random _random = new Random();
-        private readonly ILaunchHelper? _launchHelper;
+
+              private readonly IBrowserHost _browserHost;
+
         private readonly List<ArgSpec> _schema;
 
         public SearchEngageCmdProcessor(
@@ -32,10 +34,10 @@ namespace NetworkMonitor.Connection
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper launchHelper)
+            IBrowserHost browserHost)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _browserHost  = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             _schema = new()
             {
@@ -108,13 +110,6 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
 
-                if (_launchHelper == null)
-                {
-                    const string m = "PuppeteerSharp browser is not available on this agent. Check installation.";
-                    _logger.LogWarning(m);
-                    return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
-                }
-
                 // Parse args (validate ints, fill defaults)
                 var parsed = CliArgParser.Parse(arguments, _schema, allowUnknown: false, fillDefaults: true);
                 if (!parsed.Success)
@@ -124,83 +119,81 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var searchTerm         = parsed.GetString("search_term");
-                var targetDomain       = parsed.GetString("target_domain");
-                var searchTimeout      = parsed.GetInt("search_timeout", _searchTimeout);
-                var engagementTimeout  = parsed.GetInt("engagement_timeout", _engagementTimeout);
-                var delayMin           = parsed.GetInt("interaction_delay_min", _interactionDelayMin);
-                var delayMax           = parsed.GetInt("interaction_delay_max", _interactionDelayMax);
+                var searchTerm        = parsed.GetString("search_term");
+                var targetDomain      = parsed.GetString("target_domain");
+                var searchTimeout     = parsed.GetInt("search_timeout", _searchTimeout);
+                var engagementTimeout = parsed.GetInt("engagement_timeout", _engagementTimeout);
+                var delayMin          = parsed.GetInt("interaction_delay_min", _interactionDelayMin);
+                var delayMax          = parsed.GetInt("interaction_delay_max", _interactionDelayMax);
 
-                if (delayMax < delayMin)
-                {
-                    // Swap to be forgiving rather than failing
-                    (delayMin, delayMax) = (delayMax, delayMin);
-                }
+                if (delayMax < delayMin) (delayMin, delayMax) = (delayMax, delayMin);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Open prepared browser session (UA, headers, stealth, viewport)
-                var session = await WebAutomationHelper.OpenSessionAsync(
-                    _launchHelper, _netConfig, _logger, cancellationToken,
-                    defaultPageTimeoutMs: Math.Max(1000, searchTimeout / 4),
-                    options: new WebAutomationHelper.BrowserSessionOptions
+                EngagementMetrics? metricsOut = null;
+
+                var (ok, msg) = await _browserHost.RunWithPage(async page =>
+                {
+                    // Prepare page (timeouts, stealth, UA, headers)
+                    page.DefaultTimeout = Math.Max(1000, searchTimeout / 4);
+                    await WebAutomationHelper.ApplyStealthAsync(page);
+                    await page.SetUserAgentAsync(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                        "Chrome/115.0.0.0 Safari/537.36");
+                    await page.SetExtraHttpHeadersAsync(new Dictionary<string, string>
                     {
-                        ApplyStealth = true,
-                        UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-                                    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                                    "Chrome/115.0.0.0 Safari/537.36",
-                        ExtraHeaders = new Dictionary<string, string>
-                        {
-                            ["Accept-Language"] = "en-US,en;q=0.9"
-                        }
+                        ["Accept-Language"] = "en-US,en;q=0.9"
                     });
 
-                await using var __ = session;
-                var page   = session.Page;
-                var helper = new SearchWebHelper(_logger, _netConfig, Math.Max(1000, searchTimeout / 4), searchTimeout * 2);
+                    var helper = new SearchWebHelper(_logger, _netConfig,
+                        microTimeout: Math.Max(1000, searchTimeout / 4),
+                        macroTimeout: searchTimeout * 2);
 
-                // Phase 1: Perform search
-                var urlResult = await helper.FetchGoogleSearchUrlsAsync(page, searchTerm, cancellationToken);
-                if (!urlResult.Success || urlResult.Data == null || urlResult.Data.Count == 0)
-                {
-                    return new ResultObj
+                    // Phase 1: Perform search
+                    var urlResult = await helper.FetchGoogleSearchUrlsAsync(page, searchTerm, cancellationToken);
+                    if (!urlResult.Success || urlResult.Data == null || urlResult.Data.Count == 0)
                     {
-                        Success = false,
-                        Message = await SendMessage(urlResult.Message ?? "No search results found", processorScanDataObj)
-                    };
-                }
+                        return (false, urlResult.Message ?? "No search results found");
+                    }
 
-                // Find the first link where host equals or contains target domain
-                var targetLink = urlResult.Data.FirstOrDefault(l =>
-                    Uri.TryCreate(l, UriKind.Absolute, out var uri) &&
-                    (uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase) ||
-                     uri.Host.Contains(targetDomain, StringComparison.OrdinalIgnoreCase)));
+                    // Find first link matching target domain
+                    var targetLink = urlResult.Data.FirstOrDefault(l =>
+                        Uri.TryCreate(l, UriKind.Absolute, out var uri) &&
+                        (uri.Host.Equals(targetDomain, StringComparison.OrdinalIgnoreCase) ||
+                         uri.Host.Contains(targetDomain, StringComparison.OrdinalIgnoreCase)));
 
-                if (string.IsNullOrEmpty(targetLink))
-                {
-                    _logger.LogInformation("Target domain not found in links.");
-                    return new ResultObj
+                    if (string.IsNullOrEmpty(targetLink))
                     {
-                        Success = false,
-                        Message = await SendMessage("Target site not found in search results", processorScanDataObj)
-                    };
-                }
+                        _logger.LogInformation("Target domain not found in links.");
+                        return (false, "Target site not found in search results");
+                    }
 
-                // Click the result / navigate
-                await page.GoToAsync(targetLink, new NavigationOptions
-                {
-                    Timeout = searchTimeout,
-                    WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
-                });
+                    // Navigate to target link
+                    await page.GoToAsync(targetLink, new NavigationOptions
+                    {
+                        Timeout = searchTimeout,
+                        WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
+                    });
 
-                // Phase 2: Engagement Simulation
-                var engagementResult = await ExecuteEngagementFlow(page, delayMin, delayMax, engagementTimeout, cancellationToken);
+                    // Phase 2: Engagement Simulation
+                    var engagementResult = await ExecuteEngagementFlow(page, delayMin, delayMax, engagementTimeout, cancellationToken);
+                    if (engagementResult.Success)
+                    {
+                        metricsOut = engagementResult.Data as EngagementMetrics;
+                        return (true, engagementResult.Message);
+                    }
+                    else
+                    {
+                        return (false, engagementResult.Message ?? "Engagement failed");
+                    }
+                }, cancellationToken);
 
                 return new ResultObj
                 {
-                    Success = engagementResult.Success,
-                    Message = engagementResult.Message,
-                    Data    = engagementResult.Data
+                    Success = ok,
+                    Message = await SendMessage(msg, processorScanDataObj),
+                    Data    = metricsOut
                 };
             }
             catch (OperationCanceledException)

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
@@ -17,18 +18,19 @@ namespace NetworkMonitor.Connection;
 public interface ICmdProcessorFactory
 {
     static abstract ICmdProcessor Create(
-      ILogger logger,
-      ILocalCmdProcessorStates states,
-      IRabbitRepo repo,
-      NetConnectConfig cfg,
-      ILaunchHelper? launchHelper = null);
+        ILogger logger,
+        ILocalCmdProcessorStates states,
+        IRabbitRepo repo,
+        NetConnectConfig cfg,
+        IBrowserHost? browserHost = null);
 
     static abstract string TypeKey { get; }
 }
 
-public interface IRequireLaunchHelper
+// Optional hook for processors that want explicit setter injection
+public interface IRequireBrowserHost
 {
-    void SetLaunchHelper(ILaunchHelper? launchHelper);
+    void SetBrowserHost(IBrowserHost? browserHost);
 }
 
 public class CmdProcessorCompiler
@@ -42,10 +44,23 @@ public class CmdProcessorCompiler
     private readonly ILogger _logger;
     private readonly IRabbitRepo _rabbitRepo;
     private readonly NetConnectConfig _netConfig;
-    private readonly ILaunchHelper _launchHelper;
-    private readonly List<string> _requiresLaunchHelper = new List<string>();
 
-    public CmdProcessorCompiler(ILoggerFactory loggerFactory, NetConnectConfig netConfig, IRabbitRepo rabbitRepo, Dictionary<string, ILocalCmdProcessorStates> processorStates, Dictionary<string, ICmdProcessor> processors, List<string> processorTypes, Dictionary<string, string> sourceCodeFileMap, ILaunchHelper launchHelper, List<string> requiresLaunchHelper)
+    private readonly IBrowserHost _browserHost;
+
+    // Single “requires” list: types that require browser automation
+    private readonly List<string> _requiresWebAutomation = new();
+
+    public CmdProcessorCompiler(
+        ILoggerFactory loggerFactory,
+        NetConnectConfig netConfig,
+        IRabbitRepo rabbitRepo,
+        Dictionary<string, ILocalCmdProcessorStates> processorStates,
+        Dictionary<string, ICmdProcessor> processors,
+        List<string> processorTypes,
+        Dictionary<string, string> sourceCodeFileMap,
+        IBrowserHost browserHost,
+        List<string> requiresWebAutomation
+    )
     {
         _loggerFactory = loggerFactory;
         _netConfig = netConfig;
@@ -55,111 +70,147 @@ public class CmdProcessorCompiler
         _processors = processors;
         _processorTypes = processorTypes;
         _sourceCodeFileMap = sourceCodeFileMap;
-        _launchHelper = launchHelper;
-        _requiresLaunchHelper = requiresLaunchHelper;
+        _browserHost = browserHost;
+        _requiresWebAutomation = requiresWebAutomation ?? new List<string>();
     }
 
     private ICmdProcessor CreateProcessorInstance(
-    Type type,
-    ILogger logger,
-    ILocalCmdProcessorStates states,
-    IRabbitRepo repo,
-    NetConnectConfig cfg,
-    ILaunchHelper? launchHelper,
-    bool requiresLaunchHelper)
+        Type type,
+        ILogger logger,
+        ILocalCmdProcessorStates states,
+        IRabbitRepo repo,
+        NetConnectConfig cfg,
+        bool requiresWebAutomation)
     {
-        // 0) Prefer a static Create(...) if author provided one (not required)
-        var factory = type.GetMethod(
+        // 1) Preferred static factory: Create(..., IBrowserHost)
+        var factory5 = type.GetMethod(
             "Create",
             BindingFlags.Public | BindingFlags.Static,
             binder: null,
-            types: new[] { typeof(ILogger), typeof(ILocalCmdProcessorStates), typeof(IRabbitRepo), typeof(NetConnectConfig), typeof(ILaunchHelper) },
+            types: new[] {
+                typeof(ILogger), typeof(ILocalCmdProcessorStates),
+                typeof(IRabbitRepo), typeof(NetConnectConfig),
+                typeof(IBrowserHost)
+            },
             modifiers: null);
-        if (factory != null)
+
+        if (factory5 != null)
         {
-            return (ICmdProcessor)factory.Invoke(null, new object?[] { logger, states, repo, cfg, launchHelper })!;
+            return (ICmdProcessor)factory5.Invoke(null, new object?[] {
+                logger, states, repo, cfg, _browserHost
+            })!;
         }
 
-        // 1) Try 5-arg ctor
+        // 2) 5-arg ctor: (ILogger, ILocalCmdProcessorStates, IRabbitRepo, NetConnectConfig, IBrowserHost)
         var ctor5 = type.GetConstructor(new[] {
-        typeof(ILogger), typeof(ILocalCmdProcessorStates), typeof(IRabbitRepo), typeof(NetConnectConfig), typeof(ILaunchHelper)
-    });
+            typeof(ILogger), typeof(ILocalCmdProcessorStates),
+            typeof(IRabbitRepo), typeof(NetConnectConfig),
+            typeof(IBrowserHost)
+        });
+
         if (ctor5 != null)
         {
-            return (ICmdProcessor)ctor5.Invoke(new object?[] { logger, states, repo, cfg, launchHelper })!;
+            return (ICmdProcessor)ctor5.Invoke(new object?[] {
+                logger, states, repo, cfg, _browserHost
+            })!;
         }
 
-        // 2) Try 4-arg ctor (what we want the LLM to use)
+        // 3) Static factory without browser (4 args), then soft-inject BrowserHost
+        var factory4 = type.GetMethod(
+            "Create",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] {
+                typeof(ILogger), typeof(ILocalCmdProcessorStates),
+                typeof(IRabbitRepo), typeof(NetConnectConfig)
+            },
+            modifiers: null);
+
+        if (factory4 != null)
+        {
+            var inst = (ICmdProcessor)factory4.Invoke(null, new object?[] {
+                logger, states, repo, cfg
+            })!;
+            SoftInjectBrowserHost(type, inst, enforce: requiresWebAutomation);
+            return inst;
+        }
+
+        // 4) 4-arg ctor, then soft-inject BrowserHost
         var ctor4 = type.GetConstructor(new[] {
-        typeof(ILogger), typeof(ILocalCmdProcessorStates), typeof(IRabbitRepo), typeof(NetConnectConfig)
-    });
+            typeof(ILogger), typeof(ILocalCmdProcessorStates),
+            typeof(IRabbitRepo), typeof(NetConnectConfig)
+        });
+
         if (ctor4 != null)
         {
-            var instance = (ICmdProcessor)ctor4.Invoke(new object?[] { logger, states, repo, cfg })!;
-            if (launchHelper != null)
-            {
-                TryInjectLaunchHelper(type, instance, launchHelper);
-            }
-            if (requiresLaunchHelper && launchHelper != null)
-            {
-                // Validate that injection actually happened
-                if (!DidInjectLaunchHelper(type, instance))
-                {
-                    throw new MissingMethodException(
-                        $"{type.FullName} requires ILaunchHelper but does not expose a 5-arg ctor, a public settable property " +
-                        "'ILaunchHelper LaunchHelper', a public method 'SetLaunchHelper(ILaunchHelper)', or implement IRequireLaunchHelper.");
-                }
-            }
+            var instance = (ICmdProcessor)ctor4.Invoke(new object?[] {
+                logger, states, repo, cfg
+            })!;
+            SoftInjectBrowserHost(type, instance, enforce: requiresWebAutomation);
             return instance;
         }
 
         throw new MissingMethodException(
-            $"{type.FullName} must expose (ILogger, ILocalCmdProcessorStates, IRabbitRepo, NetConnectConfig[, ILaunchHelper]) or provide a static Create(...).");
+            $"{type.FullName} must expose (ILogger, ILocalCmdProcessorStates, IRabbitRepo, NetConnectConfig[, IBrowserHost]) " +
+            "or a static Create(...) variant.");
     }
 
-    private void TryInjectLaunchHelper(Type type, ICmdProcessor instance, ILaunchHelper launchHelper)
+    private void SoftInjectBrowserHost(Type type, ICmdProcessor instance, bool enforce)
     {
-        var lhType = typeof(ILaunchHelper);
-
-        // a) Property injection: public ILaunchHelper? LaunchHelper { get; set; }
-        var prop = type.GetProperty("LaunchHelper", BindingFlags.Public | BindingFlags.Instance);
-        if (prop != null && prop.CanWrite && prop.PropertyType.IsAssignableFrom(lhType))
+        TryInjectBrowserHost(type, instance);
+        if (enforce && !DidInjectBrowserHost(type, instance))
         {
-            prop.SetValue(instance, launchHelper);
+            throw new MissingMethodException(
+                $"{type.FullName} requires IBrowserHost but does not expose a 5-arg ctor, " +
+                "a public settable property 'IBrowserHost BrowserHost', a method 'SetBrowserHost(IBrowserHost)', " +
+                "or implement IRequireBrowserHost.");
+        }
+    }
+
+    private void TryInjectBrowserHost(Type type, ICmdProcessor instance)
+    {
+        var bhType = typeof(IBrowserHost);
+
+        // Property injection: public IBrowserHost? BrowserHost { get; set; }
+        var prop = type.GetProperty("BrowserHost", BindingFlags.Public | BindingFlags.Instance);
+        if (prop is { CanWrite: true } && prop.PropertyType.IsAssignableFrom(bhType))
+        {
+            prop.SetValue(instance, _browserHost);
             return;
         }
 
-        // b) Explicit setter method: public void SetLaunchHelper(ILaunchHelper)
-        var setter = type.GetMethod("SetLaunchHelper",
+        // Explicit setter method: public void SetBrowserHost(IBrowserHost)
+        var setter = type.GetMethod("SetBrowserHost",
             BindingFlags.Public | BindingFlags.Instance,
             binder: null,
-            types: new[] { lhType },
+            types: new[] { bhType },
             modifiers: null);
         if (setter != null)
         {
-            setter.Invoke(instance, new object[] { launchHelper });
+            setter.Invoke(instance, new object[] { _browserHost });
             return;
         }
 
-        // c) Interface-based setter: IRequireLaunchHelper.SetLaunchHelper
-        if (instance is IRequireLaunchHelper req)
+        // Interface-based setter: IRequireBrowserHost
+        if (instance is IRequireBrowserHost req)
         {
-            req.SetLaunchHelper(launchHelper);
+            req.SetBrowserHost(_browserHost);
             return;
         }
     }
 
-    private bool DidInjectLaunchHelper(Type type, ICmdProcessor instance)
+    private bool DidInjectBrowserHost(Type type, ICmdProcessor instance)
     {
-        // Best-effort check: if property exists and is non-null after injection, consider it success.
-        var prop = type.GetProperty("LaunchHelper", BindingFlags.Public | BindingFlags.Instance);
-        if (prop != null && prop.CanRead && typeof(ILaunchHelper).IsAssignableFrom(prop.PropertyType))
+        // Best-effort check via readable property
+        var prop = type.GetProperty("BrowserHost", BindingFlags.Public | BindingFlags.Instance);
+        if (prop != null && prop.CanRead && typeof(IBrowserHost).IsAssignableFrom(prop.PropertyType))
         {
             return prop.GetValue(instance) != null;
         }
-        // If there’s only a setter or interface method, we can’t reflectively verify; assume success.
+        // If only setter/interface was used, we can’t verify — assume success.
         return true;
     }
+
     private Type CompileAndGetType(string sourceCode, string typeName, bool argsEscaped, bool includeExample)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
@@ -176,7 +227,6 @@ public class CmdProcessorCompiler
         var emit = compilation.Emit(ms);
         if (!emit.Success)
         {
-            // (reuse your existing error summarizer from CompileAndCreateInstance<T>)
             var topErrors = emit.Diagnostics
                 .Where(d => d.Severity == DiagnosticSeverity.Error)
                 .GroupBy(d => d.Id)
@@ -203,18 +253,17 @@ public class CmdProcessorCompiler
         return asm.GetType(typeName) ?? throw new Exception($"Type '{typeName}' not found in compiled assembly.");
     }
 
-
     public async Task<ResultObj> HandleDynamicProcessor(
-     string processorType,
-     bool argsEscaped = false,
-     string processorSourceCode = "",
-     bool includeExample = false)
+        string processorType,
+        bool argsEscaped = false,
+        string processorSourceCode = "",
+        bool includeExample = false)
     {
         var result = new ResultObj();
 
         try
         {
-            // 1) Load source if not provided
+            // Load source if not provided
             if (string.IsNullOrWhiteSpace(processorSourceCode))
             {
                 if (_sourceCodeFileMap.TryGetValue(processorType, out var sourceFilePath))
@@ -229,32 +278,23 @@ public class CmdProcessorCompiler
                 }
             }
 
-            // 2) Ensure required usings are present (so LLM can send minimal code)
             processorSourceCode = EnsureRequiredUsingStatements(processorSourceCode);
 
-            // 3) Create / register states
+            // Create / register states
             var statesInstance = CreateProcessorStates(processorType);
             _processorStates[processorType] = statesInstance;
             statesInstance.IsCmdAvailable = !_netConfig.DisabledCommands.Contains(statesInstance.CmdName);
 
-            // 4) Compile to an in-memory assembly and fetch the processor Type
+            // Compile & locate type
             var typeName = $"NetworkMonitor.Connection.{processorType}CmdProcessor";
             var type = CompileAndGetType(processorSourceCode, typeName, argsEscaped, includeExample);
 
-            // 5) Build logger and choose whether this processor needs LaunchHelper
+            // Create instance
             var processorLogger = _loggerFactory.CreateLogger(type);
-            var requiresLaunchHelper = _requiresLaunchHelper.Contains(processorType);
+            var requiresWebAutomation = _requiresWebAutomation.Contains(processorType);
 
-            // 6) Centralized creation:
-            //    prefers static Create(...), then 5-arg ctor, then 4-arg ctor (+ soft inject LaunchHelper)
             var processorInstance = CreateProcessorInstance(
-                type,
-                processorLogger,
-                statesInstance,
-                _rabbitRepo,
-                _netConfig,
-                _launchHelper,
-                requiresLaunchHelper);
+                type, processorLogger, statesInstance, _rabbitRepo, _netConfig, requiresWebAutomation);
 
             if (processorInstance == null)
             {
@@ -263,10 +303,9 @@ public class CmdProcessorCompiler
                 return result;
             }
 
-            // 7) Register the instance
             _processors[processorType] = processorInstance;
 
-            // 8) (Optional) persist the source for reuse
+            // Persist source (optional)
             if (!string.IsNullOrEmpty(processorSourceCode) && !string.IsNullOrEmpty(_netConfig.CommandPath))
             {
                 string savePath = Path.Combine(_netConfig.CommandPath, $"{processorType}CmdProcessor.cs");
@@ -302,44 +341,36 @@ public class CmdProcessorCompiler
 
     private string EnsureRequiredUsingStatements(string sourceCode)
     {
-        // List of required namespaces
         var requiredNamespaces = new List<string>
-    {
-        "using System;",
-        "using System.Text;",
-        "using System.Collections.Generic;",
-        "using System.Diagnostics;",
-        "using System.Threading.Tasks;",
-        "using System.Text.RegularExpressions;",
-        "using Microsoft.Extensions.Logging;",
-        "using System.Linq;",
-        "using NetworkMonitor.Objects;",
-        "using NetworkMonitor.Objects.Repository;",
-        "using NetworkMonitor.Objects.ServiceMessage;",
-        "using NetworkMonitor.Connection;",
-        "using NetworkMonitor.Utils;",
-        "using System.Xml.Linq;",
-        "using System.IO;",
-        "using System.Threading;",
-        "using System.Net;"
-    };
+        {
+            "using System;",
+            "using System.Text;",
+            "using System.Collections.Generic;",
+            "using System.Diagnostics;",
+            "using System.Threading.Tasks;",
+            "using System.Text.RegularExpressions;",
+            "using Microsoft.Extensions.Logging;",
+            "using System.Linq;",
+            "using NetworkMonitor.Objects;",
+            "using NetworkMonitor.Objects.Repository;",
+            "using NetworkMonitor.Objects.ServiceMessage;",
+            "using NetworkMonitor.Connection;",
+            "using NetworkMonitor.Utils;",
+            "using System.Xml.Linq;",
+            "using System.IO;",
+            "using System.Threading;",
+            "using System.Net;"
+        };
 
-        // Extract existing using statements from the source code
         var existingNamespaces = new HashSet<string>(sourceCode.Split('\n')
             .Where(line => line.Trim().StartsWith("using "))
             .Select(line => line.Trim()), StringComparer.OrdinalIgnoreCase);
 
-        // Identify and add missing namespaces
         var missingNamespaces = requiredNamespaces.Where(ns => !existingNamespaces.Contains(ns)).ToList();
-        var updatedSourceCode = string.Join("\n", missingNamespaces) + "\n" + sourceCode;
-
-        return updatedSourceCode;
+        return string.Join("\n", missingNamespaces) + "\n" + sourceCode;
     }
 
-
-    private string GenerateStatesSourceCode(string processorType)
-    {
-        return $@"
+    private string GenerateStatesSourceCode(string processorType) => $@"
         namespace NetworkMonitor.Objects
         {{
             public class Local{processorType}CmdProcessorStates : LocalCmdProcessorStates
@@ -351,47 +382,35 @@ public class CmdProcessorCompiler
                 }}
             }}
         }}";
-    }
 
     private async Task<T?> CompileAndCreateInstance<T>(string sourceCode, string typeName, bool argsEscaped, bool includeExample, params object[] args) where T : class
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
-
         var references = GetMetadataReferences();
 
-        var compilation = CSharpCompilation.Create(
-            "DynamicAssembly",
-            new[] { syntaxTree },
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-        );
+        var compilation = CSharpCompilation.Create("DynamicAssembly", new[] { syntaxTree }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         using var ms = new System.IO.MemoryStream();
         var result = compilation.Emit(ms);
 
         if (!result.Success)
-        {  // Get the top 5 errors for brevity
-
-
+        {
             var topErrors = result.Diagnostics
-                .Where(d => d.Severity == DiagnosticSeverity.Error)              // 1️⃣ keep only errors :contentReference[oaicite:2]{index=2}
-                .GroupBy(d => d.Id)                                              // 2️⃣ bucket by CS-code
-                .Select(g => g.OrderBy(d => d.Location.SourceSpan.Start)
-                              .First())                                          // 3️⃣ pick earliest instance in each file
-                .OrderBy(d => d.Location.SourceSpan.Start)                       // 4️⃣ stable order across buckets
-                .Take(10)                                                        // 5️⃣ cap at ten
+                .Where(d => d.Severity == DiagnosticSeverity.Error)
+                .GroupBy(d => d.Id)
+                .Select(g => g.OrderBy(d => d.Location.SourceSpan.Start).First())
+                .OrderBy(d => d.Location.SourceSpan.Start)
+                .Take(10)
                 .Select(d =>
                 {
-                    var msg = $"error {d.Id}: {d.GetMessage(CultureInfo.InvariantCulture)}"; // formatted text :contentReference[oaicite:3]{index=3}
-                    var link = $"https://learn.microsoft.com/dotnet/csharp/misc/{d.Id.ToLower()}"; // docs pattern :contentReference[oaicite:4]{index=4}
+                    var msg = $"error {d.Id}: {d.GetMessage(CultureInfo.InvariantCulture)}";
+                    var link = $"https://learn.microsoft.com/dotnet/csharp/misc/{d.Id.ToLower()}";
                     msg += $"\nLocation: {d.Location.GetLineSpan().Path}:{d.Location.GetLineSpan().StartLinePosition.Line + 1}";
                     msg += $"\nMore info see: {link}";
-
                     return msg;
                 })
                 .ToArray();
-
-
 
             var errorSummary = string.Join("\n\n", topErrors);
             string exampleContent = "";
@@ -407,20 +426,11 @@ public class CmdProcessorCompiler
                     {
                         if (argsEscaped)
                         {
-                            source_code = System.Text.Json.JsonSerializer.Serialize(source_code);
-                            // Remove unnecessary quotes added by JsonSerializer
-                            source_code = source_code.Trim('"');
+                            source_code = JsonSerializer.Serialize(source_code).Trim('"');
                         }
 
                         exampleContent = "\nHere is a simple example implementation:\n" + source_code + "\n";
-
-                        // Add a note if we need to give example with escapping allied. the default is false. You would set this at the source. Where does the source code come from a XML CDATA section then set false. Or escapped json escapped at source. Note its only to give an example in the format the sending is using
-                        if (argsEscaped)
-                        {
-                            exampleContent +=
-                                "NOTE: The example shows the .NET code properly escaped so it can be used as a string in the JSON source_code parameter.\n";
-                        }
-
+                        if (argsEscaped) exampleContent += "NOTE: The example is JSON-escaped for the 'source_code' field.\n";
                     }
                 }
             }
@@ -429,13 +439,9 @@ public class CmdProcessorCompiler
                 _logger.LogWarning($"Error reading CompileErrorExample.cs: {ex.Message}");
             }
 
-            // Build the final error message
             var message = $"Compilation failed with the following errors:\n{errorSummary}\n" +
-                          "REMEMBER to include the full source code for the class, including all necessary using statements and methods. ";
-            if (includeExample && !string.IsNullOrEmpty(exampleContent))
-            {
-                message += exampleContent;
-            }
+                          "REMEMBER to include the full source code for the class.";
+            if (includeExample && !string.IsNullOrEmpty(exampleContent)) message += exampleContent;
 
             _logger.LogError(message);
             throw new Exception(message);
@@ -443,17 +449,12 @@ public class CmdProcessorCompiler
 
         ms.Seek(0, System.IO.SeekOrigin.Begin);
         var assembly = Assembly.Load(ms.ToArray());
-        var type = assembly.GetType(typeName);
-
-        if (type == null)
-        {
-            throw new Exception($"Type '{typeName}' not found in compiled assembly.");
-        }
+        var type = assembly.GetType(typeName) ?? throw new Exception($"Type '{typeName}' not found in compiled assembly.");
 
         return Activator.CreateInstance(type, args) as T;
     }
-    private static string Capitalize(string s) => char.ToUpper(s[0]) + s.Substring(1);
 
+    private static string Capitalize(string s) => char.ToUpper(s[0]) + s.Substring(1);
 
     private ILocalCmdProcessorStates CreateProcessorStates(string processorType)
     {
@@ -461,6 +462,7 @@ public class CmdProcessorCompiler
         var cmdDisplayName = Capitalize(processorType);
         return new LocalCmdProcessorStates(cmdName, cmdDisplayName);
     }
+
     public void HandleStaticProcessor(string processorType)
     {
         var assembly = Assembly.GetExecutingAssembly();
@@ -475,12 +477,13 @@ public class CmdProcessorCompiler
         var type = assembly.GetType(typeName) ?? throw new Exception($"Cannot find type {typeName}");
 
         var logger = _loggerFactory.CreateLogger(type);
-        var requiresLH = _requiresLaunchHelper.Contains(processorType);
+        var requiresWebAutomation = _requiresWebAutomation.Contains(processorType);
 
-        var instance = CreateProcessorInstance(type, logger, statesInstance, _rabbitRepo, _netConfig, _launchHelper, requiresLH);
+        var instance = CreateProcessorInstance(
+            type, logger, statesInstance, _rabbitRepo, _netConfig, requiresWebAutomation);
+
         _processors[processorType] = instance;
     }
-
 
     private List<MetadataReference> GetMetadataReferences()
     {
@@ -490,9 +493,8 @@ public class CmdProcessorCompiler
             return _cachedReferences;
         }
 
-        var uniqueReferences = new Dictionary<string, MetadataReference>(StringComparer.OrdinalIgnoreCase); // Use a dictionary for fast lookup and case-insensitive keys.
+        var uniqueReferences = new Dictionary<string, MetadataReference>(StringComparer.OrdinalIgnoreCase);
 
-        // 1. Load Additional DLLs (Highest Priority)
         try
         {
             string additionalDllsPath = Path.Combine(_netConfig.CommandPath ?? string.Empty, "dlls");
@@ -511,37 +513,7 @@ public class CmdProcessorCompiler
             _logger.LogWarning($"Failed to load additional DLLs: {ex.Message}");
         }
 
-        /*  // 2. Load AppDomain Assemblies (Second Priority)
-          try
-          {
-              _logger.LogInformation("Loading assemblies from the current AppDomain.");
-              foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location)))
-              {
-                  AddReference(assembly.Location, uniqueReferences);
-              }
-          }
-          catch (Exception ex)
-          {
-              _logger.LogWarning($"Failed to load AppDomain assemblies: {ex.Message}");
-          }
-
-          // 3. Load Runtime Assemblies (Lowest Priority)
-          try
-          {
-              string runtimeDirectory = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
-              _logger.LogInformation($"Loading runtime assemblies from: {runtimeDirectory}");
-              foreach (var file in Directory.GetFiles(runtimeDirectory, "*.dll"))
-              {
-                  AddReference(file, uniqueReferences);
-              }
-          }
-          catch (Exception ex)
-          {
-              _logger.LogWarning($"Failed to load runtime assemblies: {ex.Message}");
-          }*/
-
-        // Cache and return references
-        _cachedReferences = uniqueReferences.Values.ToList(); // Extract the unique references from the dictionary
+        _cachedReferences = uniqueReferences.Values.ToList();
         _logger.LogInformation($"Total unique metadata references loaded: {_cachedReferences.Count}");
         return _cachedReferences;
     }
@@ -550,9 +522,7 @@ public class CmdProcessorCompiler
     {
         try
         {
-            // Use the file name (e.g., "System.Runtime.dll") as the key
             var fileName = Path.GetFileName(filePath);
-
             if (!uniqueReferences.ContainsKey(fileName))
             {
                 var reference = MetadataReference.CreateFromFile(filePath);
@@ -570,19 +540,9 @@ public class CmdProcessorCompiler
         }
     }
 
-
-
     private async Task<string> LoadSourceCode(string filePath)
     {
-        try
-        {
-            return await File.ReadAllTextAsync(filePath);
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Failed to load source code from {filePath}: {ex.Message}", ex);
-        }
+        try { return await File.ReadAllTextAsync(filePath); }
+        catch (Exception ex) { throw new Exception($"Failed to load source code from {filePath}: {ex.Message}", ex); }
     }
-
-
 }

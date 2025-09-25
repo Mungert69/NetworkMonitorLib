@@ -173,15 +173,15 @@ namespace NetworkMonitor.Objects.Factory
 
 
         // Method to create the correct INetConnect instance based on type
-        public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, ILaunchHelper? launchHelper = null, string nativeLibDir = "")
+        public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null , string nativeLibDir = "" )
         {
             return type switch
             {
                 "http" => new HTTPConnect(httpClient, false, false, commandPath),
                 "https" => new HTTPConnect(httpsClient, false, false, commandPath),
                 "httphtml" => new HTTPConnect(httpClient, true, false, commandPath),
-                "httpfull" => new HTTPConnect(httpClient, false, true, commandPath, launchHelper),
-                "sitehash" => new SiteHashConnect(commandPath, launchHelper), // New endpoint type
+                "httpfull" => new HTTPConnect(httpClient, false, true, commandPath,  browserHost),
+                "sitehash" => new SiteHashConnect(commandPath,  browserHost), // New endpoint type
                 "dns" => new DNSConnect(),
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),

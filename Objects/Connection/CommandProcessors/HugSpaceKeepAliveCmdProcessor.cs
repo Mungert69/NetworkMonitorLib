@@ -13,7 +13,8 @@ namespace NetworkMonitor.Connection
 {
     /// <summary>
     /// Generates real client activity against a Hugging Face Space so it does not go idle.
-    /// Accepts either wrapper URL or direct app URL.
+    /// Accepts either wrapper URL or direct app URL. Uses a shared BrowserHost to avoid
+    /// spawning extra Chromium processes.
     /// </summary>
     public class HugSpaceKeepAliveCmdProcessor : CmdProcessor, ICmdProcessorFactory
     {
@@ -22,7 +23,7 @@ namespace NetworkMonitor.Connection
         private const int DefaultMacroTimeoutMs = 45_000;
         private const int DefaultLingerMs      = 8_000;
 
-        private readonly ILaunchHelper? _launchHelper;
+               private readonly IBrowserHost _browserHost;
         private readonly List<ArgSpec> _schema;
 
         public HugSpaceKeepAliveCmdProcessor(
@@ -30,10 +31,10 @@ namespace NetworkMonitor.Connection
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper? launchHelper = null
+             IBrowserHost? browserHost = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _browserHost  = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             // Fully specify schema so Parse(...) can validate + fill defaults
             _schema = new()
@@ -73,17 +74,30 @@ namespace NetworkMonitor.Connection
                     DefaultValue = DefaultLingerMs.ToString(),
                     Help = "How long to linger (ms) after activity to keep sockets warm."
                 }
-                // If you later want a presence-only flag, just add:
-                // new() { Key = "headless", IsFlag = true, DefaultValue = "true", Help = "Force headless; pass --headless=false to disable." }
             };
         }
 
         public static string TypeKey => "HugSpaceKeepAlive";
 
+        // Preferred factory (allows passing BrowserHost)
         public static ICmdProcessor Create(
-            ILogger l, ILocalCmdProcessorStates s, IRabbitRepo r, NetConnectConfig c, ILaunchHelper? h = null)
-            => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, h);
+            ILogger l,
+            ILocalCmdProcessorStates s,
+            IRabbitRepo r,
+            NetConnectConfig c,
+            IBrowserHost? bh = null)
+            => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, bh);
 
+        // Required by ICmdProcessorFactory interface
+        public static ICmdProcessor Create(
+            ILogger logger,
+            ILocalCmdProcessorStates states,
+            IRabbitRepo repo,
+            NetConnectConfig cfg,
+            ILaunchHelper? launchHelper = null)
+            => new HugSpaceKeepAliveCmdProcessor(logger, states, repo, cfg, null);
+
+       
         public override async Task<ResultObj> RunCommand(
             string arguments,
             CancellationToken cancellationToken,
@@ -95,13 +109,6 @@ namespace NetworkMonitor.Connection
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
                     var m = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent.";
-                    _logger.LogWarning(m);
-                    return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
-                }
-
-                if (_launchHelper == null)
-                {
-                    const string m = "PuppeteerSharp browser is not available on this agent.";
                     _logger.LogWarning(m);
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
@@ -125,40 +132,44 @@ namespace NetworkMonitor.Connection
                 using var opCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 opCts.CancelAfter(macroTimeout);
 
-                // Open prepared browser session (UA, headers, stealth, viewport)
-                var session = await WebAutomationHelper.OpenSessionAsync(
-                    _launchHelper, _netConfig, _logger, opCts.Token, microTimeout);
-
-                await using var __ = session; // ensure disposal
-
-                // Resolve wrapper -> app origin if needed
-                var targetAppUrl = await WebAutomationHelper.ResolveHuggingFaceAppOriginAsync(
-                    session.Page, url, _logger, opCts.Token);
-
-                // Navigate with cache-buster
-                _logger.LogInformation("KeepAlive: navigating to {url}", targetAppUrl);
-                await WebAutomationHelper.GoToWithCacheBusterAsync(session.Page, targetAppUrl);
-
-                // If Gradio, wait for queue traffic (or delay ~8s)
-                await WebAutomationHelper.WaitForGradioQueueOrDelayAsync(
-                    session.Page, TimeSpan.FromSeconds(8), opCts.Token);
-
-                // Extra fetch to ensure an additional server hit (helps static sites)
-                await WebAutomationHelper.FireNoStoreFetchAsync(session.Page, "/");
-
-                // Let it idle a bit, then linger
-                await WebAutomationHelper.WaitForNetworkIdleSafeAsync(session.Page, idleMs: 800, timeoutMs: Math.Max(2000, microTimeout / 5));
-
-                if (lingerMs > 0)
+                // Use the shared BrowserHost; do all work on a single gated page
+                var (ok, msg) = await _browserHost.RunWithPage(async page =>
                 {
-                    _logger.LogInformation("KeepAlive: lingering for {ms}ms", lingerMs);
-                    await Task.Delay(lingerMs, opCts.Token);
-                }
+                    page.DefaultTimeout = microTimeout;
+
+                    // Resolve wrapper -> app origin if needed
+                    var targetAppUrl = await WebAutomationHelper.ResolveHuggingFaceAppOriginAsync(
+                        page, url, _logger, opCts.Token);
+
+                    // Navigate with cache-buster
+                    _logger.LogInformation("KeepAlive: navigating to {url}", targetAppUrl);
+                    await WebAutomationHelper.GoToWithCacheBusterAsync(page, targetAppUrl);
+
+                    // If Gradio, wait for queue traffic (or delay ~8s)
+                    await WebAutomationHelper.WaitForGradioQueueOrDelayAsync(
+                        page, TimeSpan.FromSeconds(8), opCts.Token);
+
+                    // Extra fetch to ensure an additional server hit (helps static sites)
+                    await WebAutomationHelper.FireNoStoreFetchAsync(page, "/");
+
+                    // Let it idle a bit
+                    await WebAutomationHelper.WaitForNetworkIdleSafeAsync(
+                        page, idleMs: 800, timeoutMs: Math.Max(2000, microTimeout / 5));
+
+                    // Linger to keep sockets warm
+                    if (lingerMs > 0)
+                    {
+                        _logger.LogInformation("KeepAlive: lingering for {ms}ms", lingerMs);
+                        await Task.Delay(lingerMs, opCts.Token);
+                    }
+
+                    return (true, $"Keep-alive ping completed for {targetAppUrl}");
+                }, opCts.Token);
 
                 return new ResultObj
                 {
-                    Success = true,
-                    Message = await SendMessage($"Keep-alive ping completed for {targetAppUrl}", processorScanDataObj)
+                    Success = ok,
+                    Message = await SendMessage(msg, processorScanDataObj)
                 };
             }
             catch (OperationCanceledException)

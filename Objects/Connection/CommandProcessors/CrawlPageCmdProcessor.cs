@@ -13,7 +13,7 @@ namespace NetworkMonitor.Connection
 {
     public class CrawlPageCmdProcessor : CmdProcessor
     {
-        private readonly ILaunchHelper? _launchHelper;
+               private readonly IBrowserHost _browserHost;
         private readonly List<ArgSpec> _schema;
 
         private const int DefaultMicroTimeoutMs = 10_000; // per-step waits
@@ -24,10 +24,10 @@ namespace NetworkMonitor.Connection
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper? launchHelper = null
+            IBrowserHost? browserHost = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _browserHost  = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             _schema = new()
             {
@@ -57,8 +57,6 @@ namespace NetworkMonitor.Connection
                     DefaultValue = DefaultMacroTimeoutMs.ToString(),
                     Help = "Overall extraction timeout in ms."
                 }
-                // Example future flag:
-                // new() { Key = "headless", IsFlag = true, DefaultValue = "true", Help = "Force headless; pass --headless=false to disable." }
             };
         }
 
@@ -76,9 +74,10 @@ namespace NetworkMonitor.Connection
                     _logger.LogWarning(m);
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
-                if (_launchHelper == null)
+
+                if (_browserHost == null)
                 {
-                    const string m = "PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.";
+                    const string m = "Browser host is not available on this agent. Ensure the shared BrowserHost is registered and passed into the processor.";
                     _logger.LogWarning(m);
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
@@ -98,49 +97,36 @@ namespace NetworkMonitor.Connection
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                bool useHeadless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var launchOptions = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
-
-                await using var browser = await Puppeteer.LaunchAsync(launchOptions);
-                await using var page = await browser.NewPageAsync();
-
                 using var opCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 opCts.CancelAfter(macroTimeout);
 
-                // Start content extraction with a macro timeout
-                var extractTask = CrawlHelper.ExtractContentFromUrl(page, url, _netConfig, _logger, microTimeout);
-                var timeoutTask = Task.Delay(macroTimeout, opCts.Token);
-
-                var completed = await Task.WhenAny(extractTask, timeoutTask);
-                TResultObj<string> contentResult;
-
-                if (completed == timeoutTask)
+                // Use the shared BrowserHost; do all work on a single gated page
+                var (ok, msg) = await _browserHost.RunWithPage(async page =>
                 {
-                    _logger.LogWarning("ExtractContentFromUrl timed out for URL: {url}", url);
-                    contentResult = new TResultObj<string>
+                    page.DefaultTimeout = microTimeout;
+
+                    // Start content extraction with a macro timeout
+                    var extractTask = CrawlHelper.ExtractContentFromUrl(page, url, _netConfig, _logger, microTimeout);
+                    var timeoutTask = Task.Delay(macroTimeout, opCts.Token);
+
+                    var completed = await Task.WhenAny(extractTask, timeoutTask);
+                    if (completed == timeoutTask)
                     {
-                        Success = false,
-                        Message = $"Timeout occurred while extracting content from {url}\n\n"
-                    };
-                }
-                else
-                {
-                    contentResult = await extractTask;
-                }
+                        _logger.LogWarning("ExtractContentFromUrl timed out for URL: {url}", url);
+                        return (false, $"Timeout occurred while extracting content from {url}\n\n");
+                    }
 
-                if (contentResult.Success)
-                {
-                    return new ResultObj
-                    {
-                        Success = true,
-                        Message = contentResult.Data ?? string.Empty
-                    };
-                }
+                    var contentResult = await extractTask;
+                    if (contentResult.Success)
+                        return (true, contentResult.Data ?? string.Empty);
+
+                    return (false, contentResult.Message ?? string.Empty);
+                }, opCts.Token);
 
                 return new ResultObj
                 {
-                    Success = false,
-                    Message = contentResult.Message ?? string.Empty
+                    Success = ok,
+                    Message = await SendMessage(msg, processorScanDataObj)
                 };
             }
             catch (OperationCanceledException)

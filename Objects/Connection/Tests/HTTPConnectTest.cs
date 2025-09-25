@@ -84,13 +84,13 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         public async Task Connect_FullGet_PuppeteerMissing_SetsException()
         {
             var client = CreateMockHttpClient(HttpStatusCode.OK);
-            var httpConnect = new HTTPConnect(client, isHtmlGet: false, isFullGet: true, commandPath: "", launchHelper: null);
+            var httpConnect = new HTTPConnect(client, isHtmlGet: false, isFullGet: true, commandPath: "");
             httpConnect.MpiStatic = new MPIStatic { Address = "http://localhost", Port = 0, Timeout = 1000, EndPointType = "http" };
 
             await httpConnect.Connect();
 
             Assert.False(httpConnect.MpiConnect.IsUp);
-            Assert.Contains("PuppeteerSharp browser is missing", httpConnect.MpiConnect.Message);
+            Assert.Contains("No browser available BrowserHost available.", httpConnect.MpiConnect.Message);
         }
 
         [Fact]

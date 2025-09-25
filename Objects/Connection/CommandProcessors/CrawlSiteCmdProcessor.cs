@@ -24,63 +24,60 @@ namespace NetworkMonitor.Connection
         private int _timeout = 10000;
         private int _simTimeout = 120000;
         private static readonly Random _random = new Random();
-        ILaunchHelper? _launchHelper = null;
 
-        private  List<ArgSpec> _schema;
+        private readonly IBrowserHost _browserHost;
+      
+        private readonly List<ArgSpec> _schema;
 
-
-
-        public CrawlSiteCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig, ILaunchHelper? launchHelper = null)
-: base(logger, cmdProcessorStates, rabbitRepo, netConfig)
+        public CrawlSiteCmdProcessor(
+            ILogger logger,
+            ILocalCmdProcessorStates cmdProcessorStates,
+            IRabbitRepo rabbitRepo,
+            NetConnectConfig netConfig,
+             IBrowserHost? browserHost = null)
+            : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
+
             _schema = new()
-        {
-            new() {
-                Key = "url",
-                Required = true,
-                IsFlag = false,
-                TypeHint = "url",
-               Help = "Starting URL to crawl"
-            },
-            new() {
-                Key = "max_depth",
-                Required = false,
-                IsFlag = false,
-                TypeHint = "int",
-                DefaultValue = "3",
-                Help = "Maximum link depth"
-            },
-            new() {
-                Key = "max_pages",
-                Required = false,
-                IsFlag = false,
-                TypeHint = "int",
-                DefaultValue = "10",
-                Help = "Maximum pages to visit"
-            },
-            // Example flag with default off:
-            // new() { Key = "headless", Required = false, IsFlag = true, DefaultValue = "false", Help = "Force headless mode" },
-        };
+            {
+                new() {
+                    Key = "url",
+                    Required = true,
+                    IsFlag = false,
+                    TypeHint = "url",
+                    Help = "Starting URL to crawl"
+                },
+                new() {
+                    Key = "max_depth",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "3",
+                    Help = "Maximum link depth"
+                },
+                new() {
+                    Key = "max_pages",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "10",
+                    Help = "Maximum pages to visit"
+                },
+            };
         }
+
         public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
             string output = string.Empty;
+
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
                     _logger.LogWarning($" Warning : {_cmdProcessorStates.CmdDisplayName} is not enabled or installed on this agent.");
                     output = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent. Try installing the Quantum Secure Agent or select an agent that has Openssl enabled.\n";
-                    result.Message = await SendMessage(output, processorScanDataObj);
-                    result.Success = false;
-                    return result;
-                }
-                if (_launchHelper == null)
-                {
-                    _logger.LogWarning($" Error : PuppeteerSharp browser missing.");
-                    output = $"PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.\n";
                     result.Message = await SendMessage(output, processorScanDataObj);
                     result.Success = false;
                     return result;
@@ -97,12 +94,10 @@ namespace NetworkMonitor.Connection
                 }
 
                 var url = parseResult.GetString("url");
-                var maxDepth = parseResult.GetInt("max_depth"); // safe: parser validated TypeHint "int"
-                var maxPages = parseResult.GetInt("max_pages"); // safe: ditto
+                var maxDepth = parseResult.GetInt("max_depth");
+                var maxPages = parseResult.GetInt("max_pages");
 
-
-                // Call the CrawlSite method
-                var contentResult = await CrawlSite(url, maxPages, maxDepth);
+                var contentResult = await CrawlSite(url, maxPages, maxDepth, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 if (contentResult.Success)
@@ -221,14 +216,15 @@ Crawls the default Frontend URL, with a depth of 3 and a limit of 10 pages.
 The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extracting site content, and generating traffic. It efficiently handles dynamic content, internal link navigation, and cookie consent, providing a realistic simulation of user activity.
 ";
         }
-        private async Task<TResultObj<string>> CrawlSite(string startUrl, int maxPages, int maxDepth)
-        {
 
+        private async Task<TResultObj<string>> CrawlSite(string startUrl, int maxPages, int maxDepth, CancellationToken cancellationToken)
+        {
             var result = new TResultObj<string>();
             var visitedUrls = new HashSet<string>();
             var contentBuilder = new StringBuilder();
             var crawlQueue = new Queue<(string Url, int Depth)>();
             crawlQueue.Enqueue((startUrl, 0));
+
             bool isCookieClicked = false;
             var userAgent = UserAgents.GetRandomUserAgent();
             var platform = UserAgents.GetPlatformFromUserAgent(userAgent);
@@ -236,160 +232,172 @@ The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extrac
 
             PuppeteerSharp.CookieParam[] storedCookies = Array.Empty<PuppeteerSharp.CookieParam>();
 
-            bool useHeadless = _launchHelper!.CheckDisplay(_logger, _netConfig.ForceHeadless);
-
-            var lo = await _launchHelper!.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
-            using (var browser = await Puppeteer.LaunchAsync(lo))
-            using (var page = await browser.NewPageAsync())
+            try
             {
-                page.Response += (sender, e) =>
+                // Run the whole crawl inside a single gated page
+                await _browserHost.RunWithPage(async page =>
                 {
-                    if (e.Response.Url.Contains("google-analytics"))
+                    // Lightweight telemetry
+                    page.Response += (sender, e) =>
                     {
-                        _logger.LogInformation($"Google Analytics script loaded: {e.Response.Url}");
-                    }
-                };
-
-                try
-                {
-                    await page.EvaluateFunctionOnNewDocumentAsync($@"() => {{
-                Object.defineProperty(navigator, 'webdriver', {{ get: () => false }});
-                Object.defineProperty(navigator, 'languages', {{ get: () => ['en-US', 'en'] }});
-                Object.defineProperty(navigator, 'platform', {{ get: () => '{platform}' }});
-                Object.defineProperty(navigator, 'plugins', {{
-                    get: () => {plugins}
-                }});
-            }}");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError($"Error injecting script on new document: {ex.Message}");
-                }
-
-                await page.SetUserAgentAsync(userAgent);
-                await page.SetJavaScriptEnabledAsync(true);
-
-                string? previousUrl = null;
-                while (crawlQueue.Count > 0 && visitedUrls.Count < maxPages)
-                {
-                    var (currentUrl, currentDepth) = crawlQueue.Dequeue();
-
-                    if (visitedUrls.Contains(currentUrl) || currentDepth > maxDepth)
-                        continue;
-
-                    visitedUrls.Add(currentUrl);
-
-                    _logger.LogInformation($"Visiting {currentUrl} at depth {currentDepth}");
+                        if (e.Response.Url.Contains("google-analytics"))
+                        {
+                            _logger.LogInformation($"Google Analytics script loaded: {e.Response.Url}");
+                        }
+                    };
 
                     try
                     {
-                        // Apply previously stored cookies
-                        if (storedCookies.Any())
-                        {
-                            await page.SetCookieAsync(storedCookies.ToArray());
-                        }
-
-                        var extraHeaders = new Dictionary<string, string>();
-                        if (previousUrl != null)
-                        {
-                            if (Uri.TryCreate(previousUrl, UriKind.Absolute, out _))
-                            {
-                                extraHeaders["Referer"] = previousUrl;
-                            }
-                        }
-                        await page.SetExtraHttpHeadersAsync(extraHeaders);
-
-                        // Navigate to the URL with a timeout (Puppeteer's built-in timeout)
-                        await page.GoToAsync(currentUrl, new NavigationOptions { Timeout = _timeout });
-
-                        // Wait for network idle with a timeout (built-in timeout)
-                        await CrawlHelper.WaitNetIdle(page, _timeout, _logger);
-
-                        // Handle cookie consent with a custom timeout
-                        if (!isCookieClicked)
-                        {
-                            var handleCookieTask = CrawlHelper.HandleCookieConsent(page, _logger, _timeout);
-                            var handleCookieTimeoutTask = Task.Delay(_timeout); // Custom timeout
-                            var handleCookieCompletedTask = await Task.WhenAny(handleCookieTask, handleCookieTimeoutTask);
-
-                            if (handleCookieCompletedTask == handleCookieTimeoutTask)
-                            {
-                                _logger.LogWarning($"Handling cookie consent timed out for {currentUrl}.");
-                            }
-                            else
-                            {
-                                await handleCookieTask;
-                                isCookieClicked = true;
-                            }
-                        }
-
-                        // Simulate user interaction with a custom timeout
-                        var simulateInteractionTask = CrawlHelper.SimulateUserInteraction(page, _logger, _simTimeout);
-                        var simulateInteractionTimeoutTask = Task.Delay(_simTimeout + 5000); // add 5s to the expected time for the Sim to run
-                        var simulateInteractionCompletedTask = await Task.WhenAny(simulateInteractionTask, simulateInteractionTimeoutTask);
-
-                        if (simulateInteractionCompletedTask == simulateInteractionTimeoutTask)
-                        {
-                            _logger.LogWarning($"Simulating user interaction timed out for {currentUrl}.");
-                        }
-                        else
-                        {
-                            var resultContent = await simulateInteractionTask;
-                            contentBuilder.AppendLine(resultContent);
-                        }
-
-                        // Extract links with a custom timeout
-                        var extractLinksTask = CrawlHelper.ExtractLinks(page, currentUrl, _logger);
-                        var extractLinksTimeoutTask = Task.Delay(_timeout); // Custom timeout
-                        var extractLinksCompletedTask = await Task.WhenAny(extractLinksTask, extractLinksTimeoutTask);
-
-                        if (extractLinksCompletedTask == extractLinksTimeoutTask)
-                        {
-                            _logger.LogWarning($"Link extraction timed out for {currentUrl}.");
-                        }
-                        else
-                        {
-                            var resultLinks = await extractLinksTask;
-
-                            if (resultLinks.Success && resultLinks.Data != null)
-                            {
-                                var links = resultLinks.Data;
-
-                                // Randomize and enqueue links
-                                var shuffledLinks = links.OrderBy(_ => Guid.NewGuid());
-                                var limitedLinks = shuffledLinks.Take(_random.Next(3, Math.Min(8, links.Count())));
-
-                                foreach (var link in limitedLinks)
-                                {
-                                    if (!visitedUrls.Contains(link) && CrawlHelper.IsInternalLink(startUrl, link))
-                                    {
-                                        crawlQueue.Enqueue((link, currentDepth + 1));
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                _logger.LogWarning($"Link extraction failed for {currentUrl}: {resultLinks.Message}");
-                            }
-                        }
-
-                        // Save cookies for the next page
-                        storedCookies = await page.GetCookiesAsync();
-                        previousUrl = currentUrl;
+                        await page.EvaluateFunctionOnNewDocumentAsync($@"() => {{
+                            Object.defineProperty(navigator, 'webdriver', {{ get: () => false }});
+                            Object.defineProperty(navigator, 'languages', {{ get: () => ['en-US', 'en'] }});
+                            Object.defineProperty(navigator, 'platform', {{ get: () => '{platform}' }});
+                            Object.defineProperty(navigator, 'plugins', {{
+                                get: () => {plugins}
+                            }});
+                        }}");
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Error processing {currentUrl}: {ex.Message}");
+                        _logger.LogError($"Error injecting script on new document: {ex.Message}");
                     }
 
-                    // Wait for a random delay to mimic human browsing
-                    await CrawlHelper.RandomDelay(5000, 10000);
-                }
+                    await page.SetUserAgentAsync(userAgent);
+                    await page.SetJavaScriptEnabledAsync(true);
+
+                    string? previousUrl = null;
+
+                    while (crawlQueue.Count > 0 && visitedUrls.Count < maxPages)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        var (currentUrl, currentDepth) = crawlQueue.Dequeue();
+
+                        if (visitedUrls.Contains(currentUrl) || currentDepth > maxDepth)
+                            continue;
+
+                        visitedUrls.Add(currentUrl);
+                        _logger.LogInformation($"Visiting {currentUrl} at depth {currentDepth}");
+
+                        try
+                        {
+                            // Apply previously stored cookies
+                            if (storedCookies.Any())
+                                await page.SetCookieAsync(storedCookies.ToArray());
+
+                            var extraHeaders = new Dictionary<string, string>();
+                            if (previousUrl != null && Uri.TryCreate(previousUrl, UriKind.Absolute, out _))
+                                extraHeaders["Referer"] = previousUrl;
+
+                            if (extraHeaders.Count > 0)
+                                await page.SetExtraHttpHeadersAsync(extraHeaders);
+
+                            // Navigate to the URL with a timeout
+                            await page.GoToAsync(currentUrl, new NavigationOptions { Timeout = _timeout });
+
+                            // Wait for network idle
+                            await CrawlHelper.WaitNetIdle(page, _timeout, _logger);
+
+                            // Handle cookie consent once
+                            if (!isCookieClicked)
+                            {
+                                var handleCookieTask = CrawlHelper.HandleCookieConsent(page, _logger, _timeout);
+                                var handleCookieTimeoutTask = Task.Delay(_timeout, cancellationToken);
+                                var handleCookieCompletedTask = await Task.WhenAny(handleCookieTask, handleCookieTimeoutTask);
+
+                                if (handleCookieCompletedTask == handleCookieTimeoutTask)
+                                {
+                                    _logger.LogWarning($"Handling cookie consent timed out for {currentUrl}.");
+                                }
+                                else
+                                {
+                                    await handleCookieTask;
+                                    isCookieClicked = true;
+                                }
+                            }
+
+                            // Simulate user interaction
+                            var simulateInteractionTask = CrawlHelper.SimulateUserInteraction(page, _logger, _simTimeout);
+                            var simulateInteractionTimeoutTask = Task.Delay(_simTimeout + 5000, cancellationToken); // small cushion
+                            var simulateInteractionCompletedTask = await Task.WhenAny(simulateInteractionTask, simulateInteractionTimeoutTask);
+
+                            if (simulateInteractionCompletedTask == simulateInteractionTimeoutTask)
+                            {
+                                _logger.LogWarning($"Simulating user interaction timed out for {currentUrl}.");
+                            }
+                            else
+                            {
+                                var resultContent = await simulateInteractionTask;
+                                contentBuilder.AppendLine(resultContent);
+                            }
+
+                            // Extract links
+                            var extractLinksTask = CrawlHelper.ExtractLinks(page, currentUrl, _logger);
+                            var extractLinksTimeoutTask = Task.Delay(_timeout, cancellationToken);
+                            var extractLinksCompletedTask = await Task.WhenAny(extractLinksTask, extractLinksTimeoutTask);
+
+                            if (extractLinksCompletedTask == extractLinksTimeoutTask)
+                            {
+                                _logger.LogWarning($"Link extraction timed out for {currentUrl}.");
+                            }
+                            else
+                            {
+                                var resultLinks = await extractLinksTask;
+
+                                if (resultLinks.Success && resultLinks.Data != null)
+                                {
+                                    var links = resultLinks.Data;
+
+                                    // Randomize and enqueue links
+                                    var shuffledLinks = links.OrderBy(_ => Guid.NewGuid());
+                                    var limitedLinks = shuffledLinks.Take(_random.Next(3, Math.Min(8, links.Count())));
+
+                                    foreach (var link in limitedLinks)
+                                    {
+                                        if (!visitedUrls.Contains(link) && CrawlHelper.IsInternalLink(startUrl, link))
+                                        {
+                                            crawlQueue.Enqueue((link, currentDepth + 1));
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"Link extraction failed for {currentUrl}: {resultLinks.Message}");
+                                }
+                            }
+
+                            // Save cookies for the next page
+                            storedCookies = await page.GetCookiesAsync();
+                            previousUrl = currentUrl;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error processing {currentUrl}: {ex.Message}");
+                        }
+
+                        // Wait for a random delay to mimic human browsing
+                        await CrawlHelper.RandomDelay(5000, 10000);
+                    }
+
+                    return 0; // we don't use the return value; content is captured in the outer builder
+                }, cancellationToken);
+
+                _logger.LogInformation("Site crawl completed.");
+                result.Success = true;
+                result.Message = "Crawl completed successfully.";
+                result.Data = contentBuilder.ToString();
+                return result;
             }
-
-            _logger.LogInformation("Site crawl completed.");
-            return new TResultObj<string>() { Success = true, Message = "Crawl completed successfully.", Data = contentBuilder.ToString() };
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Crawl was canceled.");
+                return new TResultObj<string> { Success = false, Message = "Crawl canceled." };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Crawl failed: {ex.Message}");
+                return new TResultObj<string> { Success = false, Message = $"Crawl failed: {ex.Message}" };
+            }
         }
-
     }
 }

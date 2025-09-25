@@ -10,35 +10,39 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Net.Http;
 using System.Diagnostics;
+using System.IO;
 using PuppeteerSharp;
+
 namespace NetworkMonitor.Connection
 {
     public class HTTPConnect : NetConnect
     {
-        ILaunchHelper? _launchHelper = null;
-        private HttpClient _client;
-        private bool _isFullGet;
-        private bool _isHtmlGet;
-        private string _commandPath;
-        public HTTPConnect(HttpClient client, bool isHtmlGet, bool isFullGet, string commandPath, ILaunchHelper? launchHelper=null)
+        private readonly IBrowserHost? _browserHost;        // preferred for httpfull to avoid spawning browsers
+        private readonly HttpClient _client;
+        private readonly bool _isFullGet;
+        private readonly bool _isHtmlGet;
+        private readonly string _commandPath;
+
+        public HTTPConnect(
+            HttpClient client,
+            bool isHtmlGet,
+            bool isFullGet,
+            string commandPath,
+              IBrowserHost? browserHost = null)
         {
             _client = client;
             _isFullGet = isFullGet;
             _isHtmlGet = isHtmlGet;
             _commandPath = commandPath;
-            _launchHelper = launchHelper;
-
-
+               _browserHost = browserHost;
         }
-
 
         public override async Task Connect()
         {
             PreConnect();
-            HttpResponseMessage response; ;
+            HttpResponseMessage response;
             try
             {
-                //bool portSpecifiedInUrl = false;
                 UriBuilder targetUri;
 
                 if (Uri.TryCreate(MpiStatic.Address, UriKind.Absolute, out var uriResult) &&
@@ -46,10 +50,8 @@ namespace NetworkMonitor.Connection
                 {
                     targetUri = new UriBuilder(uriResult);
 
-                    // If a port was specified in the URL, set the flag to true.
-                    if (uriResult.IsDefaultPort == false)
+                    if (!uriResult.IsDefaultPort)
                     {
-                        //portSpecifiedInUrl = true;
                         MpiStatic.Port = (ushort)uriResult.Port;
                     }
                 }
@@ -57,8 +59,8 @@ namespace NetworkMonitor.Connection
                 {
                     string addressWithPort = MpiStatic.Address;
 
-                    // Check if the scheme is missing and add "http://" as a default scheme.
-                    if (!addressWithPort.StartsWith("http://") && !addressWithPort.StartsWith("https://"))
+                    if (!addressWithPort.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                        !addressWithPort.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                     {
                         addressWithPort = "http://" + addressWithPort;
                     }
@@ -66,7 +68,6 @@ namespace NetworkMonitor.Connection
                     targetUri = new UriBuilder(addressWithPort);
                 }
 
-                // If MpiStatic.Port is not 0 and a port was not specified in the URL, replace the port in the UriBuilder.
                 if (MpiStatic.Port != 0)
                 {
                     targetUri.Port = MpiStatic.Port;
@@ -75,65 +76,68 @@ namespace NetworkMonitor.Connection
                 Uri finalUri = targetUri.Uri;
                 MpiStatic.Address = finalUri.AbsoluteUri;
 
-
                 Timer.Reset();
-                if (!_isHtmlGet && _isFullGet)
+
+                // ——— Full page load (Puppeteer) ———
+                if (_isFullGet && !_isHtmlGet)
                 {
-                    if (_launchHelper == null)
+                    // Prefer shared BrowserHost; fall back to launcher only if absolutely necessary
+                    if (_browserHost == null)
                     {
-                        ProcessException("PuppeteerSharp browser is missing, check installation", "FullHtml Disabled");
+                        ProcessException("No browser available BrowserHost available.", "FullHtml Disabled");
                         return;
                     }
-                    string statusStr = "";
-                    // Launch a new browser instance
-                    var lo = await _launchHelper.GetLauncher(_commandPath);
-                    using (var browser = await Puppeteer.LaunchAsync(lo))
-                    {
-                        
-                        var page = await browser.NewPageAsync();
-                        Timer.Start();
-                        var pResponse = await page.GoToAsync(finalUri.ToString());
-                        Timer.Stop();
-                        statusStr = pResponse.Status.ToString();
-                    }
 
-                    ProcessStatus(statusStr, (ushort)Timer.ElapsedMilliseconds); 
-                    //ProcessException("Warning httpfull Disabled use either http or httphtml", "FullHtml Disabled");
+                    string statusStr = "";
+
+
+                    statusStr = await _browserHost.RunWithPage(async page =>
+                    {
+                        var navOptions = new NavigationOptions
+                        {
+                            WaitUntil = new[] { WaitUntilNavigation.Networkidle2 },
+                            Timeout = (int)Math.Max(0, MpiStatic.Timeout)
+                        };
+
+                        Timer.Start();
+                        var pResponse = await page.GoToAsync(finalUri.ToString(), navOptions);
+                        Timer.Stop();
+                        return pResponse.Status.ToString();
+                    }, Cts.Token);
+
+
+
+                    ProcessStatus(statusStr, (ushort)Timer.ElapsedMilliseconds);
+                    return;
                 }
+
+                // ——— HTML GET (stream through) ———
                 if (_isHtmlGet && !_isFullGet)
                 {
-                    // var sockerHttpHandler = new SocketsHttpHandler();
-                    // sockerHttpHandler.SslOptions.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
-                    // using (var httpClient = new HttpClient(sockerHttpHandler))
-                    // {
                     Timer.Start();
                     response = await _client.GetAsync(finalUri, Cts.Token);
-                    var stream = await response.Content.ReadAsStreamAsync();
+                    var stream = await response.Content.ReadAsStreamAsync(Cts.Token);
                     using (var reader = new StreamReader(stream))
                     {
                         char[] buffer = new char[8192];
-                        while (reader.Read(buffer, 0, buffer.Length) > 0)
-                        {
-                            // Do nothing with the buffer, we just want to read it all
-                        }
+                        while (await reader.ReadAsync(buffer, 0, buffer.Length) > 0) { /* just drain */ }
                     }
                     Timer.Stop();
-                    long? contentLength = response.Content.Headers.ContentLength;
-                    string contentLengthString = "";
-                    if (contentLength != null) contentLengthString = " : " + contentLength.ToString() + " bytes read";
-                    ProcessStatus(response.StatusCode.ToString(), (ushort)Timer.ElapsedMilliseconds, contentLengthString);
-                    //};
 
+                    long? contentLength = response.Content.Headers.ContentLength;
+                    string contentLengthString = contentLength != null ? $" : {contentLength} bytes read" : "";
+                    ProcessStatus(response.StatusCode.ToString(), (ushort)Timer.ElapsedMilliseconds, contentLengthString);
+                    return;
                 }
 
+                // ——— Lightweight GET (status only) ———
                 if (!_isFullGet && !_isHtmlGet)
                 {
                     Timer.Start();
-
                     response = await _client.GetAsync(finalUri, Cts.Token);
                     Timer.Stop();
                     ProcessStatus(response.StatusCode.ToString(), (ushort)Timer.ElapsedMilliseconds);
-
+                    return;
                 }
             }
             catch (TaskCanceledException)
@@ -144,14 +148,9 @@ namespace NetworkMonitor.Connection
             {
                 string errorMessage = e.Message;
 
-                // Check if there is an inner exception
                 if (e.InnerException != null)
                 {
-                    // Append the message from the inner exception
                     errorMessage = e.InnerException.Message;
-
-                    // Optionally, you can loop through all inner exceptions
-                    // if there might be multiple levels of inner exceptions
                     Exception inner = e.InnerException;
                     while (inner.InnerException != null)
                     {
@@ -160,7 +159,6 @@ namespace NetworkMonitor.Connection
                     }
                 }
 
-                // Process the complete error message
                 ProcessException(errorMessage, "HttpRequestException");
             }
             catch (Exception e)
@@ -172,40 +170,5 @@ namespace NetworkMonitor.Connection
                 PostConnect();
             }
         }
-
-        /*private async Task<string> GetDetailedStatus(HttpResponseMessage response)
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                return "OK";
-            }
-            else if (response.StatusCode == HttpStatusCode.NotFound && !_isFullGet && !_isHtmlGet)
-            {
-                // If HEAD request returned 404, make a follow-up GET request
-                var getResponse = await _client.GetAsync(response.RequestMessage.RequestUri, Cts.Token);
-                if (getResponse.IsSuccessStatusCode)
-                {
-                    return "OK (HEAD not supported)";
-                }
-                else
-                {
-                    return "Not Found";
-                }
-            }
-            else if (response.StatusCode == HttpStatusCode.InternalServerError)
-            {
-                return "Internal Server Error";
-            }
-            else if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-            {
-                return "Service Unavailable";
-            }
-            else
-            {
-                return response.StatusCode.ToString();
-            }
-        }*/
-
-
     }
 }

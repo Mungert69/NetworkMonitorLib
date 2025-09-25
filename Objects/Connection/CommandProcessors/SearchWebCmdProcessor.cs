@@ -30,7 +30,7 @@ namespace NetworkMonitor.Connection
         private int _microTimeout = DefaultMicroTimeoutMs;
         private int _macroTimeout = DefaultMacroTimeoutMs;
 
-        private readonly ILaunchHelper? _launchHelper;
+        private readonly IBrowserHost _browserHost;
         private readonly List<ArgSpec> _schema;
 
         public SearchWebCmdProcessor(
@@ -38,10 +38,10 @@ namespace NetworkMonitor.Connection
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper? launchHelper = null)
+            IBrowserHost? browserHost = null)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             _schema = new()
             {
@@ -87,19 +87,11 @@ namespace NetworkMonitor.Connection
             CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null)
         {
-            var result = new ResultObj();
             try
             {
                 if (!_cmdProcessorStates.IsCmdAvailable)
                 {
                     var m = $"{_cmdProcessorStates.CmdDisplayName} is not available on this agent. Try installing the Quantum Secure Agent or select an agent that has OpenSSL enabled.";
-                    _logger.LogWarning(m);
-                    return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
-                }
-
-                if (_launchHelper == null)
-                {
-                    const string m = "PuppeteerSharp browser is not available on this agent. Check the installation completed successfully.";
                     _logger.LogWarning(m);
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
@@ -113,101 +105,99 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var searchTerm      = parse.GetString("search_term");
-                var returnOnlyUrls  = parse.GetBool("return_only_urls", false);
-                _microTimeout       = parse.GetInt("micro_timeout", DefaultMicroTimeoutMs);
-                _macroTimeout       = parse.GetInt("macro_timeout", DefaultMacroTimeoutMs);
+                var searchTerm = parse.GetString("search_term");
+                var returnOnlyUrls = parse.GetBool("return_only_urls", false);
+                _microTimeout = parse.GetInt("micro_timeout", DefaultMicroTimeoutMs);
+                _macroTimeout = parse.GetInt("macro_timeout", DefaultMacroTimeoutMs);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                bool useHeadless   = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var launchOptions  = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, useHeadless);
+                using var opCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                opCts.CancelAfter(_macroTimeout);
 
-                await using var browser = await Puppeteer.LaunchAsync(launchOptions);
-
-                // Phase 1: Fetch URLs using a single page
-                TResultObj<List<string>> resultUrls;
-                await using (var fetchPage = await browser.NewPageAsync())
+                // Run the entire flow on a single shared, queued page
+                var (ok, msg) = await _browserHost.RunWithPage(async page =>
                 {
                     var helper = new SearchWebHelper(_logger, _netConfig, _microTimeout, _macroTimeout);
 
-                    await helper.StealthAsync(fetchPage);
+                    // Phase 1: Fetch URLs on the same page
+                    await helper.StealthAsync(page);
 
-                    var fetchUrlsTask = helper.FetchGoogleSearchUrlsAsync(fetchPage, searchTerm, cancellationToken);
-                    var timeoutTask   = Task.Delay(_macroTimeout, cancellationToken);
-                    var completed     = await Task.WhenAny(fetchUrlsTask, timeoutTask);
+                    var fetchUrlsTask = helper.FetchGoogleSearchUrlsAsync(page, searchTerm, opCts.Token);
+                    var fetchTimeout = Task.Delay(_macroTimeout, opCts.Token);
+                    var fetchWinner = await Task.WhenAny(fetchUrlsTask, fetchTimeout);
 
-                    if (completed == timeoutTask)
+                    if (fetchWinner == fetchTimeout)
                     {
-                        const string msg = "FetchUrls operation timed out.";
-                        _logger.LogWarning(msg);
-                        return new ResultObj { Success = false, Message = await SendMessage(msg, processorScanDataObj) };
+                        const string timeoutMsg = "FetchUrls operation timed out.";
+                        _logger.LogWarning(timeoutMsg);
+                        return (false, timeoutMsg);
                     }
 
-                    resultUrls = await fetchUrlsTask;
-                }
-
-                if (!resultUrls.Success || resultUrls.Data == null || resultUrls.Data.Count == 0)
-                {
-                    var msg = resultUrls.Message ?? "No search results found.";
-                    return new ResultObj { Success = false, Message = await SendMessage(msg, processorScanDataObj) };
-                }
-
-                // If only URLs requested, short-circuit
-                if (returnOnlyUrls)
-                {
-                    return new ResultObj
+                    var resultUrls = await fetchUrlsTask;
+                    if (!resultUrls.Success || resultUrls.Data == null || resultUrls.Data.Count == 0)
                     {
-                        Success = true,
-                        Message = string.Join("\n", resultUrls.Data)
-                    };
-                }
+                        var notFoundMsg = resultUrls.Message ?? "No search results found.";
+                        return (false, notFoundMsg);
+                    }
 
-                // Phase 2: Extract content for each URL, each on a fresh page
-                var outputBuilder = new StringBuilder();
-
-                foreach (var url in resultUrls.Data)
-                {
-                    await using var urlPage = await browser.NewPageAsync();
-
-                    try
+                    if (returnOnlyUrls)
                     {
-                        var extractTask   = CrawlHelper.ExtractContentFromUrl(urlPage, url, _netConfig, _logger, _microTimeout);
-                        var timeoutTask   = Task.Delay(_macroTimeout, cancellationToken);
-                        var completed     = await Task.WhenAny(extractTask, timeoutTask);
+                        return (true, string.Join("\n", resultUrls.Data));
+                    }
 
-                        if (completed == timeoutTask)
+                    // Phase 2: Visit each URL sequentially on the same page and extract content
+                    var outputBuilder = new StringBuilder();
+
+                    foreach (var url in resultUrls.Data)
+                    {
+                        opCts.Token.ThrowIfCancellationRequested();
+
+                        try
                         {
-                            _logger.LogWarning("ExtractContentFromUrl timed out for URL: {url}", url);
-                            outputBuilder.Append($"Timeout occurred while extracting content from {url}\n\n");
-                            continue;
+                            var extractTask = CrawlHelper.ExtractContentFromUrl(page, url, _netConfig, _logger, _microTimeout);
+                            var urlTimeout = Task.Delay(_macroTimeout, opCts.Token);
+                            var winner = await Task.WhenAny(extractTask, urlTimeout);
+
+                            if (winner == urlTimeout)
+                            {
+                                _logger.LogWarning("ExtractContentFromUrl timed out for URL: {url}", url);
+                                outputBuilder.Append($"Timeout occurred while extracting content from {url}\n\n");
+                                continue;
+                            }
+
+                            var contentResult = await extractTask;
+
+                            if (contentResult.Success)
+                            {
+                                outputBuilder.Append($"Content from page {url}\nStart Content =>\n{contentResult.Data}\n<= End Content\n\n");
+                            }
+                            else
+                            {
+                                var m = string.IsNullOrWhiteSpace(contentResult.Message)
+                                    ? "No content"
+                                    : contentResult.Message;
+                                outputBuilder.Append($"{m} for page {url}\n\n");
+                            }
                         }
-
-                        var contentResult = await extractTask;
-
-                        if (contentResult.Success)
+                        catch (OperationCanceledException)
                         {
-                            outputBuilder.Append($"Content from page {url}\nStart Content =>\n{contentResult.Data}\n<= End Content\n\n");
+                            throw;
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            var msg = string.IsNullOrWhiteSpace(contentResult.Message)
-                                ? "No content"
-                                : contentResult.Message;
-                            outputBuilder.Append($"{msg} for page {url}\n\n");
+                            _logger.LogError(ex, "Error extracting content from {url}", url);
+                            outputBuilder.Append($"Error extracting content from {url}: {ex.Message}\n\n");
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error extracting content from {url}", url);
-                        outputBuilder.Append($"Error extracting content from {url}: {ex.Message}\n\n");
-                    }
-                }
+
+                    return (true, outputBuilder.ToString());
+                }, opCts.Token);
 
                 return new ResultObj
                 {
-                    Success = true,
-                    Message = outputBuilder.ToString()
+                    Success = ok,
+                    Message = await SendMessage(msg, processorScanDataObj)
                 };
             }
             catch (OperationCanceledException)

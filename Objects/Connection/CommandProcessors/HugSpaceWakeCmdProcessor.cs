@@ -14,10 +14,11 @@ namespace NetworkMonitor.Connection
     /// <summary>
     /// Wakes a sleeping Hugging Face Space by auto-clicking the "Restart this Space" button.
     /// Accepts wrapper URL or the app subdomain; will hop to the canonical wrapper if detected.
+    /// Uses a shared BrowserHost to avoid spawning extra Chromium processes.
     /// </summary>
     public class HugSpaceWakeCmdProcessor : CmdProcessor, ICmdProcessorFactory
     {
-        private readonly ILaunchHelper? _launchHelper;
+             private readonly IBrowserHost? _browserHost;
         private readonly List<ArgSpec> _schema;
 
         // Defaults (override via CLI)
@@ -29,10 +30,10 @@ namespace NetworkMonitor.Connection
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
             NetConnectConfig netConfig,
-            ILaunchHelper? launchHelper = null
+             IBrowserHost? browserHost = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _launchHelper = launchHelper;
+            _browserHost  = browserHost;
 
             _schema = new()
             {
@@ -62,17 +63,30 @@ namespace NetworkMonitor.Connection
                     DefaultValue = DefaultMacroTimeoutMs.ToString(),
                     Help = "Overall operation timeout in ms."
                 }
-                // If desired later:
-                // new() { Key = "headless", IsFlag = true, DefaultValue = "true", Help = "Force headless; pass --headless=false to disable." }
             };
         }
 
         public static string TypeKey => "HugSpaceWake";
 
+        // Prefer this factory so providers can pass the BrowserHost
         public static ICmdProcessor Create(
-            ILogger l, ILocalCmdProcessorStates s, IRabbitRepo r, NetConnectConfig c, ILaunchHelper? h = null)
-            => new HugSpaceWakeCmdProcessor(l, s, r, c, h);
+            ILogger l,
+            ILocalCmdProcessorStates s,
+            IRabbitRepo r,
+            NetConnectConfig c,
+            IBrowserHost? bh = null)
+            => new HugSpaceWakeCmdProcessor(l, s, r, c, bh);
 
+        // Required by ICmdProcessorFactory interface
+        public static ICmdProcessor Create(
+            ILogger logger,
+            ILocalCmdProcessorStates states,
+            IRabbitRepo repo,
+            NetConnectConfig cfg,
+            ILaunchHelper? launchHelper = null)
+            => new HugSpaceWakeCmdProcessor(logger, states, repo, cfg, null);
+
+       
         public override async Task<ResultObj> RunCommand(
             string arguments,
             CancellationToken cancellationToken,
@@ -88,9 +102,9 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
 
-                if (_launchHelper == null)
+                if (_browserHost == null)
                 {
-                    const string m = "PuppeteerSharp browser is not available on this agent. Check the installation.";
+                    const string m = "Browser host is not available on this agent. Ensure the shared BrowserHost is registered and passed into the processor.";
                     _logger.LogWarning(m);
                     return new ResultObj { Success = false, Message = await SendMessage(m, processorScanDataObj) };
                 }
@@ -104,7 +118,7 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var url = parseResult.GetString("url"); // validated URL
+                var url          = parseResult.GetString("url"); // validated URL
                 var microTimeout = parseResult.GetInt("micro_timeout", DefaultMicroTimeoutMs);
                 var macroTimeout = parseResult.GetInt("macro_timeout", DefaultMacroTimeoutMs);
 
@@ -113,88 +127,76 @@ namespace NetworkMonitor.Connection
                 using var opCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 opCts.CancelAfter(macroTimeout);
 
-                // Launch browser
-                bool headless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var launchOptions = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless);
-                await using var browser = await Puppeteer.LaunchAsync(launchOptions);
-                var page = await browser.NewPageAsync();
-                await using var __ = page; // ensure disposal
-                page.DefaultTimeout = microTimeout;
-
-                // 1) Navigate to the supplied URL
-                await page.GoToAsync(url, new NavigationOptions
+                // Use the shared BrowserHost; do all work on a single gated page
+                var (ok, msg) = await _browserHost.RunWithPage(async page =>
                 {
-                    WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
-                });
+                    page.DefaultTimeout = microTimeout;
 
-                // 2) If we started from the app subdomain, try to hop to wrapper (canonical)
-                var currentUrl = page.Url;
-                if (!IsHfWrapper(currentUrl))
-                {
-                    var canonical = await page.EvaluateExpressionAsync<string>(@"
-                        (function(){
-                          const link = document.querySelector('link[rel=""canonical""]');
-                          return link ? (link.getAttribute('href') || '') : '';
-                        })()
-                    ") ?? string.Empty;
-
-                    if (IsHfWrapper(canonical))
+                    // 1) Navigate to the supplied URL
+                    await page.GoToAsync(url, new NavigationOptions
                     {
-                        _logger.LogInformation("Discovered canonical HF Space page: {canonical}", canonical);
-                        await page.GoToAsync(canonical, new NavigationOptions
+                        WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
+                    });
+
+                    // 2) If we started from the app subdomain, try to hop to wrapper (canonical)
+                    var currentUrl = page.Url;
+                    if (!IsHfWrapper(currentUrl))
+                    {
+                        var canonical = await page.EvaluateExpressionAsync<string>(@"
+                            (function(){
+                              const link = document.querySelector('link[rel=""canonical""]');
+                              return link ? (link.getAttribute('href') || '') : '';
+                            })()
+                        ") ?? string.Empty;
+
+                        if (IsHfWrapper(canonical))
                         {
-                            WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
-                        });
-                        currentUrl = page.Url;
+                            _logger.LogInformation("Discovered canonical HF Space page: {canonical}", canonical);
+                            await page.GoToAsync(canonical, new NavigationOptions
+                            {
+                                WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
+                            });
+                            currentUrl = page.Url;
+                        }
                     }
-                }
 
-                // 3) Already running?
-                if (await IsSpaceRunning(page))
-                {
-                    return new ResultObj
-                    {
-                        Success = true,
-                        Message = await SendMessage("Space appears to be running (no restart needed).", processorScanDataObj)
-                    };
-                }
-
-                // 4) Find & click restart
-                var clicked = await TryClickRestart(page, _logger, opCts.Token);
-                if (!clicked)
-                {
-                    // Double-check in case it raced to running state
+                    // 3) Already running?
                     if (await IsSpaceRunning(page))
                     {
-                        return new ResultObj
-                        {
-                            Success = true,
-                            Message = await SendMessage("Space is running.", processorScanDataObj)
-                        };
+                        return (true, "Space appears to be running (no restart needed).");
                     }
 
-                    var failMsg = "Could not find or click the 'Restart this Space' button. Ensure the Space is public and restartable without auth.";
-                    _logger.LogWarning(failMsg);
-                    return new ResultObj { Success = false, Message = await SendMessage(failMsg, processorScanDataObj) };
-                }
-
-                _logger.LogInformation("Clicked restart; waiting for the Space to wake...");
-
-                // 5) Wait for running indicators
-                var woke = await WaitForSpaceToRun(page, _logger, opCts.Token);
-                if (woke)
-                {
-                    return new ResultObj
+                    // 4) Find & click restart
+                    var clicked = await TryClickRestart(page, _logger, opCts.Token);
+                    if (!clicked)
                     {
-                        Success = true,
-                        Message = await SendMessage("Space restarted successfully.", processorScanDataObj)
-                    };
-                }
+                        // Double-check in case it raced to running state
+                        if (await IsSpaceRunning(page))
+                        {
+                            return (true, "Space is running.");
+                        }
+
+                        var failMsg = "Could not find or click the 'Restart this Space' button. Ensure the Space is public and restartable without auth.";
+                        _logger.LogWarning(failMsg);
+                        return (false, failMsg);
+                    }
+
+                    _logger.LogInformation("Clicked restart; waiting for the Space to wake...");
+
+                    // 5) Wait for running indicators
+                    var woke = await WaitForSpaceToRun(page, _logger, opCts.Token);
+                    if (woke)
+                    {
+                        return (true, "Space restarted successfully.");
+                    }
+
+                    return (false, "Clicked restart, but the Space did not become ready within the timeout.");
+                }, opCts.Token);
 
                 return new ResultObj
                 {
-                    Success = false,
-                    Message = await SendMessage("Clicked restart, but the Space did not become ready within the timeout.", processorScanDataObj)
+                    Success = ok,
+                    Message = await SendMessage(msg, processorScanDataObj)
                 };
             }
             catch (OperationCanceledException)
@@ -306,10 +308,9 @@ Notes:
                 var jsHandle = await page.EvaluateFunctionHandleAsync(js, text);
                 if (jsHandle is IElementHandle element)
                 {
-                    return element; // caller will use & dispose via 'await using var __ = page;' which disposes children
+                    return element;
                 }
 
-                // Not an element (null returned or a non-node value) — clean up the handle.
                 await jsHandle.DisposeAsync();
                 return null;
             }

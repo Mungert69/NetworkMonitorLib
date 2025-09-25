@@ -1,8 +1,6 @@
-// SiteHashConnect.cs
 using NetworkMonitor.Objects;
 using NetworkMonitor.Utils.Helpers;
 using System;
-using System.Net.Http;
 using System.Threading.Tasks;
 using PuppeteerSharp;
 
@@ -10,13 +8,13 @@ namespace NetworkMonitor.Connection
 {
     public class SiteHashConnect : NetConnect
     {
-        private ILaunchHelper? _launchHelper;
+        private readonly IBrowserHost? _browserHost;
         private readonly string _commandPath;
 
-        public SiteHashConnect(string commandPath, ILaunchHelper? launchHelper = null)
+        public SiteHashConnect(string commandPath, IBrowserHost? browserHost = null)
         {
             _commandPath = commandPath;
-            _launchHelper = launchHelper;
+            _browserHost = browserHost;
         }
 
         public override async Task Connect()
@@ -24,9 +22,9 @@ namespace NetworkMonitor.Connection
             PreConnect();
             try
             {
-                if (_launchHelper == null)
+                if (_browserHost == null)
                 {
-                    ProcessException("PuppeteerSharp browser is missing, check installation", "Puppeteer Missing");
+                    ProcessException("BrowserHost is missing, check initialization", "Browser Missing");
                     return;
                 }
 
@@ -40,11 +38,11 @@ namespace NetworkMonitor.Connection
                 }
                 else
                 {
-                    string addressWithScheme =
-                        MpiStatic.Address.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                        MpiStatic.Address.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                            ? MpiStatic.Address
-                            : "http://" + MpiStatic.Address;
+                    var addressWithScheme =
+                        (MpiStatic.Address.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                         MpiStatic.Address.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                        ? MpiStatic.Address
+                        : "http://" + MpiStatic.Address;
 
                     targetUri = new UriBuilder(addressWithScheme);
                     if (MpiStatic.Port != 0) targetUri.Port = MpiStatic.Port;
@@ -53,41 +51,45 @@ namespace NetworkMonitor.Connection
                 var finalUri = targetUri.Uri;
                 MpiStatic.Address = finalUri.AbsoluteUri;
 
+                // Micro budget for individual waits
+                var micro = (int)Math.Clamp(MpiStatic.Timeout == 0 ? 10_000 : MpiStatic.Timeout, 1_000, 60_000);
+
                 Timer.Reset();
                 Timer.Start();
 
-                var launchOptions = await _launchHelper.GetLauncher(_commandPath);
-
-                using var browser = await Puppeteer.LaunchAsync(launchOptions);
-                using var page = await browser.NewPageAsync();
-
-                // Navigate and wait for network to go idle to reduce DOM churn
-                var navOptions = new NavigationOptions
+                var snapshot = await _browserHost.RunWithPage(async page =>
                 {
-                    WaitUntil = new[] { WaitUntilNavigation.Networkidle2 },
-                    Timeout = (int)Math.Max(0, MpiStatic.Timeout) // assumes milliseconds
-                };
-                await page.GoToAsync(finalUri.ToString(), navOptions);
+                    // Navigate (avoid Networkidle*, use DOMContentLoaded instead)
+                    await WebAutomationHelper.GoToWithCacheBusterAsync(
+                        page,
+                        finalUri.ToString(),
+                        nav: new NavigationOptions
+                        {
+                            WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded },
+                            Timeout = micro
+                        });
 
-                // Extra quiet window for late micro-mutations
-                await page.WaitForNetworkIdleAsync(new WaitForNetworkIdleOptions { Timeout = (int)Math.Max(0, MpiStatic.Timeout) });
-                await Task.Delay(500);
+                    // Try to settle a bit, but don't throw if it never goes idle
+                    await WebAutomationHelper.WaitForNetworkIdleSafeAsync(
+                        page,
+                        idleMs: 800,
+                        timeoutMs: Math.Min(8_000, micro));
 
-                // Deterministic text snapshot:
-                //  - strip volatile nodes
-                //  - use visible text (innerText)
-                //  - normalize whitespace
-                string snapshot = await page.EvaluateFunctionAsync<string>(
-                    @"() => {
-                try {
-                    const sel = 'script,style,noscript,template,iframe,svg,canvas,meta,link[rel=""preload""],link[rel=""prefetch""]';
-                    document.querySelectorAll(sel).forEach(n => n.remove());
-                    const text = document.body?.innerText ?? '';
-                    return text.replace(/\s+/g, ' ').trim();
-                } catch (e) {
-                    return '';
-                }
-            }");
+                    await Task.Delay(500); // allow tiny micro-mutations
+
+                    // Deterministic text snapshot
+                    var text = await page.EvaluateFunctionAsync<string>(
+                        @"() => {
+                            try {
+                                const sel = 'script,style,noscript,template,iframe,svg,canvas,meta,link[rel=""preload""],link[rel=""prefetch""]';
+                                document.querySelectorAll(sel).forEach(n => n.remove());
+                                const t = document.body?.innerText ?? '';
+                                return t.replace(/\s+/g, ' ').trim();
+                            } catch(e) { return ''; }
+                        }");
+
+                    return text ?? string.Empty;
+                });
 
                 Timer.Stop();
 
