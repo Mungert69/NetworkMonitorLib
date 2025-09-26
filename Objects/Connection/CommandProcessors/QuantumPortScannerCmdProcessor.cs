@@ -55,7 +55,7 @@ namespace NetworkMonitor.Connection
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    Help = "Explicit ports list (e.g., \"443,8443\"). If omitted, nmap is used."
+                    Help = "Explicit ports list (e.g., \"443,8443\"). If omitted, nmap is used to scan for open ports."
                 },
                 new()
                 {
@@ -397,7 +397,8 @@ Notes:
         {
             var ports = new List<int>();
             if (string.IsNullOrWhiteSpace(raw)) return (ports, null);
-
+          
+            raw = raw.Trim('[', ']');
             var tokens = raw.Split(new[] { ',', ';', ':', ' ', '\t', '\r', '\n' },
                                    StringSplitOptions.RemoveEmptyEntries);
 
