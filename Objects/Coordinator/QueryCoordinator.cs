@@ -40,7 +40,7 @@ namespace NetworkMonitor.Coordinator
         private readonly IRabbitRepo _rabbitRepo;
         private readonly string _serviceID;
         private readonly string _authKey;
-        private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(20);
+        private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(30);
         private const string SystemRagMessage = "The following RAG data has been added.";
 
         private readonly ILogger _logger;
