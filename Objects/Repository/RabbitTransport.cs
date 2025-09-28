@@ -179,9 +179,7 @@ namespace NetworkMonitor.Objects.Repository
                     Enabled = true,
                     ServerName = sys.RabbitHostName,
                     Version = SslProtocols.Tls12 | SslProtocols.Tls13,
-                    AcceptablePolicyErrors =
-                        SslPolicyErrors.RemoteCertificateNameMismatch |
-                        SslPolicyErrors.RemoteCertificateChainErrors
+                    AcceptablePolicyErrors = SslPolicyErrors.None
                 };
             }
 

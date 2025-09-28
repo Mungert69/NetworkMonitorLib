@@ -106,10 +106,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     Enabled = _isTls,
                     ServerName = _systemUrl.RabbitHostName,
-                    AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch |
-                                 SslPolicyErrors.RemoteCertificateChainErrors
-                    // If using a self-signed certificate, consider setting AcceptablePolicyErrors to SslPolicyErrors.RemoteCertificateChainErrors
-                    // For production, use a valid certificate and handle the validation properly.
+                    AcceptablePolicyErrors = SslPolicyErrors.None
                 }
             };
             _state.IsRabbitConnected = false;
