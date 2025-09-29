@@ -510,7 +510,7 @@ public class AccountTypeFactory
         }
         else
         {
-            return new AccountType("Default", config.hostLimit, config.tokenLimit, config.dailyTokens, config.contextSize);
+            return new AccountType("Default", PlanLimits.DefaultHosts, PlanLimits.DefaultMaxTokens, PlanLimits.DefaultDailyTokens, PlanLimits.DefaultContext);
 
         }
     }
