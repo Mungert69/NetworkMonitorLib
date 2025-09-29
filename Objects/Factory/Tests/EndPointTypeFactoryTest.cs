@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
+using Moq;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Connection;
 using Xunit;
@@ -21,12 +22,13 @@ public class EndPointTypeFactoryTest
     {
         Assert.Equal("15-30 minutes (comprehensive network scans take longer)", EndPointTypeFactory.GetProcessingTimeEstimate("nmap"));
         Assert.Equal("30-60 minutes (website crawling is resource intensive)", EndPointTypeFactory.GetProcessingTimeEstimate("crawlsite"));
-        Assert.Equal("One day (daily crawsite only runs once a day)", EndPointTypeFactory.GetProcessingTimeEstimate("dailycrawl"));
+        Assert.Equal("One day (daily only runs once a day)", EndPointTypeFactory.GetProcessingTimeEstimate("dailycrawl"));
         Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("smtp"));
         Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("quantum"));
         Assert.Equal("2-5 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("http"));
         Assert.Equal("2-5 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("https"));
         Assert.Equal("1-2 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("ping"));
+        Assert.Equal("2-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("sitehash"));
         Assert.Equal("2-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("unknown"));
         Assert.Equal("2-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate(null));
     }
@@ -41,6 +43,8 @@ public class EndPointTypeFactoryTest
         Assert.Contains(types, t => t.InternalType == "nmap");
         Assert.Contains(types, t => t.InternalType == "crawlsite");
         Assert.Contains(types, t => t.InternalType == "dailycrawl");
+        Assert.Contains(types, t => t.InternalType == "sitehash");
+        Assert.Contains(types, t => t.InternalType == "dailyhugkeepalive");
     }
 
     [Fact]
@@ -119,6 +123,14 @@ public class EndPointTypeFactoryTest
         Assert.IsType<NmapCmdConnect>(EndPointTypeFactory.CreateNetConnect("nmapvuln", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<CrawlSiteCmdConnect>(EndPointTypeFactory.CreateNetConnect("crawlsite", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<CrawlSiteCmdConnect>(EndPointTypeFactory.CreateNetConnect("dailycrawl", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
+
+        var mockProvider = new Mock<ICmdProcessorProvider>();
+        var mockBrowser = new Mock<IBrowserHost>();
+        Assert.IsType<HugSpaceKeepAliveConnect>(EndPointTypeFactory.CreateNetConnect("dailyhugkeepalive", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, mockProvider.Object));
+        Assert.IsType<SiteHashConnect>(EndPointTypeFactory.CreateNetConnect("sitehash", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, browserHost: mockBrowser.Object));
+
         Assert.IsType<ICMPConnect>(EndPointTypeFactory.CreateNetConnect("notarealtype", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
+
+        mockProvider.Verify(p => p.GetProcessor("HugSpaceKeepAlive"), Times.Once());
     }
 }
