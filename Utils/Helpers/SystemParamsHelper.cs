@@ -140,7 +140,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.EmailEncryptKey = GetConfigHelper.GetConfigValue(_logger, _config, "EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigHelper.GetConfigValue(_logger, _config, "LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigHelper.GetConfigValue(_logger, _config, "OpenAIPluginServiceKey", "Missing");
-            systemParams.RapidApiKey = GetConfigHelper.GetConfigValue(_logger, _config, "RapidApiKey", "Missing");
+            systemParams.RapidApiKeys = GetConfigHelper..GetSection("RapidApiKeys").Get<List<string>>() ?? new List<string>();
             systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue(_logger, _config, "ServiceAuthKey");
             string rabbitPassword = GetConfigHelper.GetConfigValue(_logger, _config, "RabbitPassword", "");
             systemParams.RedisSecret = GetConfigHelper.GetConfigValue(_logger, _config, "REDIS_PASSWORD");
