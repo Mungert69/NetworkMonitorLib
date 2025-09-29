@@ -35,7 +35,7 @@ namespace NetworkMonitor.Api.Services
         public List<string> RapidApiKeys { get => _rapidApiKey; set => _rapidApiKey = value; }
 
 #pragma warning disable CS8618
-        public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "", string nativeLibDir = "")
+        public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "", string nativeLibDir = "", IBrowserHost? browserHost = null)
         {
             try
             {
@@ -57,7 +57,7 @@ namespace NetworkMonitor.Api.Services
 
                 var netConnectConfig = new NetConnectConfig(_config, appDirectory, nativeLibDir);
 
-                var connectFactory = new ConnectFactory(loggerFactory.CreateLogger<ConnectFactory>(), netConfig: netConnectConfig, cmdProcessorProvider: cmdProcessorProvider);
+                var connectFactory = new ConnectFactory(loggerFactory.CreateLogger<ConnectFactory>(), netConfig: netConnectConfig, cmdProcessorProvider: cmdProcessorProvider, browserHost: browserHost);
                 _ = connectFactory.SetupChromium(netConnectConfig);
                 _logger.LogInformation(" Info : ConnectFactory created.");
                 _netConnectCollection = new NetConnectCollection(loggerFactory.CreateLogger<NetConnectCollection>(), netConnectConfig, connectFactory);
