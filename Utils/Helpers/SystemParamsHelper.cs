@@ -11,6 +11,8 @@ using RestSharp;
 using NetworkMonitor.Utils.Helpers;
 using NetworkMonitor.Objects.Factory;
 using DotNetEnv;
+using System.IO;
+
 
 namespace NetworkMonitor.Utils.Helpers
 {
@@ -83,6 +85,9 @@ namespace NetworkMonitor.Utils.Helpers
             {
                 _logger.LogWarning($"No .env file found at: {envFilePath}");
             }
+                 // Initialize helper so GetSection("Key") can be used app-wide
+            GetConfigHelper.Initialize(_config, _logger);
+     
         }
         public string GetPublicIP()
         {
@@ -132,19 +137,19 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;
             systemParams.RedisUrl = _config.GetValue<string?>("RedisUrl") ?? $"redis.{AppConstants.AppDomain}";
             systemParams.RabbitRoutingKey = _config.GetValue<string?>("RabbitRoutingKey") ?? "";
-            systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExhangeType") ?? "fanout";
+            systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExchangeType") ?? "fanout";
             systemParams.DataDir = _config.GetValue<string?>("DataDir") ?? "data";
             systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
 
-            systemParams.SystemPassword = GetConfigHelper.GetConfigValue(_logger, _config, "SystemPassword", "Missing");
-            systemParams.EmailEncryptKey = GetConfigHelper.GetConfigValue(_logger, _config, "EmailEncryptKey", "Missing");
-            systemParams.LLMEncryptKey = GetConfigHelper.GetConfigValue(_logger, _config, "LLMEncryptKey", "Missing");
-            systemParams.OpenAIPluginServiceKey = GetConfigHelper.GetConfigValue(_logger, _config, "OpenAIPluginServiceKey", "Missing");
-            systemParams.RapidApiKeys = GetConfigHelper..GetSection("RapidApiKeys").Get<List<string>>() ?? new List<string>();
-            systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue(_logger, _config, "ServiceAuthKey");
-            string rabbitPassword = GetConfigHelper.GetConfigValue(_logger, _config, "RabbitPassword", "");
-            systemParams.RedisSecret = GetConfigHelper.GetConfigValue(_logger, _config, "REDIS_PASSWORD");
-            systemParams.DbPassword = GetConfigHelper.GetConfigValue(_logger, _config, "DB_PASSWORD");
+            systemParams.SystemPassword = GetConfigHelper.GetConfigValue("SystemPassword", "Missing");
+            systemParams.EmailEncryptKey = GetConfigHelper.GetConfigValue("EmailEncryptKey", "Missing");
+            systemParams.LLMEncryptKey = GetConfigHelper.GetConfigValue("LLMEncryptKey", "Missing");
+            systemParams.OpenAIPluginServiceKey = GetConfigHelper.GetConfigValue("OpenAIPluginServiceKey", "Missing");
+            systemParams.RapidApiKeys = GetConfigHelper.GetSection("RapidApiKeys").Get<List<string>>() ?? new List<string>();
+            systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue("ServiceAuthKey");
+            string rabbitPassword = GetConfigHelper.GetConfigValue("RabbitPassword", "");
+            systemParams.RedisSecret = GetConfigHelper.GetConfigValue("REDIS_PASSWORD");
+            systemParams.DbPassword = GetConfigHelper.GetConfigValue("DB_PASSWORD");
             systemParams.PublicIPAddress = GetPublicIP();
             systemParams.IsSingleSystem = true;
             if (systemParams.SystemUrls != null && systemParams.SystemUrls.Count > 1) systemParams.IsSingleSystem = false;
@@ -205,10 +210,10 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmHFModelID = _config.GetValue<string>("LlmHFModelID") ?? "";
             mlParams.LlmSpaceModelID = _config.GetValue<string>("LlmSpaceModelID") ?? "";
             mlParams.LlmProvider = _config.GetValue<string>("LlmProvider") ?? "OpenAI";
-            mlParams.LlmHFKey = GetConfigHelper.GetConfigValue(_logger, _config, "LlmHFKey");
+            mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmHFKey");
             mlParams.DataRepoId = _config.GetValue<string>("DataRepoId") ?? "";
-            mlParams.HFToken = GetConfigHelper.GetConfigValue(_logger, _config, "HF_TOKEN");
-            mlParams.OpenAIApiKey = GetConfigHelper.GetConfigValue(_logger, _config, "OpenAIApiKey");
+            mlParams.HFToken = GetConfigHelper.GetConfigValue("HF_TOKEN");
+            mlParams.OpenAIApiKey = GetConfigHelper.GetConfigValue("OpenAIApiKey");
             mlParams.LlmHFUrl = _config.GetValue<string>("LlmHFUrl") ?? "";
             mlParams.LlmSystemPrompt = _config.GetValue<string>("LlmSystemPrompt") ?? "";
             mlParams.LlmThreads = int.TryParse(_config["LlmThreads"], out int llmThreads) ? llmThreads : 2;
@@ -254,14 +259,14 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.EnableAgentFlow = _config.GetValue<bool?>("EnableAgentFlow") ?? false;
             mlParams.EmbeddingModelDir = _config.GetValue<string>("EmbeddingModelDir") ?? "stsb-bert-tiny-onnx";
             mlParams.EmbeddingModelVecDim = int.TryParse(_config["EmbeddingModelVecDim"], out int bertModelVecDim) ? bertModelVecDim : 128;
-            mlParams.OpenSearchKey = GetConfigHelper.GetConfigValue(_logger, _config, "OpenSearchKey");
+            mlParams.OpenSearchKey = GetConfigHelper.GetConfigValue("OpenSearchKey");
             mlParams.OpenSearchUser = _config.GetValue<string>("OpenSearchUser") ?? "admin";
             mlParams.OpenSearchDefaultIndex = _config.GetValue<string>("OpenSearchDefaultIndex") ?? "documents";
             mlParams.OpenSearchUrl = _config.GetValue<string>("OpenSearchUrl") ?? "https://opensearch:9200";
             mlParams.SetVectorSearchModeFromString(_config.GetValue<string>("VectorSearchMode") ?? "content");
             // Embedding provider config
             mlParams.EmbeddingProvider = _config.GetValue<string>("EmbeddingProvider") ?? "local";
-            mlParams.LlmHFKey = GetConfigHelper.GetConfigValue(_logger, _config, "LlmHFKey");
+            mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmHFKey");
             mlParams.EmbeddingApiModel = _config.GetValue<string>("EmbeddingApiModel") ?? "baai/bge-m3";
             mlParams.EmbeddingApiUrl = _config.GetValue<string>("EmbeddingApiUrl") ?? "https://api.novita.ai/v3/openai/embeddings";
 
