@@ -23,7 +23,7 @@ namespace NetworkMonitor.Connection
         private IBrowser? _browser;
         private bool _disposed;
 
-        public BrowserHost(ILaunchHelper launchHelper, NetConnectConfig netConfig, ILogger logger, int maxConcurrentPages = 1)
+        public BrowserHost(ILaunchHelper launchHelper, NetConnectConfig netConfig, ILogger<BrowserHost> logger, int maxConcurrentPages = 1)
         {
             _launchHelper = launchHelper;
             _netConfig = netConfig;
