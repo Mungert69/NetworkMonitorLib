@@ -20,7 +20,7 @@ namespace NetworkMonitor.Api.Services
 
         Task<List<TResultObj<DataObj>>> CheckConnections(List<IConnectionObject> connectionObjects);
 
-        List<string>? RapidApiKeys { get; set; }
+        List<string> RapidApiKeys { get; set; }
     }
 
     public class ApiService : IApiService
@@ -30,9 +30,9 @@ namespace NetworkMonitor.Api.Services
         private readonly PingParams _pingParams;
         private readonly NetConnectCollection _netConnectCollection;
         private ISystemParamsHelper _systemParamsHelper;
-              private List<string>? _rapidApiKey;
+              private List<string> _rapidApiKey;
         private ICmdProcessorProvider _cmdProcessorProvider;
-        public List<string>? RapidApiKeys { get => _rapidApiKey; set => _rapidApiKey = value; }
+        public List<string> RapidApiKeys { get => _rapidApiKey; set => _rapidApiKey = value; }
 
 #pragma warning disable CS8618
         public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "", string nativeLibDir = "")
@@ -47,7 +47,7 @@ namespace NetworkMonitor.Api.Services
                 if (_systemParamsHelper.GetSystemParams() == null) throw new ArgumentNullException(" Error _systemParamsHelper.GetSystemParams() is null");
 
                 RapidApiKeys = _systemParamsHelper.GetSystemParams().RapidApiKeys;
-                if (RapidApiKeys == null || RapidApiKeys.Length == 0    )
+                if (RapidApiKeys == null || RapidApiKeys.Count==0    )
                 {
                     throw new ArgumentException(" Fatal error could not load RapidApiKey from appsettings.json");
                 }
