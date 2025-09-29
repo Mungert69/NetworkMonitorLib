@@ -20,7 +20,7 @@ namespace NetworkMonitor.Api.Services
 
         Task<List<TResultObj<DataObj>>> CheckConnections(List<IConnectionObject> connectionObjects);
 
-        string? RapidApiKeys { get; set; }
+        List<string>? RapidApiKeys { get; set; }
     }
 
     public class ApiService : IApiService
