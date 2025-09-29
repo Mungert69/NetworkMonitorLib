@@ -88,15 +88,7 @@ namespace NetworkMonitor.Connection
             IBrowserHost? bh = null)
             => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, bh);
 
-        // Required by ICmdProcessorFactory interface
-        public static ICmdProcessor Create(
-            ILogger logger,
-            ILocalCmdProcessorStates states,
-            IRabbitRepo repo,
-            NetConnectConfig cfg,
-            ILaunchHelper? launchHelper = null)
-            => new HugSpaceKeepAliveCmdProcessor(logger, states, repo, cfg, null);
-
+     
        
         public override async Task<ResultObj> RunCommand(
             string arguments,
