@@ -64,7 +64,7 @@ public class DailyEndpointFilterStrategyTest
         // Simulate next day by updating the internal dictionary
         var field = typeof(DailyEndpointFilterStrategy).GetField("_lastConnectTimes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         Assert.NotNull(field);
-        var dict = field.GetValue(strategy) as Dictionary<int, DateTime>;
+        var dict = field.GetValue(strategy) as System.Collections.Concurrent.ConcurrentDictionary<int, DateTime>;
         Assert.NotNull(dict);
         dict[monitorIPID] = now.AddDays(-1);
         // Should be included again (since last run was yesterday)

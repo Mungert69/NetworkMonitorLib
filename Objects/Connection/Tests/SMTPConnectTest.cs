@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -8,69 +9,125 @@ using NetworkMonitor.Connection;
 using NetworkMonitor.Objects;
 using Xunit;
 
-/* ─────────  mini helper for duplex in-memory stream  ───────── */
-internal sealed class DuplexStream : Stream
+/* ─────────  in-memory SMTP conversation harness  ───────── */
+internal sealed class FakeSmtpStream : Stream
 {
-    private readonly Stream _read;
-    private readonly Stream _write;
+    private readonly Queue<byte[]> _responses = new();
+    private MemoryStream? _current;
+    private readonly MemoryStream _clientCapture = new();
+    private readonly StringBuilder _commandBuffer = new();
+    private readonly Func<string, string?> _onCommand;
 
-    public DuplexStream(Stream readSide, Stream writeSide)
+    public FakeSmtpStream(IEnumerable<string> initialResponses, Func<string, string?> onCommand)
     {
-        _read  = readSide;
-        _write = writeSide;
+        foreach (var response in initialResponses)
+        {
+            if (!string.IsNullOrEmpty(response))
+            {
+                _responses.Enqueue(Encoding.ASCII.GetBytes(response));
+            }
+        }
+        _onCommand = onCommand;
     }
 
-    public override bool CanRead  => _read.CanRead;
-    public override bool CanWrite => _write.CanWrite;
-    public override bool CanSeek  => false;
-    public override long Length   => throw new NotSupportedException();
-    public override long Position
+    public MemoryStream ClientWrites => _clientCapture;
+
+    public override bool CanRead => true;
+    public override bool CanSeek => false;
+    public override bool CanWrite => true;
+    public override long Length => throw new NotSupportedException();
+    public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+    private bool EnsureCurrentResponse()
     {
-        get => throw new NotSupportedException();
-        set => throw new NotSupportedException();
+        while (_current == null || _current.Position >= _current.Length)
+        {
+            if (_responses.Count == 0)
+            {
+                _current = null;
+                return false;
+            }
+            _current = new MemoryStream(_responses.Dequeue(), writable: false);
+        }
+        return true;
     }
 
-    public override int Read(byte[] buffer, int offset, int count) =>
-        _read.Read(buffer, offset, count);
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        if (!EnsureCurrentResponse()) return 0;
+        var read = _current!.Read(buffer, offset, count);
+        if (read == 0 && EnsureCurrentResponse())
+        {
+            read = _current!.Read(buffer, offset, count);
+        }
+        return read;
+    }
 
-    public override void Write(byte[] buffer, int offset, int count) =>
-        _write.Write(buffer, offset, count);
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        => Task.FromResult(Read(buffer, offset, count));
 
-    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-        _read.ReadAsync(buffer, offset, count, cancellationToken);
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        _clientCapture.Write(buffer, offset, count);
 
-    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-        _write.WriteAsync(buffer, offset, count, cancellationToken);
+        _commandBuffer.Append(Encoding.ASCII.GetString(buffer, offset, count));
+        while (true)
+        {
+            var text = _commandBuffer.ToString();
+            var terminator = text.IndexOf("\n", StringComparison.Ordinal);
+            if (terminator < 0) break;
 
-    public override void Flush() => _write.Flush();
-    public override Task FlushAsync(CancellationToken cancellationToken) => _write.FlushAsync(cancellationToken);
+            var line = text.Substring(0, terminator + 1);
+            _commandBuffer.Remove(0, terminator + 1);
 
+            var response = _onCommand?.Invoke(line.Trim());
+            if (!string.IsNullOrEmpty(response))
+            {
+                _responses.Enqueue(Encoding.ASCII.GetBytes(response));
+            }
+        }
+    }
+
+    public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    {
+        Write(buffer, offset, count);
+        return Task.CompletedTask;
+    }
+
+    public override void Flush() { }
+    public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
     public override void SetLength(long value) => throw new NotSupportedException();
 }
 
-/* ─────────  spy class that overrides all seams  ───────── */
+/* ─────────  spy class that overrides network seams  ───────── */
 internal sealed class SmtpConnectSpy : SMTPConnect
 {
-    private readonly Func<Stream> _streamFactory;
-    public MemoryStream ClientToServer { get; } = new();
+    private readonly FakeSmtpStream _stream;
 
-    public SmtpConnectSpy(string serverGreeting)
+    public SmtpConnectSpy(string banner, string? heloResponse = null)
     {
-        var serverToClient = new MemoryStream(Encoding.ASCII.GetBytes(serverGreeting));
-        if (string.IsNullOrEmpty(serverGreeting))
-        {
-            serverToClient.Close(); // force closed stream to trigger exception on read
-        }
-        _streamFactory = () => new DuplexStream(serverToClient, ClientToServer);
+        _stream = new FakeSmtpStream(
+            new[] { banner },
+            command =>
+            {
+                if (command.StartsWith("HELO", StringComparison.OrdinalIgnoreCase) && heloResponse != null)
+                {
+                    return heloResponse;
+                }
+                if (command.StartsWith("QUIT", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "221 Bye\r\n";
+                }
+                return null;
+            });
     }
 
-    protected override TcpClient CreateTcpClient() => new();                 // no real socket
-    protected override Stream CreateStream(TcpClient _) => _streamFactory();
+    public MemoryStream ClientToServer => _stream.ClientWrites;
 
-    protected override ValueTask ConnectAsync(                               // short-circuit connect
-        TcpClient _, string __, int ___, CancellationToken ____)
-        => ValueTask.CompletedTask;
+    protected override TcpClient CreateTcpClient() => new();
+    protected override Stream CreateStream(TcpClient _) => _stream;
+    protected override ValueTask ConnectAsync(TcpClient _, string __, int ___, CancellationToken ____) => ValueTask.CompletedTask;
 }
 
 namespace NetworkMonitorLib.Tests.Objects.Connection
@@ -80,7 +137,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         [Fact]
         public async Task TestConnectionAsync_returns_success_on_220()
         {
-            var sut = new SmtpConnectSpy("220 test.local ready\r\n")
+            var sut = new SmtpConnectSpy("220 test.local ready\r\n", "250 test.local greets\r\n")
             {
                 MpiStatic = new MPIStatic { Address = "ignored" }
             };
@@ -105,19 +162,22 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
             var result = await sut.TestConnectionAsync(25);
 
             Assert.False(result.Success);
-            Assert.StartsWith("Unexpected response", result.Message);
+            Assert.StartsWith("Invalid banner", result.Message);
             Assert.Contains("500", result.Data);
         }
 
         [Fact]
-        public async Task TestConnectionAsync_bubbles_exception_when_stream_closed()
+        public async Task TestConnectionAsync_handles_empty_banner()
         {
             var sut = new SmtpConnectSpy(string.Empty)   // zero-byte banner
             {
                 MpiStatic = new MPIStatic { Address = "ignored" }
             };
 
-            await Assert.ThrowsAnyAsync<Exception>(() => sut.TestConnectionAsync(25));
+            var result = await sut.TestConnectionAsync(25);
+
+            Assert.False(result.Success);
+            Assert.StartsWith("Invalid banner", result.Message);
         }
     }
 }

@@ -17,8 +17,9 @@ public class ServerHelloHelperTests
     public void FindServerHello_ReturnsDefaultKemExtension_WhenInvalidHex()
     {
         var helper = new ServerHelloHelper();
-        // "ServerHello" followed by non-hex string
-        Assert.Throws<System.IO.IOException>(() => helper.FindServerHello("ServerHello\nnothexdata\n"));
+        var result = helper.FindServerHello("ServerHello\nnothexdata\n");
+        Assert.False(result.IsQuantumSafe);
+        Assert.Equal(0, result.GroupID);
     }
 
     [Fact]
@@ -42,17 +43,14 @@ public class ServerHelloHelperTests
     {
         var helper = new ServerHelloHelper();
         // TLS 1.3 ServerHello with key_share extension (0x0033)
-        // version(2), random(32), sessionidlen(1), ciphersuite(2), comp(1), extlen(2)
-        // extension: type(0x0033), len(2), value(0x12 34)
-        // sessionidlen(1) = 0, so no sessionid
-        // 2+32+1+0+2+1+2+2+2+2 = 46
-        string body = "0303" + new string('0', 64) + "00" + "1301" + "00" + "0006" + "003300021234";
+        // Use built-in PQ hybrid group 0x11EB so helper recognises it as quantum safe.
+        string body = "0303" + new string('0', 64) + "00" + "1301" + "00" + "0006" + "0033000211EB";
         string hex = "0200002E" + body;
         var input = $"ServerHello\n{hex}\n";
         var result = helper.FindServerHello(input);
         Assert.True(result.IsQuantumSafe);
-        Assert.Equal(0x1234, result.GroupID);
-        Assert.Equal("0x1234", result.GroupHexStringID);
+        Assert.Equal(0x11EB, result.GroupID);
+        Assert.Equal("0x11EB", result.GroupHexStringID);
     }
 
     [Fact]
