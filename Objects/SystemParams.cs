@@ -36,7 +36,7 @@ namespace NetworkMonitor.Objects
         private ManagementToken _managementToken = new ManagementToken();
         private bool sendTrustPilot;
         private string? _openAIPluginServiceKey;
-        private string _rapidApiKey;
+        private List<string> _rapidApiKeys;
         private string? _serviceID;
         private string? _serviceAuthKey;
         private int _expireMonths;
@@ -81,7 +81,7 @@ namespace NetworkMonitor.Objects
         public string RedisSecret { get => _redisSecret; set => _redisSecret = value; }
         public string RedisUrl { get => _redisUrl; set => _redisUrl = value; }
         public string LLMEncryptKey { get => _lLMEncryptKey; set => _lLMEncryptKey = value; }
-        public string RapidApiKey { get => _rapidApiKey; set => _rapidApiKey = value; }
+        public List<string> RapidApiKeys { get => _rapidApiKeys; set => _rapidApiKeys = value; }
         public string RabbitRoutingKey { get => _rabbitRoutingKey; set => _rabbitRoutingKey = value; }
         public string RabbitExchangeType { get => _rabbitExchangeType; set => _rabbitExchangeType = value; }
         public Dictionary<string, string> ExchangeTypes { get => _exchangeTypes; set => _exchangeTypes = value; }
