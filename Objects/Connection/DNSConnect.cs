@@ -45,9 +45,9 @@ namespace NetworkMonitor.Connection
                         "Exception");
                 }
             }
-            catch (OperationCanceledException) when (Cts.Token.IsCancellationRequested)
+            catch (OperationCanceledException e) when (Cts.Token.IsCancellationRequested)
             {
-                ProcessException("Timeout", "Timeout");
+                ProcessException(e.Message, "Exception");
             }
             catch (Exception e)
             {
