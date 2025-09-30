@@ -214,7 +214,13 @@ namespace NetworkMonitor.Api.Services
 
                 var netConnect = _netConnectCollection.GetNetConnectInstance(monitorPingInfo);
                 await netConnect.Connect();
-                result.Message += netConnect.MpiConnect.PingInfo.Status;
+
+                var shortStatus = netConnect.MpiConnect.PingInfo.Status ?? string.Empty;
+                var detailedStatus = string.IsNullOrWhiteSpace(netConnect.MpiConnect.Message)
+                    ? shortStatus
+                    : netConnect.MpiConnect.Message;
+
+                result.Message += detailedStatus;
                 result.Success = netConnect.MpiConnect.IsUp;
                 var data = new DataObj();
                 data.TestedAddress = netConnect.MpiStatic.Address;
@@ -225,16 +231,13 @@ namespace NetworkMonitor.Api.Services
                     data.Timeout = netConnect.MpiStatic.Timeout;
                 data.ResultSuccess = netConnect.MpiConnect.IsUp;
 
+                data.ResultStatus = detailedStatus;
                 if (customResultStatusHandler != null)
                 {
-                    data.ResultStatus = customResultStatusHandler(netConnect);
-                }
-                else
-                {
-                    string[] splitData = result.Message.Split(new char[] { ':' }, 3);
-                    if (splitData.Length > 2)
+                    var customStatus = customResultStatusHandler(netConnect);
+                    if (!string.IsNullOrWhiteSpace(customStatus))
                     {
-                        data.ResultStatus = splitData[2];
+                        data.ResultStatus = customStatus;
                     }
                 }
 
