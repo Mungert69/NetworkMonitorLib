@@ -45,9 +45,9 @@ namespace NetworkMonitor.Connection
                         "Exception");
                 }
             }
-            catch (OperationCanceledException e) when (Cts.Token.IsCancellationRequested)
+            catch (OperationCanceledException) when (Cts.Token.IsCancellationRequested)
             {
-                ProcessException(e.Message, "Exception");
+                ProcessException("Timeout while resolving host address", "Exception");
             }
             catch (Exception e)
             {

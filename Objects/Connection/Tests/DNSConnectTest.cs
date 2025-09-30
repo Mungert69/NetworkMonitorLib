@@ -68,7 +68,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
 
             Assert.False(sut.MpiConnect.IsUp);
             Assert.Equal("Exception", sut.MpiConnect.PingInfo.Status);
-            Assert.Contains("DNS: Failed to connect: Specified argument was", sut.MpiConnect.Message);
+            Assert.Contains("Timeout while resolving host address", sut.MpiConnect.Message);
         }
     }
 }
