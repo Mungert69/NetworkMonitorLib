@@ -12,11 +12,17 @@ namespace NetworkMonitor.Api.Services
         Task<TResultObj<DataObj>> CheckSmtp(HostObject host);
         Task<TResultObj<DataObj>> CheckHttp(HostObject host);
         Task<TResultObj<DataObj>> CheckHttps(HostObject host);
+        Task<TResultObj<DataObj>> CheckHttpHtml(HostObject host);
+        Task<TResultObj<DataObj>> CheckHttpFull(HostObject host);
+        Task<TResultObj<DataObj>> CheckSiteHash(HostObject host);
         Task<TResultObj<DataObj>> CheckDns(HostObject host);
         Task<TResultObj<DataObj>> CheckIcmp(HostObject host);
         Task<TResultObj<DataObj>> CheckNmap(HostObject host);
+        Task<TResultObj<DataObj>> CheckNmapVuln(HostObject host);
         Task<TResultObj<DataObj>> CheckRawconnect(HostObject host);
         Task<TResultObj<DataObj>> CheckCrawlSite(HostObject host);
+        Task<TResultObj<DataObj>> CheckDailyCrawl(HostObject host);
+        Task<TResultObj<DataObj>> CheckDailyHugKeepAlive(HostObject host);
 
         Task<List<TResultObj<DataObj>>> CheckConnections(List<IConnectionObject> connectionObjects);
 
@@ -107,39 +113,62 @@ namespace NetworkMonitor.Api.Services
                 {
                     var result = new TResultObj<DataObj>();
 
-                    string endPointType = hostObj.EndPointType.ToLower();
+                    string endPointType = (hostObj.EndPointType ?? string.Empty).ToLowerInvariant();
 
-                    if (endPointType.Contains("http"))
+                    switch (endPointType)
                     {
-                        result = await CheckHttp(hostObj);
-                    }
-                    else if (endPointType.Contains("https"))
-                    {
-                        result = await CheckHttps(hostObj);
-                    }
-                    else if (endPointType.Contains("smtp"))
-                    {
-                        result = await CheckSmtp(hostObj);
-                    }
-                    else if (endPointType.Contains("dns"))
-                    {
-                        result = await CheckDns(hostObj);
-                    }
-                    else if (endPointType.Contains("nmap"))
-                    {
-                        result = await CheckNmap(hostObj);
-                    }
-                    else if (endPointType.Contains("icmp"))
-                    {
-                        result = await CheckIcmp(hostObj);
-                    }
-                    else if (endPointType.Contains("rawconnect"))
-                    {
-                        result = await CheckRawconnect(hostObj);
-                    }
-                    else if (endPointType.Contains("crawlsite"))
-                    {
-                        result = await CheckCrawlSite(hostObj);
+                        case "http":
+                            result = await CheckHttp(hostObj);
+                            break;
+                        case "httphtml":
+                            result = await CheckHttpHtml(hostObj);
+                            break;
+                        case "httpfull":
+                            result = await CheckHttpFull(hostObj);
+                            break;
+                        case "sitehash":
+                            result = await CheckSiteHash(hostObj);
+                            break;
+                        case "https":
+                            result = await CheckHttps(hostObj);
+                            break;
+                        case "smtp":
+                            result = await CheckSmtp(hostObj);
+                            break;
+                        case "dns":
+                            result = await CheckDns(hostObj);
+                            break;
+                        case "nmap":
+                            result = await CheckNmap(hostObj);
+                            break;
+                        case "nmapvuln":
+                            result = await CheckNmapVuln(hostObj);
+                            break;
+                        case "icmp":
+                            result = await CheckIcmp(hostObj);
+                            break;
+                        case "rawconnect":
+                            result = await CheckRawconnect(hostObj);
+                            break;
+                        case "crawlsite":
+                            result = await CheckCrawlSite(hostObj);
+                            break;
+                        case "dailycrawl":
+                            result = await CheckDailyCrawl(hostObj);
+                            break;
+                        case "dailyhugkeepalive":
+                            result = await CheckDailyHugKeepAlive(hostObj);
+                            break;
+                        default:
+                            if (endPointType.Contains("http"))
+                            {
+                                result = await CheckHttp(hostObj);
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"Unsupported endpoint type: {hostObj.EndPointType}");
+                            }
+                            break;
                     }
 
                     if (result != null)
@@ -231,6 +260,21 @@ namespace NetworkMonitor.Api.Services
             return await PerformCheck(hostObj, "CheckHttps", "SSL Certificate");
         }
 
+        public async Task<TResultObj<DataObj>> CheckHttpHtml(HostObject hostObj)
+        {
+            return await PerformCheck(hostObj, "CheckHttpHtml", "Http HTML Content", defaultTimeout: 30000);
+        }
+
+        public async Task<TResultObj<DataObj>> CheckHttpFull(HostObject hostObj)
+        {
+            return await PerformCheck(hostObj, "CheckHttpFull", "Http Full Content", defaultTimeout: ushort.MaxValue - 1);
+        }
+
+        public async Task<TResultObj<DataObj>> CheckSiteHash(HostObject hostObj)
+        {
+            return await PerformCheck(hostObj, "CheckSiteHash", "Site Content Hash", defaultTimeout: ushort.MaxValue - 1);
+        }
+
         public async Task<TResultObj<DataObj>> CheckSmtp(HostObject hostObj)
         {
             return await PerformCheck(hostObj, "CheckSmtp", "SMTP Hello", defaultPort: 25);
@@ -251,9 +295,24 @@ namespace NetworkMonitor.Api.Services
             return await PerformCheck(hostObj, "CheckNmap", "Nmap Connection", defaultTimeout: ushort.MaxValue - 1);
         }
 
+        public async Task<TResultObj<DataObj>> CheckNmapVuln(HostObject hostObj)
+        {
+            return await PerformCheck(hostObj, "CheckNmapVuln", "Nmap Vulnerability Scan", defaultTimeout: ushort.MaxValue - 1);
+        }
+
         public async Task<TResultObj<DataObj>> CheckCrawlSite(HostObject hostObj)
         {
             return await PerformCheck(hostObj, "CheckCrawlSite", "Crawl Site", defaultTimeout: ushort.MaxValue - 1);
+        }
+
+        public async Task<TResultObj<DataObj>> CheckDailyCrawl(HostObject hostObj)
+        {
+            return await PerformCheck(hostObj, "CheckDailyCrawl", "Daily Crawl", defaultTimeout: ushort.MaxValue - 1);
+        }
+
+        public async Task<TResultObj<DataObj>> CheckDailyHugKeepAlive(HostObject hostObj)
+        {
+            return await PerformCheck(hostObj, "CheckDailyHugKeepAlive", "Daily HuggingFace Keep Alive", defaultTimeout: ushort.MaxValue - 1);
         }
 
 
