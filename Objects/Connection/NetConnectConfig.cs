@@ -114,6 +114,7 @@ namespace NetworkMonitor.Connection
         private string _transcribeAudioUrl;
         private AgentUserFlow _agentUserFlow = new AgentUserFlow();
         private List<FilterStrategyConfig> _filterStrategies = new List<FilterStrategyConfig>();
+        private string _rabbitPassword = string.Empty;
 
 
         public int MaxTaskQueueSize
@@ -189,6 +190,24 @@ namespace NetworkMonitor.Connection
         public string CommandPath { get => _commandPath; set => _commandPath = value; }
         public bool LoadChromium { get => _loadChromium; set => _loadChromium = value; }
 
+        public string RabbitPassword
+        {
+            get => _rabbitPassword;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (_rabbitPassword != newValue)
+                {
+                    _rabbitPassword = newValue;
+                    if (LocalSystemUrl != null)
+                    {
+                        LocalSystemUrl.RabbitPassword = newValue;
+                    }
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public List<FilterStrategyConfig> FilterStrategies
         {
             get => _filterStrategies;
@@ -254,6 +273,8 @@ namespace NetworkMonitor.Connection
                     MaxRuntime = int.TryParse(config["LocalSystemUrl:MaxRuntime"], out int maxRuntime) ? maxRuntime : 60,
                 };
 
+                RabbitPassword = LocalSystemUrl.RabbitPassword;
+
                 AppID = config["AppID"] ?? "";
                 AppName = config["AppName"] ?? "";
                 LoadServer = config["LoadServer"] ?? $"loadserver.{AppConstants.AppDomain}";
@@ -276,7 +297,7 @@ namespace NetworkMonitor.Connection
                 CmdReturnDataLineLimit = int.TryParse(config["CmdReturnDataLineLimit"], out int cmdReturnDataLineLimit) ? cmdReturnDataLineLimit : 100;
                 RetryDelayMilliseconds = int.TryParse(config["RetryDelayMilliseconds"], out int retryDelayMilliseconds) ? retryDelayMilliseconds : 10000;
                 OpensslVersion = config["OpensslVersion"] ?? "openssl";
-                AuthKey = config["AuthKey"] ?? "";
+                AuthKey = GetConfigHelper.GetConfigValue(config, "AuthKey", "");
                 DisabledEndpointTypes = config.GetSection("DisabledEndpointTypes").Get<List<string>>() ?? new List<string>();
                 DisabledCommands = config.GetSection("DisabledCommands").Get<List<string>>() ?? new List<string>();
 
