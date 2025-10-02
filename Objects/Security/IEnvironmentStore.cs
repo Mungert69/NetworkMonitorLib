@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NetworkMonitor.Objects.Security
+namespace NetworkMonitor.Security
 {
     public interface IEnvironmentStore
     {

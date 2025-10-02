@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Objects.Repository;
 
-namespace NetworkMonitor.Objects.Security
+namespace NetworkMonitor.Security
 {
     public class ProtectedConfigManager : IProtectedConfigManager
     {

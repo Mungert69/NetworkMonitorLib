@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using DotNetEnv;
 using Microsoft.Extensions.Logging;
 
-namespace NetworkMonitor.Objects.Security
+namespace NetworkMonitor.Security
 {
     public class EnvFileStore : IEnvironmentStore
     {

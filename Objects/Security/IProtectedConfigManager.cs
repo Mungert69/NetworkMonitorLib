@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using NetworkMonitor.Connection;
 
-namespace NetworkMonitor.Objects.Security
+namespace NetworkMonitor.Security
 {
     public interface IProtectedConfigManager
     {

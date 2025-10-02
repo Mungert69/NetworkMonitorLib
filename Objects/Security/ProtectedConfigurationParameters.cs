@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using NetworkMonitor.Connection;
 
-namespace NetworkMonitor.Objects.Security
+namespace NetworkMonitor.Security
 {
     public static class ProtectedConfigurationParameters
     {

@@ -49,6 +49,7 @@ namespace NetworkMonitor.Connection
                 if (_appID != value)
                 {
                     _appID = value;
+                    ExceptionHelper.AppID = AppID;
                     OnPropertyChanged();
                 }
             }
@@ -81,6 +82,7 @@ namespace NetworkMonitor.Connection
                 await OnAppIDChangedAsync(value);
             }
             AppID = value;
+
         }
 
         private int _maxTaskQueueSize;
@@ -250,11 +252,12 @@ namespace NetworkMonitor.Connection
 
                 _appDataDirectory = appDataDirectory;
                 _nativeLibDir = nativeLibDir;
+                AppID = config["AppID"] ?? "";
                 BaseFusionAuthURL = config["BaseFusionAuthURL"] ?? "";
                 ClientId = config["ClientId"] ?? "";
                 string rabbitPassword = rabbitPassword = config["LocalSystemUrl:RabbitPassword"] ?? "";
-                
-                if (rabbitPassword == ".env" ) rabbitPassword = GetConfigHelper.GetEnv("RabbitPassword","");
+
+                if (rabbitPassword == ".env") rabbitPassword = GetConfigHelper.GetEnv("RabbitPassword", "");
                 else if (string.IsNullOrEmpty(rabbitPassword))
                 {
                     rabbitPassword = GetConfigHelper.GetConfigValue(config, "RabbitPassword", "");
@@ -277,7 +280,7 @@ namespace NetworkMonitor.Connection
 
                 RabbitPassword = LocalSystemUrl.RabbitPassword;
 
-                AppID = config["AppID"] ?? "";
+
                 AppName = config["AppName"] ?? "";
                 LoadServer = config["LoadServer"] ?? $"loadserver.{AppConstants.AppDomain}";
                 ServiceServer = config["ServiceServer"] ?? $"monitorsrv.{AppConstants.AppDomain}";
