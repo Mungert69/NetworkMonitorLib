@@ -246,6 +246,8 @@ namespace NetworkMonitor.Connection
             try
             {
 #pragma warning disable IL2026
+                GetConfigHelper.Initialize(config);
+
                 _appDataDirectory = appDataDirectory;
                 _nativeLibDir = nativeLibDir;
                 BaseFusionAuthURL = config["BaseFusionAuthURL"] ?? "";
