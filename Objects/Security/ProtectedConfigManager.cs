@@ -15,17 +15,19 @@ namespace NetworkMonitor.Objects.Security
         private readonly IEnvironmentStore _environmentStore;
         private readonly IFileRepo _fileRepo;
         private readonly ILogger _logger;
+        private readonly IConfiguration _config;
 
-        public ProtectedConfigManager(IEnvironmentStore environmentStore, IFileRepo fileRepo, ILogger<ProtectedConfigManager> logger)
+        public ProtectedConfigManager(IConfiguration config, IEnvironmentStore environmentStore, IFileRepo fileRepo, ILogger<ProtectedConfigManager> logger)
         {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
             _environmentStore = environmentStore ?? throw new ArgumentNullException(nameof(environmentStore));
             _fileRepo = fileRepo ?? throw new ArgumentNullException(nameof(fileRepo));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task MigrateAsync(IConfiguration config, NetConnectConfig netConfig, IEnumerable<ProtectedParameter> parameters, CancellationToken cancellationToken = default)
+        /*public async Task MigrateAsync( NetConnectConfig netConfig, IEnumerable<ProtectedParameter> parameters, CancellationToken cancellationToken = default)
         {
-            if (config == null) throw new ArgumentNullException(nameof(config));
+            if (_config == null) throw new ArgumentNullException(nameof(_config));
             if (netConfig == null) throw new ArgumentNullException(nameof(netConfig));
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
 
@@ -34,7 +36,7 @@ namespace NetworkMonitor.Objects.Security
                 try
                 {
                     var configuredEntry = parameter.ConfigKeys
-                        .Select(key => (Key: key, Value: config[key]))
+                        .Select(key => (Key: key, Value: _config[key]))
                         .FirstOrDefault(pair => !string.IsNullOrWhiteSpace(pair.Value));
 
                     var configuredValue = configuredEntry.Value ?? string.Empty;
@@ -64,7 +66,7 @@ namespace NetworkMonitor.Objects.Security
                     _logger.LogError(ex, "Failed to migrate sensitive configuration value for {EnvVar}.", parameter.EnvironmentVariableName);
                 }
             }
-        }
+        }*/
 
         public async Task PersistAsync(ProtectedParameter parameter, NetConnectConfig netConfig, string value, CancellationToken cancellationToken = default)
         {

@@ -38,7 +38,28 @@ namespace NetworkMonitor.Objects.Security
             {
                 if (File.Exists(EnvFilePath))
                 {
-                    Env.Load(EnvFilePath);
+                    var lines = File.ReadAllLines(EnvFilePath);
+                    foreach (var line in lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        var trimmed = line.TrimStart();
+                        if (trimmed.StartsWith('#') || trimmed.StartsWith(';')) continue;
+
+                        var separatorIndex = line.IndexOf('=');
+                        if (separatorIndex <= 0) continue;
+
+                        var key = line.Substring(0, separatorIndex).Trim();
+                        var value = line.Substring(separatorIndex + 1).Trim();
+
+                        // Remove surrounding quotes if present
+                        if (value.StartsWith("\"") && value.EndsWith("\"") && value.Length > 1)
+                        {
+                            value = value.Substring(1, value.Length - 2).Replace("\\\"", "\"").Replace("\\\\", "\\");
+                        }
+
+                        Environment.SetEnvironmentVariable(key, value);
+                        _logger?.LogDebug("Set environment variable {Key} from file {Path}", key, EnvFilePath);
+                    }
                     _logger?.LogInformation("Loaded environment variables from {Path}", EnvFilePath);
                 }
                 else
