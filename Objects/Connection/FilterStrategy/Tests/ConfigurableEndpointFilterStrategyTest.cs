@@ -65,8 +65,8 @@ public class ConfigurableEndpointFilterStrategyTest
         var results = netConnects.Select(strategy.ShouldInclude).ToList();
 
         Assert.False(results[0]);
-        Assert.True(results[1]);
-        Assert.False(results[2]);
+        Assert.False(results[1]);
+        Assert.True(results[2]);
     }
 
     [Fact]

@@ -56,13 +56,21 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         [Fact]
         public async Task Connect_sets_timeout_when_resolver_throws_cancelled()
         {
-            var sut = new DnsConnectSpy((_, ct) => Task.FromCanceled<IPAddress[]>(ct))
+            var sut = new DnsConnectSpy((_, ct) =>
+                Task.Run<IPAddress[]>(() =>
+                {
+                    ct.WaitHandle.WaitOne();
+                    ct.ThrowIfCancellationRequested();
+                    return Array.Empty<IPAddress>();
+                }, ct))
             {
-                MpiStatic = new MPIStatic { Address = "example.com", EndPointType = "dns" },
-                Cts       = new CancellationTokenSource()
+                MpiStatic = new MPIStatic
+                {
+                    Address = "example.com",
+                    EndPointType = "dns",
+                    Timeout = 0
+                }
             };
-
-            sut.Cts.Cancel();
 
             await sut.Connect();
 

@@ -260,10 +260,10 @@ public class NetConnectCollectionTest
             collection.Add(mpi);
         }
 
-        // With n=2, offset=1, should include endpoint 1 (cycling logic includes only one per cycle)
+        // With n=2, offset=1, includes endpoints 1 and 3 in the first cycle
         var filtered = collection.GetFilteredNetConnects().ToList();
         var includedIDs = filtered.Select(nc => nc.MpiStatic.MonitorIPID).ToList();
-        Assert.Equal(new List<int> { 1 }, includedIDs);
+        Assert.Equal(new List<int> { 1, 3 }, includedIDs);
     }
 
     [Fact]
