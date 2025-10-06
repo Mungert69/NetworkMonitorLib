@@ -74,7 +74,7 @@ namespace NetworkMonitor.Connection
             _netConnects = new List<INetConnect>();
             SetNetConnectConfig(config);
             var filterConfigMessages = config.FilterStrategies
-       .Select(fs => $"{fs.StrategyName}FilterSkip = {fs.FilterSkip}, {fs.StrategyName}FilterStart = {fs.FilterStart}");
+                .Select(fs => fs.ToString());
 
             var filterConfigString = string.Join(Environment.NewLine, filterConfigMessages);
 
@@ -87,22 +87,14 @@ namespace NetworkMonitor.Connection
         public void SetNetConnectConfig(NetConnectConfig config)
         {
             _maxTaskQueueSize = config.MaxTaskQueueSize;
-            var strategies = new List<INetConnectFilterStrategy>();
-
-            foreach (var strategyConfig in config.FilterStrategies)
-            {
-                var strategy = NetConnectFilterStrategyFactory.CreateStrategy(strategyConfig);
-                strategies.Add(strategy);
-            }
-
-            _filterStrategy = new CompositeFilterStrategy(strategies.ToArray());
+            _filterStrategy = new ConfigurableEndpointFilterStrategy(config.FilterStrategies);
             _taskSemaphore = new SemaphoreSlim(_maxTaskQueueSize);
         }
         public IEnumerable<INetConnect> GetFilteredNetConnects()
         {
-            if (_filterStrategy is CompositeFilterStrategy compositeFilterStrategy)
+            if (_filterStrategy is IEndpointSettingStrategy endpointSettingStrategy)
             {
-                compositeFilterStrategy.SetTotalEndpoints(_netConnects);
+                endpointSettingStrategy.SetTotalEndpoints(_netConnects);
             }
             return _netConnects.Where(_filterStrategy.ShouldInclude)
                                .Where(w => w.IsEnabled && w.MpiStatic.Enabled == true);

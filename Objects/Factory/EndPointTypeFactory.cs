@@ -55,7 +55,9 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans"),
             new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
             new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites"),
-             new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Wake Up {Traffic Generator}", "Generate once daily traffic to awake up a huggingface space")
+            new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Keep Alive {Traffic Generator}", "Generate once daily traffic to keep alive  a huggingface space"),
+            new EndpointType("hugwake", "HugIcon", "Hourly HuggingFace Wake Up {Click Restart}", "Searches for and clicks restart on a huggingface space")
+
 
         };
 
@@ -111,9 +113,10 @@ namespace NetworkMonitor.Objects.Factory
     // Adjusted thresholds for nmap scans based on observed execution times. Note these are 10 times less than the above as the timeout is set is 10s of milliseconds nmap connects.
     { "nmap", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
     { "nmapvuln", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-     { "crawlsite", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-     {"dailycrawl", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-      {"dailyhugkeepalive", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) }
+    { "crawlsite", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+    {"dailycrawl", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+    {"dailyhugkeepalive", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
+    {"hugwake", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) }
 
 };
 
@@ -173,15 +176,15 @@ namespace NetworkMonitor.Objects.Factory
 
 
         // Method to create the correct INetConnect instance based on type
-        public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null , string nativeLibDir = "" )
+        public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null, string nativeLibDir = "")
         {
             return type switch
             {
                 "http" => new HTTPConnect(httpClient, false, false, commandPath),
                 "https" => new HTTPConnect(httpsClient, false, false, commandPath),
                 "httphtml" => new HTTPConnect(httpClient, true, false, commandPath),
-                "httpfull" => new HTTPConnect(httpClient, false, true, commandPath,  browserHost),
-                "sitehash" => new SiteHashConnect(commandPath,  browserHost), // New endpoint type
+                "httpfull" => new HTTPConnect(httpClient, false, true, commandPath, browserHost),
+                "sitehash" => new SiteHashConnect(commandPath, browserHost), // New endpoint type
                 "dns" => new DNSConnect(),
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),
@@ -191,6 +194,7 @@ namespace NetworkMonitor.Objects.Factory
                 "crawlsite" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 3 --max_pages 10"),
                 "dailycrawl" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 4 --max_pages 20"),
                 "dailyhugkeepalive" => new HugSpaceKeepAliveConnect(cmdProcessorProvider, ""),
+                "hugwake" => new HugSpaceWakeConnect(cmdProcessorProvider, ""),
                 _ => new ICMPConnect(),
             };
         }

@@ -1,40 +1,40 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace NetworkMonitor.Connection
 {
     public interface INetConnectFilterStrategy
     {
-          bool ShouldInclude(INetConnect netConnect);
+        bool ShouldInclude(INetConnect netConnect);
     }
-     public interface IEndpointSettingStrategy
-{
-    void SetTotalEndpoints(List<INetConnect> netConnects);
-}
-   public class CompositeFilterStrategy : INetConnectFilterStrategy
-{
-    private readonly List<INetConnectFilterStrategy> _filterStrategies;
-
-    public CompositeFilterStrategy(params INetConnectFilterStrategy[] filterStrategies)
+    public interface IEndpointSettingStrategy
     {
-        _filterStrategies = filterStrategies.ToList();
+        void SetTotalEndpoints(List<INetConnect> netConnects);
     }
 
-    public bool ShouldInclude(INetConnect netConnect)
+    public class CompositeFilterStrategy : INetConnectFilterStrategy, IEndpointSettingStrategy
     {
-        return _filterStrategies.All(strategy => strategy.ShouldInclude(netConnect));
-    }
+        private readonly List<INetConnectFilterStrategy> _filterStrategies;
 
-    public void SetTotalEndpoints(List<INetConnect> netConnects)
-    {
-        foreach (var strategy in _filterStrategies.OfType<IEndpointSettingStrategy>())
+        public CompositeFilterStrategy(params INetConnectFilterStrategy[] filterStrategies)
         {
-            strategy.SetTotalEndpoints(netConnects);
+            _filterStrategies = filterStrategies?.ToList() ?? new List<INetConnectFilterStrategy>();
+        }
+
+        public bool ShouldInclude(INetConnect netConnect)
+        {
+            return _filterStrategies.All(strategy => strategy.ShouldInclude(netConnect));
+        }
+
+        public void SetTotalEndpoints(List<INetConnect> netConnects)
+        {
+            foreach (var strategy in _filterStrategies.OfType<IEndpointSettingStrategy>())
+            {
+                strategy.SetTotalEndpoints(netConnects);
+            }
         }
     }
 }
 
 
-}
+

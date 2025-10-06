@@ -72,9 +72,41 @@ public class NetConnectCollectionTest
         var dummyConfig = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
         var config = new NetConnectConfig(dummyConfig, "TestSection");
         config.MaxTaskQueueSize = 10;
+
+        string GetDefaultPattern() => strategyName switch
+        {
+            "cmd" => "nmap",
+            "smtp" => "smtp",
+            "quantum" => "quantum",
+            "randomcmd" => "crawlsite",
+            "daily" => "daily",
+            _ => strategyName
+        };
+
+        var fireInterval = new FilterIntervalConfig
+        {
+            Mode = strategyName switch
+            {
+                "daily" => FilterIntervalConfig.DailySlotMode,
+                "randomcmd" => FilterIntervalConfig.RandomizedCounterMode,
+                _ => FilterIntervalConfig.CounterMode
+            },
+            Every = skip,
+            Offset = start,
+            SlotsPerDay = strategyName == "daily" ? 1 : 24
+        };
+
         config.FilterStrategies = new List<FilterStrategyConfig>
         {
-            new FilterStrategyConfig { StrategyName = strategyName, FilterSkip = skip, FilterStart = start }
+            new FilterStrategyConfig
+            {
+                StrategyName = strategyName,
+                EndpointTypeContains = new List<string> { GetDefaultPattern() },
+                FireInterval = fireInterval,
+                Randomization = strategyName == "randomcmd"
+                    ? new RandomizationConfig { Probability = 0.5 }
+                    : null
+            }
         };
         return config;
     }
