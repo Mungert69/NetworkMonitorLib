@@ -74,7 +74,7 @@ namespace NetworkMonitor.Connection
 
             envVars["LD_LIBRARY_PATH"] = workingDirectory;
 
-            _logger.LogInformation("Preparing to run openssl: {Cmd} {Args}", opensslPath, arguments);
+            _logger.LogDebug("Preparing to run openssl: {Cmd} {Args}", opensslPath, arguments);
 
             return await _runner.RunAsync(opensslPath, arguments, workingDirectory, envVars, token);
         }
@@ -132,7 +132,7 @@ namespace NetworkMonitor.Connection
                 var serverHelloHelper = new ServerHelloHelper(_algorithmInfoList);
 
                 KemExtension kemExtension = serverHelloHelper.FindServerHello(output);
-                _logger.LogInformation("OUTPUT ServerHelloHelper :: " + serverHelloHelper.Sb.ToString());
+                _logger.LogDebug("OUTPUT ServerHelloHelper :: " + serverHelloHelper.Sb.ToString());
                 if (kemExtension.IsQuantumSafe)
                 {
                     result.Success = true;
@@ -147,7 +147,7 @@ namespace NetworkMonitor.Connection
                         }
                     }
                     result.Data = algoNameFromKem;
-                    _logger.LogInformation(" Success : " + address + " : " + result.Data);
+                    _logger.LogDebug(" Success : " + address + " : " + result.Data);
                     return result;
                 }
                 else
@@ -239,7 +239,7 @@ namespace NetworkMonitor.Connection
             var serverHelloHelper = new ServerHelloHelper(_algorithmInfoList);
 
             KemExtension kemExtension = serverHelloHelper.FindServerHello(output);
-            _logger.LogInformation("OUTPUT ServerHelloHelper :: " + serverHelloHelper.Sb.ToString());
+            _logger.LogDebug("OUTPUT ServerHelloHelper :: " + serverHelloHelper.Sb.ToString());
 
             if (kemExtension.IsQuantumSafe)
             {
@@ -249,7 +249,7 @@ namespace NetworkMonitor.Connection
                 result.Success = true;
                 result.Data = negotiated;
                 result.Message = $"Negotiated quantum-safe algorithm: {negotiated}";
-                _logger.LogInformation("Success: {Address} : {Negotiated}", address, negotiated);
+                _logger.LogDebug("Success: {Address} : {Negotiated}", address, negotiated);
             }
             else
             {

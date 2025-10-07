@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -18,7 +21,21 @@ namespace NetworkMonitor.Connection
     /// </summary>
     public class HugSpaceWakeCmdProcessor : CmdProcessor, ICmdProcessorFactory
     {
-             private readonly IBrowserHost? _browserHost;
+        private enum SpaceStage
+        {
+            Unknown,
+            Running,
+            Sleeping
+        }
+
+        private readonly record struct SpaceProbeResult(SpaceStage Stage, string? AppUrl);
+
+        private static readonly HttpClient ProbeClient = CreateProbeClient();
+        private static readonly Regex IframeSrcRegex = new(
+            @"<iframe[^>]+src=""(?<src>https://[^""]+\.hf\.space[^""]*)""",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private readonly IBrowserHost? _browserHost;
         private readonly List<ArgSpec> _schema;
 
         // Defaults (override via CLI)
@@ -112,6 +129,58 @@ namespace NetworkMonitor.Connection
                 var url          = parseResult.GetString("url"); // validated URL
                 var microTimeout = parseResult.GetInt("micro_timeout", DefaultMicroTimeoutMs);
                 var macroTimeout = parseResult.GetInt("macro_timeout", DefaultMacroTimeoutMs);
+                var debugParts   = new List<string>();
+                SpaceProbeResult? probeResult = null;
+
+                // Lightweight probe using static HTML to avoid spinning up Chromium if not needed.
+                if (IsHfWrapper(url))
+                {
+                    try
+                    {
+                        using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        probeCts.CancelAfter(microTimeout);
+                        var probe = await ProbeSpaceStateAsync(url, probeCts.Token);
+                        probeResult = probe;
+
+                        if (probe.Stage != SpaceStage.Unknown)
+                            debugParts.Add($"probe_stage={probe.Stage}");
+                        if (!string.IsNullOrWhiteSpace(probe.AppUrl))
+                            debugParts.Add($"probe_iframe={probe.AppUrl}");
+
+                        if (probe.Stage == SpaceStage.Running)
+                        {
+                            _logger.LogInformation("WakeCmd: quick probe shows the space is already running.");
+                            var message = "Space appears to be running - no restart needed." + FormatContext(debugParts);
+                            return new ResultObj
+                            {
+                                Success = true,
+                                Message = await SendMessage(message, processorScanDataObj)
+                            };
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(probe.AppUrl))
+                        {
+                            _logger.LogDebug("WakeCmd: quick probe resolved iframe source {src}", probe.AppUrl);
+                        }
+
+                        if (probe.Stage == SpaceStage.Sleeping)
+                        {
+                            _logger.LogInformation("WakeCmd: quick probe detected a sleeping space; proceeding with restart automation.");
+                        }
+                        else
+                        {
+                            _logger.LogDebug("WakeCmd: quick probe inconclusive; falling back to automation.");
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.LogDebug("WakeCmd: quick probe cancelled/timed out; continuing with automation.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "WakeCmd: quick probe failed; continuing with automation.");
+                    }
+                }
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -122,6 +191,7 @@ namespace NetworkMonitor.Connection
                 var (ok, msg) = await _browserHost.RunWithPage(async page =>
                 {
                     page.DefaultTimeout = microTimeout;
+                    debugParts.Add($"initial_url={url}");
 
                     // 1) Navigate to the supplied URL
                     await page.GoToAsync(url, new NavigationOptions
@@ -131,6 +201,7 @@ namespace NetworkMonitor.Connection
 
                     // 2) If we started from the app subdomain, try to hop to wrapper (canonical)
                     var currentUrl = page.Url;
+                    debugParts.Add($"page_url={currentUrl}");
                     if (!IsHfWrapper(currentUrl))
                     {
                         var canonical = await page.EvaluateExpressionAsync<string>(@"
@@ -143,18 +214,21 @@ namespace NetworkMonitor.Connection
                         if (IsHfWrapper(canonical))
                         {
                             _logger.LogInformation("Discovered canonical HF Space page: {canonical}", canonical);
+                            debugParts.Add($"canonical={canonical}");
                             await page.GoToAsync(canonical, new NavigationOptions
                             {
                                 WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
                             });
                             currentUrl = page.Url;
+                            debugParts.Add($"page_url={currentUrl}");
                         }
                     }
 
                     // 3) Already running?
                     if (await IsSpaceRunning(page))
                     {
-                        return (true, "Space appears to be running (no restart needed).");
+                        debugParts.Add($"final_url={page.Url}");
+                        return (true, "Space appears to be running (no restart needed)." + FormatContext(debugParts));
                     }
 
                     // 4) Find & click restart
@@ -164,24 +238,29 @@ namespace NetworkMonitor.Connection
                         // Double-check in case it raced to running state
                         if (await IsSpaceRunning(page))
                         {
-                            return (true, "Space is running.");
+                            debugParts.Add($"final_url={page.Url}");
+                            return (true, "Space is running." + FormatContext(debugParts));
                         }
 
                         var failMsg = "Could not find or click the 'Restart this Space' button. Ensure the Space is public and restartable without auth.";
                         _logger.LogWarning(failMsg);
-                        return (false, failMsg);
+                        debugParts.Add("restart_click=failed");
+                        return (false, failMsg + FormatContext(debugParts));
                     }
 
                     _logger.LogInformation("Clicked restart; waiting for the Space to wake...");
+                    debugParts.Add("restart_click=ok");
 
                     // 5) Wait for running indicators
                     var woke = await WaitForSpaceToRun(page, _logger, opCts.Token);
                     if (woke)
                     {
-                        return (true, "Space restarted successfully.");
+                        debugParts.Add($"final_url={page.Url}");
+                        return (true, "Space restarted successfully." + FormatContext(debugParts));
                     }
 
-                    return (false, "Clicked restart, but the Space did not become ready within the timeout.");
+                    debugParts.Add("wake_status=timeout");
+                    return (false, "Clicked restart, but the Space did not become ready within the timeout." + FormatContext(debugParts));
                 }, opCts.Token);
 
                 return new ResultObj
@@ -342,6 +421,117 @@ Notes:
                 logger.LogDebug(ex, "WaitForSpaceToRun exception.");
                 return false;
             }
+        }
+
+        private static HttpClient CreateProbeClient()
+        {
+            var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            };
+
+            var client = new HttpClient(handler, disposeHandler: true)
+            {
+                Timeout = TimeSpan.FromSeconds(12)
+            };
+
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
+            client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+
+            return client;
+        }
+
+        private static async Task<SpaceProbeResult> ProbeSpaceStateAsync(string wrapperUrl, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(wrapperUrl))
+                return new SpaceProbeResult(SpaceStage.Unknown, null);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, wrapperUrl);
+
+            try
+            {
+                using var response = await ProbeClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, ct);
+                if (!response.IsSuccessStatusCode)
+                    return new SpaceProbeResult(SpaceStage.Unknown, null);
+
+                var html = await response.Content.ReadAsStringAsync(ct);
+                var stage = DetectSpaceStage(html);
+                var appUrl = ExtractAppUrl(html);
+                return new SpaceProbeResult(stage, appUrl);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return new SpaceProbeResult(SpaceStage.Unknown, null);
+            }
+        }
+
+        private static string FormatContext(IReadOnlyCollection<string> parts)
+        {
+            return parts.Count > 0 ? $" [{string.Join("; ", parts)}]" : string.Empty;
+        }
+
+        private static SpaceStage DetectSpaceStage(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html))
+                return SpaceStage.Unknown;
+
+            var lowered = html.ToLowerInvariant();
+
+            if (lowered.Contains("&quot;stage&quot;:&quot;running") ||
+                lowered.Contains(">running") ||
+                lowered.Contains("class=\"cursor-pointer") && lowered.Contains("running"))
+            {
+                return SpaceStage.Running;
+            }
+
+            if (lowered.Contains("&quot;stage&quot;:&quot;sleeping") ||
+                lowered.Contains("restart this space") ||
+                lowered.Contains("this space is sleeping"))
+            {
+                return SpaceStage.Sleeping;
+            }
+
+            return SpaceStage.Unknown;
+        }
+
+        private static string? ExtractAppUrl(string html)
+        {
+            if (string.IsNullOrEmpty(html))
+                return null;
+
+            var match = IframeSrcRegex.Match(html);
+            if (match.Success)
+                return WebUtility.HtmlDecode(match.Groups["src"].Value);
+
+            string? TryExtractFromEncoded(string key)
+            {
+                var startIdx = html.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+                if (startIdx < 0) return null;
+                startIdx += key.Length;
+                var endIdx = html.IndexOf("&quot;", startIdx, StringComparison.OrdinalIgnoreCase);
+                if (endIdx <= startIdx) return null;
+                var encoded = html.Substring(startIdx, endIdx - startIdx);
+                return WebUtility.HtmlDecode(encoded);
+            }
+
+            var iframeSrc = TryExtractFromEncoded("&quot;iframeSrc&quot;:&quot;");
+            if (!string.IsNullOrWhiteSpace(iframeSrc))
+                return iframeSrc;
+
+            var genericSrc = TryExtractFromEncoded("&quot;src&quot;:&quot;");
+            if (!string.IsNullOrWhiteSpace(genericSrc) &&
+                genericSrc.Contains(".hf.space", StringComparison.OrdinalIgnoreCase))
+            {
+                return genericSrc;
+            }
+
+            return null;
         }
     }
 }

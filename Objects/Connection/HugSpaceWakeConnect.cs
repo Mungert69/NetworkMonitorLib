@@ -113,16 +113,52 @@ namespace NetworkMonitor.Connection
 
         private static (bool isUp, string status) GetCrawlStatus(string input)
         {
-            const string upPattern = @"Alive";
-            const string downPattern = @"Error";
+            var text = input?.Trim() ?? string.Empty;
+            if (text.Length == 0)
+                return (false, "Hug Space Keep Alive Status Unknown");
 
-            if (Regex.IsMatch(input ?? string.Empty, upPattern, RegexOptions.IgnoreCase))
-                return (true, "Hug Space is Alive");
+            var lowered = text.ToLowerInvariant();
 
-            if (Regex.IsMatch(input ?? string.Empty, downPattern, RegexOptions.IgnoreCase))
-                return (false, "Hug Space Keep Alive Failed");
+            string[] successIndicators =
+            [
+                "keep-alive ping completed",
+                "space appears to be running",
+                "space is running",
+                "space restarted successfully",
+                "space is awake"
+            ];
 
-            return (false, "Hug Space Keep Alive Status Unknown");
+            foreach (var indicator in successIndicators)
+            {
+                if (lowered.Contains(indicator))
+                    return (true, "Hug Space Wake Succeeded");
+            }
+
+            string[] failureIndicators =
+            [
+                "could not",
+                "did not",
+                "error",
+                "failed",
+                "exception",
+                "cancelled",
+                "canceled",
+                "timed out"
+            ];
+
+            foreach (var indicator in failureIndicators)
+            {
+                if (lowered.Contains(indicator))
+                    return (false, "Hug Space Wake Failed");
+            }
+
+            if (Regex.IsMatch(text, @"Alive", RegexOptions.IgnoreCase))
+                return (true, "Hug Space Wake Succeeded");
+
+            if (Regex.IsMatch(text, @"Error", RegexOptions.IgnoreCase))
+                return (false, "Hug Space Wake Failed");
+
+            return (false, "Hug Space Wake Status Unknown");
         }
     }
 }
