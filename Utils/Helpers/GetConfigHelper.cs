@@ -66,7 +66,7 @@ namespace NetworkMonitor.Utils.Helpers
             return ResolveConfigOrEnv(config, /*logger*/ null, key, defaultValue);
         }
 
-        public static string GetConfigValue(ILogger logger, IConfiguration config, string key, string defaultValue = "")
+        public static string GetConfigValue(ILogger? logger, IConfiguration config, string key, string defaultValue = "")
         {
             return ResolveConfigOrEnv(config, logger, key, defaultValue);
         }
@@ -123,16 +123,16 @@ namespace NetworkMonitor.Utils.Helpers
                     .Select(s => s.Trim())
                     .ToArray();
 
-                var data = new List<KeyValuePair<string, string>>();
+                var data = new List<KeyValuePair<string, string?>>();
                 if (parts.Length <= 1)
                 {
                     // single scalar
-                    data.Add(new KeyValuePair<string, string>(key, envVal.Trim()));
+                    data.Add(new KeyValuePair<string, string?>(key, envVal.Trim()));
                 }
                 else
                 {
                     for (int i = 0; i < parts.Length; i++)
-                        data.Add(new KeyValuePair<string, string>($"{key}:{i}", parts[i]));
+                        data.Add(new KeyValuePair<string, string?>($"{key}:{i}", parts[i]));
                 }
 
                 var memConfig = new ConfigurationBuilder().AddInMemoryCollection(data).Build();
@@ -143,7 +143,7 @@ namespace NetworkMonitor.Utils.Helpers
             var children = section.GetChildren().ToList();
             if (children.Count > 0)
             {
-                var flattened = new List<KeyValuePair<string, string>>();
+                var flattened = new List<KeyValuePair<string, string?>>();
                 bool changed = false;
 
                 foreach (var child in children)
@@ -159,7 +159,7 @@ namespace NetworkMonitor.Utils.Helpers
                             logger?.LogError($"Environment variable '{child.Key}' is not set; leaving empty.");
                             continue;
                         }
-                        flattened.Add(new KeyValuePair<string, string>($"{key}:{child.Key}", envVal.Trim()));
+                        flattened.Add(new KeyValuePair<string, string?>($"{key}:{child.Key}", envVal.Trim()));
                     }
                     else
                     {
@@ -179,13 +179,13 @@ namespace NetworkMonitor.Utils.Helpers
             return section;
         }
 
-        private static void CopySection(IConfigurationSection src, string prefix, List<KeyValuePair<string, string>> dest)
+        private static void CopySection(IConfigurationSection src, string prefix, List<KeyValuePair<string, string?>> dest)
         {
             var kids = src.GetChildren().ToList();
             if (kids.Count == 0)
             {
                 if (src.Value is not null)
-                    dest.Add(new KeyValuePair<string, string>(prefix, src.Value));
+                    dest.Add(new KeyValuePair<string, string?>(prefix, src.Value));
                 return;
             }
 
@@ -195,7 +195,7 @@ namespace NetworkMonitor.Utils.Helpers
                 if (c.GetChildren().Any())
                     CopySection(c, p, dest);
                 else if (c.Value is not null)
-                    dest.Add(new KeyValuePair<string, string>(p, c.Value));
+                    dest.Add(new KeyValuePair<string, string?>(p, c.Value));
             }
         }
 

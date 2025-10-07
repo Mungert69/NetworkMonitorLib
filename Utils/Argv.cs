@@ -5,7 +5,7 @@ using System.Text;
 namespace NetworkMonitor.Utils
 {
     /// <summary>
-    /// Robust command-line tokenizer & builder for Unix-style argv.
+    /// Robust command-line tokenizer &amp; builder for Unix-style argv.
     /// <para>Tokenize: split a single string into argv[] honoring quotes/escapes</para>
     /// <para>Build:    compose argv[] from option dictionary and positionals</para>
     /// </summary>

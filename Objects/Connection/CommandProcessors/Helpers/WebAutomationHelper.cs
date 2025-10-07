@@ -111,7 +111,7 @@ namespace NetworkMonitor.Connection
 
         // (Optional) keep OpenSessionAsync for legacy callers; internally call PreparePageAsync(page,...)
 
-        /// <summary>Light stealth shim: removes webdriver, sets languages/plugins/screen & nudges chrome object.</summary>
+        /// <summary>Light stealth shim: removes webdriver, sets languages/plugins/screen &amp; nudges chrome object.</summary>
         public static async Task ApplyStealthAsync(IPage page)
         {
             await page.EvaluateFunctionOnNewDocumentAsync(@"

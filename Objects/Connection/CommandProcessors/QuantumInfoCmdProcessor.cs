@@ -18,8 +18,6 @@ namespace NetworkMonitor.Connection
     {
         private readonly Dictionary<string, AlgorithmRecord> _index; // canonical key -> record
         private readonly List<AlgorithmRecord> _records;             // all records
-        private readonly ILogger _logger;
-
         public QuantumInfoCmdProcessor(
             ILogger logger,
             ILocalCmdProcessorStates cmdProcessorStates,
@@ -27,8 +25,6 @@ namespace NetworkMonitor.Connection
             NetConnectConfig netConfig)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _logger = logger;
-
             // Prefer the new modernized file; fall back to the legacy name if needed.
             var primaryPath = Path.Combine(netConfig.OqsProviderPath, "quantum_algos_modernized.json");
             var fallbackPath = Path.Combine(netConfig.OqsProviderPath, "algo_info.json");

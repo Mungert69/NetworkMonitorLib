@@ -5,13 +5,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging;
 using NetworkMonitor.Utils.Helpers;
 
 namespace NetworkMonitor.Connection
 {
-    using System.IO;
-
     public class NmapEnvironment
     {
         public string ExePath { get; }

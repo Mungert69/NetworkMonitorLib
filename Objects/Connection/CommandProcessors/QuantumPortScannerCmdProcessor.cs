@@ -280,12 +280,6 @@ namespace NetworkMonitor.Connection
             return ParseNmapOutput(outputFile);
         }
 
-        private static void LogAndCapture(string? line, StringBuilder sb)
-        {
-            if (string.IsNullOrEmpty(line)) return;
-            sb.AppendLine(line);
-        }
-
         private List<int> ParseNmapOutput(string xmlPath)
         {
             var doc = XDocument.Load(xmlPath);

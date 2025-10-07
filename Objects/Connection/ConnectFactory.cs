@@ -168,8 +168,9 @@ namespace NetworkMonitor.Connection
         {
             if (monitorPingInfo != null)
             {
+                var endPointType = monitorPingInfo.EndPointType ?? string.Empty;
                 netConnect.MpiStatic.MonitorIPID = monitorPingInfo.MonitorIPID;
-                netConnect.MpiStatic.Address = AddressFilter.FilterAddress(monitorPingInfo.Address, monitorPingInfo.EndPointType);
+                netConnect.MpiStatic.Address = AddressFilter.FilterAddress(monitorPingInfo.Address, endPointType);
                 //netConnect.MpiStatic.AppID = monitorPingInfo.AppID;
                 //netConnect.MpiStatic.DateStarted = monitorPingInfo.DateStarted;
                 netConnect.MpiStatic.Enabled = monitorPingInfo.Enabled;
@@ -177,7 +178,7 @@ namespace NetworkMonitor.Connection
                 netConnect.MpiStatic.Port = monitorPingInfo.Port;
                 netConnect.MpiStatic.Timeout = monitorPingInfo.Timeout;
                 // netConnect.MpiStatic.UserID = monitorPingInfo.UserID;
-                netConnect.MpiStatic.EndPointType = monitorPingInfo.EndPointType;
+                netConnect.MpiStatic.EndPointType = endPointType;
                 netConnect.MpiStatic.Username = monitorPingInfo.Username;
                 netConnect.MpiStatic.Password = monitorPingInfo.Password;
                 netConnect.MpiStatic.SiteHash = monitorPingInfo.SiteHash;
@@ -188,14 +189,19 @@ namespace NetworkMonitor.Connection
         private void UpdateNetConnectObj(MonitorPingInfo monitorPingInfo, PingParams pingParams, INetConnect netConnect)
         {
             netConnect.MpiStatic = new MPIStatic(monitorPingInfo);
-            netConnect.MpiStatic.Address = AddressFilter.FilterAddress(monitorPingInfo.Address, monitorPingInfo.EndPointType);
+            var endPointType = monitorPingInfo.EndPointType ?? string.Empty;
+            netConnect.MpiStatic.Address = AddressFilter.FilterAddress(monitorPingInfo.Address, endPointType);
             //netConnect.PingParams = pingParams;
         }
         //Method to get the NetConnect object based on what who starts with http or icmp
         public INetConnect GetNetConnectObj(MonitorPingInfo monitorPingInfo, PingParams pingParams)
         {
             if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = pingParams.Timeout;
-            string? type = monitorPingInfo.EndPointType;
+            var type = monitorPingInfo.EndPointType;
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                type = "icmp";
+            }
             INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, _netConfig.NativeLibDir!);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;

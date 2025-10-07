@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using Org.BouncyCastle.Tls;
 using Org.BouncyCastle.Utilities.Encoders;
@@ -73,9 +74,9 @@ class ServerHelloHelper
     private bool TryGetAlgoById(int id, out AlgorithmInfo algo) =>
         _algosById.TryGetValue(id, out algo);
 
-    private bool TryGetAlgoByName(string? name, out AlgorithmInfo algo)
+    private bool TryGetAlgoByName(string? name, [NotNullWhen(true)] out AlgorithmInfo? algo)
     {
-        algo = null!;
+        algo = null;
         if (string.IsNullOrWhiteSpace(name)) return false;
 
         var key = name.Trim().ToLowerInvariant();
