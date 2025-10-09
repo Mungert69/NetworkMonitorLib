@@ -63,6 +63,10 @@ namespace NetworkMonitor.Connection
                 await OnSystemUrlChangedAsync(value);
             }
             LocalSystemUrl = value;
+            if (value != null)
+            {
+                RabbitPassword = value.RabbitPassword ?? string.Empty;
+            }
         }
 
         public async Task AuthComplete()

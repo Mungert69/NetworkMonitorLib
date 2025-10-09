@@ -68,6 +68,106 @@ namespace NetworkMonitor.Security
             }
         }*/
 
+        public async Task SynchronizeSensitiveValuesAsync(
+            NetConnectConfig netConfig,
+            IEnumerable<ProtectedParameter> parameters,
+            CancellationToken cancellationToken = default)
+        {
+            if (netConfig == null) throw new ArgumentNullException(nameof(netConfig));
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+
+            var parameterList = parameters.Distinct().ToList();
+            if (parameterList.Count == 0)
+            {
+                return;
+            }
+
+            var placeholdersToWrite = new List<ProtectedParameter>();
+
+            foreach (var parameter in parameterList)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var configuredEntry = parameter.ConfigKeys
+                    .Select(key => new { Key = key, Value = _config[key] })
+                    .FirstOrDefault(entry => !string.IsNullOrWhiteSpace(entry.Value));
+
+                var configuredValue = configuredEntry?.Value?.Trim();
+                var runtimeValue = parameter.Getter(netConfig) ?? string.Empty;
+                var envValue = Environment.GetEnvironmentVariable(parameter.EnvironmentVariableName) ?? string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(configuredValue) &&
+                    !string.Equals(configuredValue, parameter.Placeholder, StringComparison.Ordinal))
+                {
+                    var valueToPersist = string.IsNullOrEmpty(runtimeValue) ? configuredValue : runtimeValue;
+                    parameter.Setter(netConfig, valueToPersist);
+
+                    await _environmentStore.SetAsync(parameter.EnvironmentVariableName, valueToPersist, cancellationToken).ConfigureAwait(false);
+                    placeholdersToWrite.Add(parameter);
+
+                    if (configuredEntry != null)
+                    {
+                        try
+                        {
+                            _config[configuredEntry.Key] = parameter.Placeholder;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Unable to update configuration placeholder for {ConfigKey}.", configuredEntry.Key);
+                        }
+                    }
+
+                    _logger.LogInformation(
+                        "Migrated configuration key {ConfigKey} to environment variable {EnvVar}.",
+                        configuredEntry?.Key ?? parameter.EnvironmentVariableName,
+                        parameter.EnvironmentVariableName);
+
+                    continue;
+                }
+
+                if (string.Equals(configuredValue, parameter.Placeholder, StringComparison.Ordinal))
+                {
+                    if (!string.IsNullOrWhiteSpace(envValue))
+                    {
+                        if (!string.Equals(runtimeValue, envValue, StringComparison.Ordinal))
+                        {
+                            parameter.Setter(netConfig, envValue);
+                            _logger.LogInformation(
+                                "Updated runtime value for {EnvVar} from environment variable.",
+                                parameter.EnvironmentVariableName);
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(runtimeValue))
+                    {
+                        await _environmentStore.SetAsync(parameter.EnvironmentVariableName, runtimeValue, cancellationToken).ConfigureAwait(false);
+                        _logger.LogWarning(
+                            "Environment variable {EnvVar} was missing; populated from runtime value.",
+                            parameter.EnvironmentVariableName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Environment variable {EnvVar} is missing and no value is available to seed.",
+                            parameter.EnvironmentVariableName);
+                    }
+                }
+                else if (string.IsNullOrWhiteSpace(configuredValue) &&
+                         !string.IsNullOrWhiteSpace(runtimeValue) &&
+                         string.IsNullOrWhiteSpace(envValue))
+                {
+                    await _environmentStore.SetAsync(parameter.EnvironmentVariableName, runtimeValue, cancellationToken).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Seeded environment variable {EnvVar} from runtime configuration.",
+                        parameter.EnvironmentVariableName);
+                }
+            }
+
+            if (placeholdersToWrite.Count > 0)
+            {
+                await WritePlaceholdersAsync(netConfig, placeholdersToWrite, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         public async Task PersistAsync(ProtectedParameter parameter, NetConnectConfig netConfig, string value, CancellationToken cancellationToken = default)
         {
             if (parameter == null) throw new ArgumentNullException(nameof(parameter));
