@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Utils.Helpers;
@@ -43,44 +44,44 @@ namespace NetworkMonitor.Api.Services
 #pragma warning disable CS8618
         public ApiService(ILoggerFactory loggerFactory, IConfiguration config, ICmdProcessorProvider cmdProcessorProvider, string appDirectory = "", string nativeLibDir = "", IBrowserHost? browserHost = null)
         {
-            try
+            if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            if (cmdProcessorProvider == null) throw new ArgumentNullException(nameof(cmdProcessorProvider));
+
+            _logger = loggerFactory.CreateLogger<ApiService>();
+            _config = config;
+            _cmdProcessorProvider = cmdProcessorProvider;
+
+            _systemParamsHelper = new SystemParamsHelper(_config, loggerFactory.CreateLogger<SystemParamsHelper>());
+            var systemParams = _systemParamsHelper.GetSystemParams() ?? throw new InvalidOperationException("System parameters could not be loaded from configuration.");
+
+            RapidApiKeys = systemParams.RapidApiKeys ?? new List<string>();
+            if (RapidApiKeys.Count == 0)
             {
-                _logger = loggerFactory.CreateLogger<ApiService>();
-                _cmdProcessorProvider = cmdProcessorProvider;
-                _config = config;
-                _systemParamsHelper = new SystemParamsHelper(_config, loggerFactory.CreateLogger<SystemParamsHelper>());
-                if (_systemParamsHelper == null) throw new ArgumentNullException(" Error _systemParamsHelper is null");
-                if (_systemParamsHelper.GetSystemParams() == null) throw new ArgumentNullException(" Error _systemParamsHelper.GetSystemParams() is null");
-
-                RapidApiKeys = _systemParamsHelper.GetSystemParams().RapidApiKeys;
-                if (RapidApiKeys == null || RapidApiKeys.Count==0    )
-                {
-                    throw new ArgumentException(" Fatal error could not load RapidApiKey from appsettings.json");
-                }
-
-                _pingParams = _systemParamsHelper.GetPingParams();
-                _logger.LogInformation(" Info : Set PingParams.");
-
-                var netConnectConfig = new NetConnectConfig(_config, appDirectory, nativeLibDir);
-
-                var connectFactory = new ConnectFactory(loggerFactory.CreateLogger<ConnectFactory>(), netConfig: netConnectConfig, cmdProcessorProvider: cmdProcessorProvider, browserHost: browserHost);
-                _ = connectFactory.SetupChromium(netConnectConfig);
-                _logger.LogInformation(" Info : ConnectFactory created.");
-                _netConnectCollection = new NetConnectCollection(loggerFactory.CreateLogger<NetConnectCollection>(), netConnectConfig, connectFactory);
-                if (_netConnectCollection != null)
-                {
-                    _netConnectCollection.SetPingParams(_pingParams);
-                    _logger.LogInformation(" Info : NetConnectCollection created.");
-                }
-                else
-                {
-                    throw new ArgumentException(" Failed to create NetConnectCollection setup of it returned null");
-                }
+                _logger.LogWarning("No RapidApiKeys found in configuration; API calls that require them may be limited.");
             }
-            catch (Exception ex)
-            {
-                if (_logger != null) _logger.LogError(" Error : " + ex.Message);
-            }
+
+            _pingParams = _systemParamsHelper.GetPingParams();
+            _logger.LogInformation("Ping parameters initialised.");
+
+            var netConnectConfig = new NetConnectConfig(_config, appDirectory, nativeLibDir);
+
+            var connectFactory = new ConnectFactory(
+                loggerFactory.CreateLogger<ConnectFactory>(),
+                netConfig: netConnectConfig,
+                cmdProcessorProvider: cmdProcessorProvider,
+                browserHost: browserHost);
+
+            _ = connectFactory.SetupChromium(netConnectConfig);
+            _logger.LogInformation("ConnectFactory created.");
+
+            _netConnectCollection = new NetConnectCollection(
+                loggerFactory.CreateLogger<NetConnectCollection>(),
+                netConnectConfig,
+                connectFactory);
+
+            _netConnectCollection.SetPingParams(_pingParams);
+            _logger.LogInformation("NetConnectCollection created.");
         }
 #pragma warning restore CS8618
 
