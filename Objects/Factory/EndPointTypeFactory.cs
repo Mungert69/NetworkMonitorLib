@@ -35,28 +35,29 @@ namespace NetworkMonitor.Objects.Factory
 
         private static readonly List<EndpointType> _endpointTypes = new List<EndpointType>
         {
-            new EndpointType("icmp", "PingIcon", "ICMP (Simple Ping)", "Simple ICMP Ping"),
-            new EndpointType("http", "HttpIcon", "Http (Website Ping)", "Ping a website via HTTP"),
-            new EndpointType("https", "HttpsIcon", "HttpSSL (SSL Certificate Check)", "Check SSL certificates via HTTPS"),
-            new EndpointType("httphtml", "HtmlIcon", "HttpHtml (Load Website HTML)", "Load website HTML content, no javascript"),
-            new EndpointType("httpfull", "LanguageIcon", "HttpFull (Load All Website Content)", "Load full website content inc javascript"),
+            new EndpointType("icmp", "PingIcon", "ICMP (Simple Ping)", "Simple ICMP Ping", "host ping"),
+            new EndpointType("http", "HttpIcon", "Http (Website Ping)", "Ping a website via HTTP", "website ping"),
+            new EndpointType("https", "HttpsIcon", "HttpSSL (SSL Certificate Check)", "Check SSL certificates via HTTPS", "SSL certificate check"),
+            new EndpointType("httphtml", "HtmlIcon", "HttpHtml (Load Website HTML)", "Load website HTML content, no javascript", "loads only the HTML of a website"),
+            new EndpointType("httpfull", "LanguageIcon", "HttpFull (Load All Website Content)", "Load full website content inc javascript", "loads full website content including JavaScript"),
             // New endpoint type for sitehash
             new EndpointType(
                 "sitehash",
                 "HashIcon",
                 "SiteHash (Website Content Hash Check)",
-                "Load full website content using Puppeteer, hash the rendered HTML, and compare to a stored value for change detection."
+                "Load full website content using Puppeteer, hash the rendered HTML, and compare to a stored value for change detection.",
+                "loads and hashes rendered website content to detect changes"
             ),
-            new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups"),
-            new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP"),
-            new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks"),
-            new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections"),
-            new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans"),
-            new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans"),
-            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites"),
-            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites"),
-            new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Keep Alive {Traffic Generator}", "Generate once daily traffic to keep alive  a huggingface space"),
-            new EndpointType("hugwake", "HugIcon", "Hourly HuggingFace Wake Up {Click Restart}", "Searches for and clicks restart on a huggingface space")
+            new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups", "DNS lookup"),
+            new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP", "email server HELO message confirmation"),
+            new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test"),
+            new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections", "low-level raw socket connection"),
+            new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),
+            new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans", "vulnerability scan using Nmap scripts"),
+            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites", "traffic generator that crawls a site"),
+            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites", "once-daily low-traffic site crawl"),
+            new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Keep Alive {Traffic Generator}", "Generate once daily traffic to keep alive  a huggingface space", "once-daily traffic generator for a Hugging Face space to keep it alive"),
+            new EndpointType("hugwake", "HugIcon", "Hourly HuggingFace Wake Up {Click Restart}", "Searches for and clicks restart on a huggingface space", "wake up a Hugging Face space by clicking the restart button if the space is sleeping")
 
 
         };
