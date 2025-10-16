@@ -51,7 +51,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         // Env for dlopen() lookup order (always harmless)
         MergeEnv("LD_LIBRARY_PATH", _nativeDir);
         SetEnvIfPresent("OPENSSL_MODULES", _nativeDir);
-       SetEnvIfPresent("LUA_CPATH", $"{_nativeDir}/lib?_lua.so;{_nativeDir}/lib?.so;;");
+        SetEnvIfPresent("LUA_CPATH", $"{_nativeDir}/lib?_lua.so;{_nativeDir}/lib?.so;;");
 
 
         if (envVars is not null)
@@ -64,6 +64,8 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
                     System.Environment.SetEnvironmentVariable(kv.Key, kv.Value);
             }
         }
+
+        NormalizeLdLibraryPath(_nativeDir, workingDirectory);
 
         // Only do path-based file checks if libs are actually extracted
         if (_extractionEnabled)
@@ -79,8 +81,16 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         var stderr = new StringBuilder();
         var ps = new NativeProc.ProcessStream { Logger = _logger };
 
-        ps.OnStdoutLine += line => { lock (stdout) stdout.AppendLine(line); _logger.LogTrace("[STDOUT] {Line}", line); };
-        ps.OnStderrLine += line => { lock (stderr) stderr.AppendLine(line); _logger.LogTrace("[STDERR] {Line}", line); };
+        ps.OnStdoutLine += line =>
+        {
+            lock (stdout) stdout.AppendLine(line);
+            _logger.LogDebug("[STDOUT] {Line}", line);
+        };
+        ps.OnStderrLine += line =>
+        {
+            lock (stderr) stderr.AppendLine(line);
+            _logger.LogDebug("[STDERR] {Line}", line);
+        };
         ps.OnExited     += ec   => _logger.LogInformation("Process exited with code {Code}", ec);
 
         using var ctr = token.Register(() => { try { ps.Stop(); } catch { } });
@@ -97,6 +107,24 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
         var exit = await ps.WaitForExitAsync(50, token);
         await ps.WaitForDrainAsync();
+        string stderrText;
+        lock (stderr) stderrText = stderr.ToString();
+        string stdoutText;
+        lock (stdout) stdoutText = stdout.ToString();
+
+        if (exit != 0)
+        {
+            _logger.LogInformation("stderr snapshot:\n{Stderr}", stderrText);
+            if (!string.IsNullOrWhiteSpace(stdoutText))
+                _logger.LogInformation("stdout snapshot:\n{Stdout}", stdoutText);
+        }
+        else
+        {
+            _logger.LogDebug("stderr snapshot:\n{Stderr}", stderrText);
+            if (!string.IsNullOrWhiteSpace(stdoutText))
+                _logger.LogDebug("stdout snapshot:\n{Stdout}", stdoutText);
+        }
+
         _logger.LogInformation("Exit code: {Exit}", exit);
 
         return $"{stderr} : {stdout}";
@@ -245,6 +273,33 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
     private static void SetEnvIfPresent(string key, string value)
         => System.Environment.SetEnvironmentVariable(key, value);
+
+    private static void NormalizeLdLibraryPath(params string[] preferredDirs)
+    {
+        var existing = System.Environment.GetEnvironmentVariable("LD_LIBRARY_PATH");
+        var ordered = new List<string>();
+        var seen = new HashSet<string>(System.StringComparer.Ordinal);
+
+        void Add(string? dir)
+        {
+            if (string.IsNullOrWhiteSpace(dir)) return;
+            var trimmed = dir.Trim();
+            if (seen.Add(trimmed))
+                ordered.Add(trimmed);
+        }
+
+        foreach (var dir in preferredDirs)
+            Add(dir);
+
+        if (!string.IsNullOrWhiteSpace(existing))
+        {
+            foreach (var part in existing.Split(':', System.StringSplitOptions.RemoveEmptyEntries))
+                Add(part);
+        }
+
+        if (ordered.Count > 0)
+            System.Environment.SetEnvironmentVariable("LD_LIBRARY_PATH", string.Join(':', ordered));
+    }
 
     // (BuildArgvVector inlined into ps.Start() call above; keep if you prefer)
 }
