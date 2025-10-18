@@ -176,6 +176,7 @@ public class AccountTypeFactory
         {
              "function_status_with_message_id",
             "cancel_functions",
+            "reset_alerts",
             "add_host",
             "edit_host",
             "get_host_data",
@@ -213,6 +214,7 @@ public class AccountTypeFactory
         {
             "function_status_with_message_id",
             "cancel_functions",
+            "reset_alerts",
             "add_host",
             "edit_host",
             "get_host_data",
@@ -250,6 +252,7 @@ public class AccountTypeFactory
         {
             "function_status_with_message_id",
             "cancel_functions",
+            "reset_alerts",
             "add_host",
             "edit_host",
             "get_host_data",
@@ -291,6 +294,7 @@ public class AccountTypeFactory
         {
             "function_status_with_message_id",
             "cancel_functions",
+            "reset_alerts",
             "add_host",
             "edit_host",
             "get_host_data",
@@ -335,6 +339,7 @@ public class AccountTypeFactory
         {
             "function_status_with_message_id",
             "cancel_functions",
+            "reset_alerts",
             "add_host",
             "edit_host",
             "get_host_data",
