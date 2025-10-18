@@ -131,7 +131,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.TrustPilotReviewEmail = _config.GetValue<string>("TrustPilotReviewEmail") ?? "Missing";
             systemParams.SendTrustPilot = _config.GetValue<bool?>("SendTrustPilot") ?? true;
             systemParams.SendReportsTimeSpan = _config.GetValue<int?>("SendReportsTimeSpan") ?? 48;
-            systemParams.ServiceID = _config.GetValue<string?>("ServiceID");
+            systemParams.ServiceID = _config.GetValue<string?>("ServiceID") ?? "Service";
             systemParams.AudioServiceUrl = _config.GetValue<string?>("AudioServiceUrl") ?? $"https://transcribe.{AppConstants.AppDomain}";
             systemParams.AudioServiceOutputDir = _config.GetValue<string?>("AudioServiceOutputDir") ?? "/home/audioservice/code/securefiles/mail/output_audio";
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;
@@ -149,7 +149,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.LLMEncryptKey = GetConfigHelper.GetConfigValue("LLMEncryptKey", "Missing");
             systemParams.OpenAIPluginServiceKey = GetConfigHelper.GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.RapidApiKeys = GetConfigHelper.GetSection("RapidApiKeys").Get<List<string>>() ?? new List<string>();
-            systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue("ServiceAuthKey");
+            systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue("ServiceAuthKey") ;
             string rabbitPassword = GetConfigHelper.GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigHelper.GetConfigValue("REDIS_PASSWORD");
             systemParams.DbPassword = GetConfigHelper.GetConfigValue("DB_PASSWORD");

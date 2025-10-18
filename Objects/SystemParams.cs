@@ -37,7 +37,7 @@ namespace NetworkMonitor.Objects
         private bool sendTrustPilot;
         private string? _openAIPluginServiceKey;
         private List<string> _rapidApiKeys;
-        private string? _serviceID;
+        private string? _serviceID ="Service";
         private string? _serviceAuthKey;
         private int _expireMonths;
         private string _frontEndUrl;
