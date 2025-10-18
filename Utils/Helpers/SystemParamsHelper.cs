@@ -136,10 +136,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.AudioServiceOutputDir = _config.GetValue<string?>("AudioServiceOutputDir") ?? "/home/audioservice/code/securefiles/mail/output_audio";
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;
             systemParams.RedisUrl = _config.GetValue<string?>("RedisUrl") ?? $"redis.{AppConstants.AppDomain}";
-            var configuredRoutingKey = _config.GetValue<string?>("RabbitRoutingKey");
-            systemParams.RabbitRoutingKey = string.IsNullOrWhiteSpace(configuredRoutingKey)
-                ? "execute.api"
-                : configuredRoutingKey;
+            systemParams.RabbitRoutingKey = _config.GetValue<string?>("RabbitRoutingKey") ?? "";
             systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExchangeType") ?? "fanout";
             systemParams.DataDir = _config.GetValue<string?>("DataDir") ?? "data";
             systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
