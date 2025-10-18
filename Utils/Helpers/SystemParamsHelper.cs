@@ -140,7 +140,6 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.RabbitExchangeType = _config.GetValue<string?>("RabbitExchangeType") ?? "fanout";
             systemParams.DataDir = _config.GetValue<string?>("DataDir") ?? "data";
             systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
-
             systemParams.SystemPassword = GetConfigHelper.GetConfigValue("SystemPassword", "Missing");
             systemParams.EmailEncryptKey = GetConfigHelper.GetConfigValue("EmailEncryptKey", "Missing");
             systemParams.LLMEncryptKey = GetConfigHelper.GetConfigValue("LLMEncryptKey", "Missing");
