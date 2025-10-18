@@ -85,7 +85,9 @@ namespace NetworkMonitor.Objects.Repository
 
             // 3) publish the request via your RabbitRepo (it CloudEvent-wraps for you)
             var requestWithReply = MergeWithReplyKey(openAiRequest, replyKey);
+            _log.LogDebug("RabbitTransport publish {Exchange} rk='{RoutingKey}' reply='{ReplyKey}'", requestExchange, _routingKey, replyKey);
             await _rabbitRepo.PublishAsync(requestExchange, requestWithReply, routingKey: _routingKey);
+            _log.LogDebug("RabbitTransport publish {Exchange} completed", requestExchange);
 
             // 4) start consuming and stream out CloudEvent.data as raw JSON
             var outChan = Channel.CreateUnbounded<string>();
@@ -111,11 +113,13 @@ namespace NetworkMonitor.Objects.Repository
                         objEl.GetString() == "stream.end")
                     {
                         await outChan.Writer.WriteAsync("__STREAM_END__", ct);
+                        _log.LogDebug("RabbitTransport received stream.end for reply '{ReplyKey}'", replyKey);
                         await ch.BasicAckAsync(ea.DeliveryTag, false);
                         return;
                     }
 
                     var payload = dataEl.GetRawText();
+                    _log.LogTrace("RabbitTransport chunk reply '{ReplyKey}': {Payload}", replyKey, payload);
                     await outChan.Writer.WriteAsync(payload, ct);
                     await ch.BasicAckAsync(ea.DeliveryTag, false);
                 }
@@ -140,6 +144,7 @@ namespace NetworkMonitor.Objects.Repository
                     if (msg == "__STREAM_END__")
                         yield break;
 
+                    _log.LogTrace("RabbitTransport yielding chunk for reply '{ReplyKey}'", replyKey);
                     yield return msg;
                 }
             }
