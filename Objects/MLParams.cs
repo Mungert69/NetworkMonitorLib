@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NetworkMonitor.Objects;
 
 namespace NetworkMonitor.Objects;
@@ -135,6 +136,9 @@ public class MLParams
 
     public string EmbeddingApiModel { get => _embeddingApiModel; set => _embeddingApiModel = value; }
     public string EmbeddingApiUrl { get => _embeddingApiUrl; set => _embeddingApiUrl = value; }
+    public string ModelSelection { get; set; } = "TimesFM";
+    public Dictionary<string, ModelParameterSet> ModelParameters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public ResolvedModelParameters ActiveModelParameters { get; set; } = new();
 
     // Read-only string property for VectorSearchMode
     public string VectorSearchModeStr => VectorSearchModeHelper.ToString(_vectorSearchMode);
@@ -159,4 +163,60 @@ public class MLParams
     {
         _vectorSearchMode = VectorSearchModeHelper.Parse(value);
     }
+}
+
+public class ModelParameterSet
+{
+    public double? ChangeConfidence { get; set; }
+    public double? SpikeConfidence { get; set; }
+    public int? ChangePreTrain { get; set; }
+    public int? SpikePreTrain { get; set; }
+    public int? PredictWindow { get; set; }
+    public int? SpikeDetectionThreshold { get; set; }
+    public TimesFmSettingsConfig? TimesFmSettings { get; set; }
+}
+
+public class ResolvedModelParameters
+{
+    public double ChangeConfidence { get; set; }
+    public double SpikeConfidence { get; set; }
+    public int ChangePreTrain { get; set; }
+    public int SpikePreTrain { get; set; }
+    public int PredictWindow { get; set; }
+    public int SpikeDetectionThreshold { get; set; }
+    public TimesFmResolvedSettings TimesFmSettings { get; set; } = new();
+}
+
+public class TimesFmSettingsConfig
+{
+    public int? RunLength { get; set; }
+    public int? KOfNK { get; set; }
+    public int? KOfNN { get; set; }
+    public double? MadAlpha { get; set; }
+    public double? MinBandAbs { get; set; }
+    public double? MinBandRel { get; set; }
+    public int? RollSigmaWindow { get; set; }
+    public int? BaselineWindow { get; set; }
+    public int? SigmaCooldown { get; set; }
+    public double? MinRelShift { get; set; }
+    public int? SampleRows { get; set; }
+    public double? NearMissFraction { get; set; }
+    public bool? LogJson { get; set; }
+}
+
+public class TimesFmResolvedSettings
+{
+    public int RunLength { get; set; } = 3;
+    public int KOfNK { get; set; } = 6;
+    public int KOfNN { get; set; } = 12;
+    public double MadAlpha { get; set; } = 1.0;
+    public double MinBandAbs { get; set; } = 5.0;
+    public double MinBandRel { get; set; } = 0.15;
+    public int RollSigmaWindow { get; set; } = 60;
+    public int BaselineWindow { get; set; } = 120;
+    public int SigmaCooldown { get; set; } = 30;
+    public double MinRelShift { get; set; } = 0.20;
+    public int SampleRows { get; set; } = 6;
+    public double NearMissFraction { get; set; } = 0.10;
+    public bool LogJson { get; set; } = true;
 }

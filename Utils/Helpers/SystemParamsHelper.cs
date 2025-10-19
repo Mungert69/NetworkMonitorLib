@@ -191,14 +191,96 @@ namespace NetworkMonitor.Utils.Helpers
         {
             var mlParams = new MLParams();
 
+            var modelSelection = _config.GetValue<string>("ModelSelection") ?? "TimesFM";
+            mlParams.ModelSelection = modelSelection;
+
             mlParams.PredictWindow = int.TryParse(_config["PredictWindow"], out int predictWindow) ? predictWindow : 300;
             mlParams.SpikeDetectionThreshold = int.TryParse(_config["SpikeDetectionThreshold"], out int spikeDetectionThreshold) ? spikeDetectionThreshold : 5;
-            mlParams.ChangeConfidence = double.TryParse(_config["ChangeConfidence"], out double changeConfidence) ? changeConfidence : 90;
-            mlParams.SpikeConfidence = double.TryParse(_config["SpikeConfidence"], out double spikeConfidence) ? spikeConfidence : 99;
-            mlParams.ChangePreTrain = int.TryParse(_config["ChangePreTrain"], out int changePreTrain) ? changePreTrain : 50;
-            mlParams.SpikePreTrain = int.TryParse(_config["SpikePreTrain"], out int spikePreTrain) ? spikePreTrain : 50;
+
+            double defaultChangeConfidence = double.TryParse(_config["ChangeConfidence"], out double changeConfidence) ? changeConfidence : 90;
+            double defaultSpikeConfidence = double.TryParse(_config["SpikeConfidence"], out double spikeConfidence) ? spikeConfidence : 99;
+            int defaultChangePreTrain = int.TryParse(_config["ChangePreTrain"], out int changePreTrain) ? changePreTrain : 50;
+            int defaultSpikePreTrain = int.TryParse(_config["SpikePreTrain"], out int spikePreTrain) ? spikePreTrain : 50;
+
+            mlParams.ChangeConfidence = defaultChangeConfidence;
+            mlParams.SpikeConfidence = defaultSpikeConfidence;
+            mlParams.ChangePreTrain = defaultChangePreTrain;
+            mlParams.SpikePreTrain = defaultSpikePreTrain;
+
             mlParams.MaxTokenLengthCap = int.TryParse(_config["MaxTokenLengthCap"], out int maxTokenLengthCap) ? maxTokenLengthCap : 4096;
             mlParams.MinTokenLengthCap = int.TryParse(_config["MinTokenLengthCap"], out int minTokenLengthCap) ? minTokenLengthCap : 128;
+
+            var resolvedTimesFmSettings = new TimesFmResolvedSettings();
+            var modelParametersSection = _config.GetSection("ModelParameters");
+            if (modelParametersSection.Exists())
+            {
+                var modelParameters = new Dictionary<string, ModelParameterSet>(StringComparer.OrdinalIgnoreCase);
+                foreach (var child in modelParametersSection.GetChildren())
+                {
+                    var set = child.Get<ModelParameterSet>() ?? new ModelParameterSet();
+                    modelParameters[child.Key] = set;
+                }
+                mlParams.ModelParameters = modelParameters;
+                if (modelParameters.TryGetValue(modelSelection, out var selected))
+                {
+                    if (selected.ChangeConfidence.HasValue)
+                        mlParams.ChangeConfidence = selected.ChangeConfidence.Value;
+                    if (selected.SpikeConfidence.HasValue)
+                        mlParams.SpikeConfidence = selected.SpikeConfidence.Value;
+                    if (selected.ChangePreTrain.HasValue)
+                        mlParams.ChangePreTrain = selected.ChangePreTrain.Value;
+                    if (selected.SpikePreTrain.HasValue)
+                        mlParams.SpikePreTrain = selected.SpikePreTrain.Value;
+                    if (selected.PredictWindow.HasValue)
+                        mlParams.PredictWindow = selected.PredictWindow.Value;
+                    if (selected.SpikeDetectionThreshold.HasValue)
+                        mlParams.SpikeDetectionThreshold = selected.SpikeDetectionThreshold.Value;
+                    if (selected.TimesFmSettings is { } timesFm)
+                    {
+                        if (timesFm.RunLength.HasValue)
+                            resolvedTimesFmSettings.RunLength = timesFm.RunLength.Value;
+                        if (timesFm.KOfNK.HasValue)
+                            resolvedTimesFmSettings.KOfNK = timesFm.KOfNK.Value;
+                        if (timesFm.KOfNN.HasValue)
+                            resolvedTimesFmSettings.KOfNN = timesFm.KOfNN.Value;
+                        if (timesFm.MadAlpha.HasValue)
+                            resolvedTimesFmSettings.MadAlpha = timesFm.MadAlpha.Value;
+                        if (timesFm.MinBandAbs.HasValue)
+                            resolvedTimesFmSettings.MinBandAbs = timesFm.MinBandAbs.Value;
+                        if (timesFm.MinBandRel.HasValue)
+                            resolvedTimesFmSettings.MinBandRel = timesFm.MinBandRel.Value;
+                        if (timesFm.RollSigmaWindow.HasValue)
+                            resolvedTimesFmSettings.RollSigmaWindow = timesFm.RollSigmaWindow.Value;
+                        if (timesFm.BaselineWindow.HasValue)
+                            resolvedTimesFmSettings.BaselineWindow = timesFm.BaselineWindow.Value;
+                        if (timesFm.SigmaCooldown.HasValue)
+                            resolvedTimesFmSettings.SigmaCooldown = timesFm.SigmaCooldown.Value;
+                        if (timesFm.MinRelShift.HasValue)
+                            resolvedTimesFmSettings.MinRelShift = timesFm.MinRelShift.Value;
+                        if (timesFm.SampleRows.HasValue)
+                            resolvedTimesFmSettings.SampleRows = timesFm.SampleRows.Value;
+                        if (timesFm.NearMissFraction.HasValue)
+                            resolvedTimesFmSettings.NearMissFraction = timesFm.NearMissFraction.Value;
+                        if (timesFm.LogJson.HasValue)
+                            resolvedTimesFmSettings.LogJson = timesFm.LogJson.Value;
+                    }
+                }
+            }
+            else
+            {
+                mlParams.ModelParameters = new Dictionary<string, ModelParameterSet>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            mlParams.ActiveModelParameters = new ResolvedModelParameters
+            {
+                ChangeConfidence = mlParams.ChangeConfidence,
+                SpikeConfidence = mlParams.SpikeConfidence,
+                ChangePreTrain = mlParams.ChangePreTrain,
+                SpikePreTrain = mlParams.SpikePreTrain,
+                PredictWindow = mlParams.PredictWindow,
+                SpikeDetectionThreshold = mlParams.SpikeDetectionThreshold,
+                TimesFmSettings = resolvedTimesFmSettings
+            };
 
             mlParams.LlmModelPath = _config.GetValue<string>("LlmModelPath") ?? "";
             mlParams.LlmVersion = _config.GetValue<string>("LlmVersion") ?? "";
