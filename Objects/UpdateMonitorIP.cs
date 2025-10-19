@@ -32,6 +32,35 @@ namespace NetworkMonitor.Objects
             IsEmailVerified=m.IsEmailVerified;
             Username=m.Username;
             Password=m.Password;
+            MonitorModelConfigId = m.MonitorModelConfigId;
+            if (m.ModelConfig != null)
+            {
+                ModelConfig = new MonitorModelConfig
+                {
+                    ChangeConfidence = m.ModelConfig.ChangeConfidence,
+                    SpikeConfidence = m.ModelConfig.SpikeConfidence,
+                    ChangePreTrain = m.ModelConfig.ChangePreTrain,
+                    SpikePreTrain = m.ModelConfig.SpikePreTrain,
+                    PredictWindow = m.ModelConfig.PredictWindow,
+                    SpikeDetectionThreshold = m.ModelConfig.SpikeDetectionThreshold,
+                    RunLength = m.ModelConfig.RunLength,
+                    KOfNK = m.ModelConfig.KOfNK,
+                    KOfNN = m.ModelConfig.KOfNN,
+                    MadAlpha = m.ModelConfig.MadAlpha,
+                    MinBandAbs = m.ModelConfig.MinBandAbs,
+                    MinBandRel = m.ModelConfig.MinBandRel,
+                    RollSigmaWindow = m.ModelConfig.RollSigmaWindow,
+                    BaselineWindow = m.ModelConfig.BaselineWindow,
+                    SigmaCooldown = m.ModelConfig.SigmaCooldown,
+                    MinRelShift = m.ModelConfig.MinRelShift,
+                    SampleRows = m.ModelConfig.SampleRows,
+                    NearMissFraction = m.ModelConfig.NearMissFraction,
+                    LogJson = m.ModelConfig.LogJson,
+                    UpdatedUtc = m.ModelConfig.UpdatedUtc,
+                    UpdatedBy = m.ModelConfig.UpdatedBy,
+                    Notes = m.ModelConfig.Notes
+                };
+            }
         }
 
         public MonitorPingInfo? MonitorPingInfo { get => _monitorPingInfo; set => _monitorPingInfo = value; }

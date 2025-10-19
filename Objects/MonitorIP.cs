@@ -40,6 +40,35 @@ namespace NetworkMonitor.Objects
             this.MessageForUser = newMonIP.MessageForUser;
             this.DateAdded = newMonIP.DateAdded;
             this.SiteHash= newMonIP.SiteHash;
+            this.MonitorModelConfigId = newMonIP.MonitorModelConfigId;
+            if (newMonIP.ModelConfig != null)
+            {
+                this.ModelConfig = new MonitorModelConfig
+                {
+                    ChangeConfidence = newMonIP.ModelConfig.ChangeConfidence,
+                    SpikeConfidence = newMonIP.ModelConfig.SpikeConfidence,
+                    ChangePreTrain = newMonIP.ModelConfig.ChangePreTrain,
+                    SpikePreTrain = newMonIP.ModelConfig.SpikePreTrain,
+                    PredictWindow = newMonIP.ModelConfig.PredictWindow,
+                    SpikeDetectionThreshold = newMonIP.ModelConfig.SpikeDetectionThreshold,
+                    RunLength = newMonIP.ModelConfig.RunLength,
+                    KOfNK = newMonIP.ModelConfig.KOfNK,
+                    KOfNN = newMonIP.ModelConfig.KOfNN,
+                    MadAlpha = newMonIP.ModelConfig.MadAlpha,
+                    MinBandAbs = newMonIP.ModelConfig.MinBandAbs,
+                    MinBandRel = newMonIP.ModelConfig.MinBandRel,
+                    RollSigmaWindow = newMonIP.ModelConfig.RollSigmaWindow,
+                    BaselineWindow = newMonIP.ModelConfig.BaselineWindow,
+                    SigmaCooldown = newMonIP.ModelConfig.SigmaCooldown,
+                    MinRelShift = newMonIP.ModelConfig.MinRelShift,
+                    SampleRows = newMonIP.ModelConfig.SampleRows,
+                    NearMissFraction = newMonIP.ModelConfig.NearMissFraction,
+                    LogJson = newMonIP.ModelConfig.LogJson,
+                    UpdatedUtc = newMonIP.ModelConfig.UpdatedUtc,
+                    UpdatedBy = newMonIP.ModelConfig.UpdatedBy,
+                    Notes = newMonIP.ModelConfig.Notes
+                };
+            }
         }
 
         public MonitorIP()
@@ -141,6 +170,10 @@ namespace NetworkMonitor.Objects
         [Column(TypeName = "char(64)")]
         [MaxLength(64)]
         public string? SiteHash { get; set; } = null;
+
+        public int? MonitorModelConfigId { get; set; }
+
+        public MonitorModelConfig? ModelConfig { get; set; }
 
         [NotMapped]
         public string? Prompt { get; set; }

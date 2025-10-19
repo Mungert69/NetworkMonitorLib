@@ -346,6 +346,12 @@ namespace NetworkMonitor.Objects
         [NotMapped]
         public string? AgentLocation { get; set; }
 
+        [NotMapped]
+        public MonitorModelConfig? ModelConfig { get; set; }
+
+        [NotMapped]
+        public ResolvedModelParameters? EffectiveModelParameters { get; set; }
+
 
         [Column(TypeName = "char(64)")]
         [MaxLength(64)]
@@ -354,5 +360,4 @@ namespace NetworkMonitor.Objects
 #pragma warning restore IL2026
     }
 }
-
 
