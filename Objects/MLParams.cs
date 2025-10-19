@@ -174,6 +174,8 @@ public class ModelParameterSet
     public int? PredictWindow { get; set; }
     public int? SpikeDetectionThreshold { get; set; }
     public TimesFmSettingsConfig? TimesFmSettings { get; set; }
+    public TimesFmSettingsConfig? TimesFmChangeSettings { get; set; }
+    public TimesFmSettingsConfig? TimesFmSpikeSettings { get; set; }
 }
 
 public class ResolvedModelParameters
@@ -184,7 +186,8 @@ public class ResolvedModelParameters
     public int SpikePreTrain { get; set; }
     public int PredictWindow { get; set; }
     public int SpikeDetectionThreshold { get; set; }
-    public TimesFmResolvedSettings TimesFmSettings { get; set; } = new();
+    public TimesFmResolvedSettings TimesFmChangeSettings { get; set; } = new();
+    public TimesFmResolvedSettings TimesFmSpikeSettings { get; set; } = new();
 }
 
 public class TimesFmSettingsConfig
@@ -219,4 +222,24 @@ public class TimesFmResolvedSettings
     public int SampleRows { get; set; } = 6;
     public double NearMissFraction { get; set; } = 0.10;
     public bool LogJson { get; set; } = true;
+
+    public TimesFmResolvedSettings Clone()
+    {
+        return new TimesFmResolvedSettings
+        {
+            RunLength = RunLength,
+            KOfNK = KOfNK,
+            KOfNN = KOfNN,
+            MadAlpha = MadAlpha,
+            MinBandAbs = MinBandAbs,
+            MinBandRel = MinBandRel,
+            RollSigmaWindow = RollSigmaWindow,
+            BaselineWindow = BaselineWindow,
+            SigmaCooldown = SigmaCooldown,
+            MinRelShift = MinRelShift,
+            SampleRows = SampleRows,
+            NearMissFraction = NearMissFraction,
+            LogJson = LogJson
+        };
+    }
 }

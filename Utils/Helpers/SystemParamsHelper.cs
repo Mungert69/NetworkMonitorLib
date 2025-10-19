@@ -210,7 +210,8 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.MaxTokenLengthCap = int.TryParse(_config["MaxTokenLengthCap"], out int maxTokenLengthCap) ? maxTokenLengthCap : 4096;
             mlParams.MinTokenLengthCap = int.TryParse(_config["MinTokenLengthCap"], out int minTokenLengthCap) ? minTokenLengthCap : 128;
 
-            var resolvedTimesFmSettings = new TimesFmResolvedSettings();
+            var resolvedTimesFmChangeSettings = new TimesFmResolvedSettings();
+            var resolvedTimesFmSpikeSettings = new TimesFmResolvedSettings();
             var modelParametersSection = _config.GetSection("ModelParameters");
             if (modelParametersSection.Exists())
             {
@@ -237,32 +238,16 @@ namespace NetworkMonitor.Utils.Helpers
                         mlParams.SpikeDetectionThreshold = selected.SpikeDetectionThreshold.Value;
                     if (selected.TimesFmSettings is { } timesFm)
                     {
-                        if (timesFm.RunLength.HasValue)
-                            resolvedTimesFmSettings.RunLength = timesFm.RunLength.Value;
-                        if (timesFm.KOfNK.HasValue)
-                            resolvedTimesFmSettings.KOfNK = timesFm.KOfNK.Value;
-                        if (timesFm.KOfNN.HasValue)
-                            resolvedTimesFmSettings.KOfNN = timesFm.KOfNN.Value;
-                        if (timesFm.MadAlpha.HasValue)
-                            resolvedTimesFmSettings.MadAlpha = timesFm.MadAlpha.Value;
-                        if (timesFm.MinBandAbs.HasValue)
-                            resolvedTimesFmSettings.MinBandAbs = timesFm.MinBandAbs.Value;
-                        if (timesFm.MinBandRel.HasValue)
-                            resolvedTimesFmSettings.MinBandRel = timesFm.MinBandRel.Value;
-                        if (timesFm.RollSigmaWindow.HasValue)
-                            resolvedTimesFmSettings.RollSigmaWindow = timesFm.RollSigmaWindow.Value;
-                        if (timesFm.BaselineWindow.HasValue)
-                            resolvedTimesFmSettings.BaselineWindow = timesFm.BaselineWindow.Value;
-                        if (timesFm.SigmaCooldown.HasValue)
-                            resolvedTimesFmSettings.SigmaCooldown = timesFm.SigmaCooldown.Value;
-                        if (timesFm.MinRelShift.HasValue)
-                            resolvedTimesFmSettings.MinRelShift = timesFm.MinRelShift.Value;
-                        if (timesFm.SampleRows.HasValue)
-                            resolvedTimesFmSettings.SampleRows = timesFm.SampleRows.Value;
-                        if (timesFm.NearMissFraction.HasValue)
-                            resolvedTimesFmSettings.NearMissFraction = timesFm.NearMissFraction.Value;
-                        if (timesFm.LogJson.HasValue)
-                            resolvedTimesFmSettings.LogJson = timesFm.LogJson.Value;
+                        ApplyTimesFmSettings(timesFm, resolvedTimesFmChangeSettings);
+                        ApplyTimesFmSettings(timesFm, resolvedTimesFmSpikeSettings);
+                    }
+                    if (selected.TimesFmChangeSettings is { } changeTimesFm)
+                    {
+                        ApplyTimesFmSettings(changeTimesFm, resolvedTimesFmChangeSettings);
+                    }
+                    if (selected.TimesFmSpikeSettings is { } spikeTimesFm)
+                    {
+                        ApplyTimesFmSettings(spikeTimesFm, resolvedTimesFmSpikeSettings);
                     }
                 }
             }
@@ -279,7 +264,8 @@ namespace NetworkMonitor.Utils.Helpers
                 SpikePreTrain = mlParams.SpikePreTrain,
                 PredictWindow = mlParams.PredictWindow,
                 SpikeDetectionThreshold = mlParams.SpikeDetectionThreshold,
-                TimesFmSettings = resolvedTimesFmSettings
+                TimesFmChangeSettings = resolvedTimesFmChangeSettings,
+                TimesFmSpikeSettings = resolvedTimesFmSpikeSettings
             };
 
             mlParams.LlmModelPath = _config.GetValue<string>("LlmModelPath") ?? "";
@@ -352,9 +338,39 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.EmbeddingApiUrl = _config.GetValue<string>("EmbeddingApiUrl") ?? "https://api.novita.ai/v3/openai/embeddings";
 
 
-#pragma warning restore IL2026
+	#pragma warning restore IL2026
             return mlParams;
 
+        }
+
+        private static void ApplyTimesFmSettings(TimesFmSettingsConfig source, TimesFmResolvedSettings target)
+        {
+            if (source.RunLength.HasValue)
+                target.RunLength = source.RunLength.Value;
+            if (source.KOfNK.HasValue)
+                target.KOfNK = source.KOfNK.Value;
+            if (source.KOfNN.HasValue)
+                target.KOfNN = source.KOfNN.Value;
+            if (source.MadAlpha.HasValue)
+                target.MadAlpha = source.MadAlpha.Value;
+            if (source.MinBandAbs.HasValue)
+                target.MinBandAbs = source.MinBandAbs.Value;
+            if (source.MinBandRel.HasValue)
+                target.MinBandRel = source.MinBandRel.Value;
+            if (source.RollSigmaWindow.HasValue)
+                target.RollSigmaWindow = source.RollSigmaWindow.Value;
+            if (source.BaselineWindow.HasValue)
+                target.BaselineWindow = source.BaselineWindow.Value;
+            if (source.SigmaCooldown.HasValue)
+                target.SigmaCooldown = source.SigmaCooldown.Value;
+            if (source.MinRelShift.HasValue)
+                target.MinRelShift = source.MinRelShift.Value;
+            if (source.SampleRows.HasValue)
+                target.SampleRows = source.SampleRows.Value;
+            if (source.NearMissFraction.HasValue)
+                target.NearMissFraction = source.NearMissFraction.Value;
+            if (source.LogJson.HasValue)
+                target.LogJson = source.LogJson.Value;
         }
 
     }

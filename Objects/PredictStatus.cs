@@ -84,8 +84,8 @@ public class PredictStatus
     [NotMapped] // Tells EF Core not to map this property to a database column
     public bool? IsUp
     {
-        get { return !(ChangeDetectionResult.IsIssueDetected && SpikeDetectionResult.IsIssueDetected); }
-        set { _isUpDb = value ?? false; } // Adjust this logic based on your needs
+        get { return !(ChangeDetectionResult.IsIssueDetected || SpikeDetectionResult.IsIssueDetected); }
+        set { _isUpDb = value ?? false; }
     }
 
     [Column("IsUp")]
@@ -98,8 +98,8 @@ public class PredictStatus
     [NotMapped] // This property is computed, so we tell EF Core to ignore it
     public int DownCount
     {
-        get { return (ChangeDetectionResult.IsIssueDetected && SpikeDetectionResult.IsIssueDetected) ? 1 : 0; }
-        set { _downCountDb = value; } // You may need to adjust this setter based on how you want to use it
+        get { return (ChangeDetectionResult.IsIssueDetected || SpikeDetectionResult.IsIssueDetected) ? 1 : 0; }
+        set { _downCountDb = value; }
     }
 
     [Column("DownCount")]
@@ -110,6 +110,5 @@ public class PredictStatus
     }
 
 }
-
 
 
