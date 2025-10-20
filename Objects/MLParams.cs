@@ -55,6 +55,8 @@ public class MLParams
     private string _openAIApiKey = "Missing";
     private string _dataRepoId = "";
     private string _hFToken = "";
+    private int _openSearchHttpTimeoutSeconds = 300;
+    private Dictionary<string, int> _openSearchIndexTimeoutSeconds = new(StringComparer.OrdinalIgnoreCase);
     private bool _addSystemRag = false;
     private bool _addFunctionRag = false;
     private string _defaultAgentLocation = "";
@@ -122,6 +124,8 @@ public class MLParams
     public string OpenSearchUser { get => _openSearchUser; set => _openSearchUser = value; }
     public string OpenSearchDefaultIndex { get => _openSearchDefaultIndex; set => _openSearchDefaultIndex = value; }
     public string OpenSearchUrl { get => _openSearchUrl; set => _openSearchUrl = value; }
+    public int OpenSearchHttpTimeoutSeconds { get => _openSearchHttpTimeoutSeconds; set => _openSearchHttpTimeoutSeconds = value; }
+    public Dictionary<string, int> OpenSearchIndexTimeoutSeconds { get => _openSearchIndexTimeoutSeconds; set => _openSearchIndexTimeoutSeconds = value ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase); }
     public string OpenAIApiKey { get => _openAIApiKey; set => _openAIApiKey = value; }
     public string DataRepoId { get => _dataRepoId; set => _dataRepoId = value; }
     public string HFToken { get => _hFToken; set => _hFToken = value; }
