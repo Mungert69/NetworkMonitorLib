@@ -19,6 +19,7 @@ public class MLParams
     private string _llmContextFileName = "";
     private string _llmSystemPrompt = "";
     private string _llmVersion = "";
+    private string _gptModelVersion = "gpt";
     private int _llmThreads = 4;
     private int _llmSystemPromptTimeout = 10;
     private int _llmUserPromptTimeout = 50;
@@ -161,6 +162,7 @@ public class MLParams
     public global::System.Decimal CompletionCostMultiplier { get => _completionCostMultiplier; set => _completionCostMultiplier = value; }
     public global::System.Int32 MaxFunctionCallsInARow { get => _maxFunctionCallsInARow; set => _maxFunctionCallsInARow = value; }
     public global::System.Boolean NoNShot { get => _noNShot; set => _noNShot = value; }
+    public string GptModelVersion { get => _gptModelVersion; set => _gptModelVersion = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)

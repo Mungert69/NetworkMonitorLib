@@ -308,7 +308,9 @@ namespace NetworkMonitor.Utils.Helpers
            
             mlParams.LlmNoThink = _config.GetValue<bool?>("LlmNoThink") ?? false;
             mlParams.LlmPromptTokens = int.TryParse(_config["LlmPromptTokens"], out int llmPromptTokens) ? llmPromptTokens : 28000;
-            mlParams.LlmGptModel = _config.GetValue<string>("LlmGptModel") ?? "gpt-4o-mini";
+            mlParams.LlmGptModel = _config.GetValue<string>("LlmGptModel") ?? "gpt-4.1-mini";
+            mlParams.GptModelVersion = _config.GetValue<string>("GptModelVersion") ?? "gpt";
+            
             mlParams.LlmUserPromptTimeout = int.TryParse(_config["LlmUserPromptTimeout"], out int llmUserPromptTimeout) ? llmUserPromptTimeout : 50;
             mlParams.LlmSessionIdleTimeout = int.TryParse(_config["LlmSessionIdleTimeout"], out int llmSessionIdleTimeout) ? llmSessionIdleTimeout : 60;
             mlParams.LlmFunctionDic = _config.GetSection("LlmFunctionMapping").Get<Dictionary<string, string>>() ?? new Dictionary<string, string>();
