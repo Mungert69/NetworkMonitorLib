@@ -16,6 +16,26 @@ namespace NetworkMonitor.Objects
     //private string? _prompt;
 
     public MonitorPingInfoQuery() { }
+
+    public static class JsonPropertyNames
+    {
+      public const string Prompt = "prompt";
+      public const string DataSetId = "dataset_id";
+      public const string MonitorPingInfoID = "monitor_ping_info_id";
+      public const string MonitorIPID = "id";
+      public const string Address = "address";
+      public const string Email = "email";
+      public const string PageSize = "page_size";
+      public const string PageNumber = "page_number";
+      public const string Enabled = "enabled";
+      public const string Port = "port";
+      public const string Endpoint = "endpoint";
+      public const string AlertSent = "alert_sent";
+      public const string AlertFlag = "alert_flag";
+      public const string AgentLocation = "agent_location";
+      public const string DateStart = "date_start";
+      public const string DateEnd = "date_end";
+    }
     ///
     /// This field is Required .The prompt that was entered by the user. The backend will use this to assist in creating a useful reponse for the user.
     ///

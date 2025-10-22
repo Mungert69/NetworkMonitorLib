@@ -11,6 +11,21 @@ namespace NetworkMonitor.Objects
        private int? _monitorIPID;
         private string? _address;
     public MonitorIPQuery() { }
+
+    public static class JsonPropertyNames
+    {
+        public const string Prompt = "prompt";
+        public const string EditAuthKey = "auth_key";
+        public const string MonitorIPID = "id";
+        public const string Email = "email";
+        public const string PageSize = "page_size";
+        public const string PageNumber = "page_number";
+        public const string Enabled = "enabled";
+        public const string Address = "address";
+        public const string Port = "port";
+        public const string Endpoint = "endpoint";
+        public const string AgentLocation = "agent_location";
+    }
      ///
         /// This field is Required .The prompt that was entered by the user. The backend will use this to assist in creating a useful reponse for the user.
         ///
