@@ -311,10 +311,65 @@ Notes:
         {
             try
             {
+                var isErrorPage = await page.EvaluateExpressionAsync<bool>(@"
+                    (() => {
+                      const body = document.body;
+                      if (!body) return false;
+                      if (body.classList.contains('ErrorPage')) return true;
+                      const heading = document.querySelector('main h1');
+                      if (heading && heading.textContent && heading.textContent.trim() === '404') return true;
+                      const text = (document.body.innerText || '').toLowerCase();
+                      return text.includes(""sorry, we can't find the page you are looking for."");
+                    })()
+                ");
+                if (isErrorPage) return false;
+
                 // iframe to *.hf.space?
                 var hasIframe = await page.EvaluateExpressionAsync<bool>(
                     @"!!document.querySelector('iframe[src*="".hf.space""]')");
                 if (hasIframe) return true;
+
+                var runtimeStage = await page.EvaluateExpressionAsync<string?>(@"
+                    (() => {
+                      const hydraters = document.querySelectorAll('.SVELTE_HYDRATER[data-props]');
+                      for (const node of hydraters) {
+                        try {
+                          const json = node.getAttribute('data-props');
+                          if (!json) continue;
+                          const props = JSON.parse(json);
+                          const stage = props?.space?.runtime?.stage || props?.runtime?.stage;
+                          if (stage) return stage;
+                        } catch (_) {}
+                      }
+                      return null;
+                    })()
+                ");
+
+                if (!string.IsNullOrWhiteSpace(runtimeStage))
+                {
+                    var normalized = runtimeStage.Trim().ToUpperInvariant();
+                    switch (normalized)
+                    {
+                        case "RUNNING":
+                        case "READY":
+                            return true;
+                        case "SLEEPING":
+                        case "OFFLINE":
+                        case "STOPPED":
+                        case "LOADING":
+                        case "ERROR":
+                        case "MISSING":
+                        case "DELETED":
+                            return false;
+                        default:
+                            if (normalized.Contains("ERROR", StringComparison.Ordinal) ||
+                                normalized.Contains("FAIL", StringComparison.Ordinal))
+                            {
+                                return false;
+                            }
+                            break;
+                    }
+                }
 
                 // 'Sleeping' badge?
                 var hasSleepingBadge = await page.EvaluateExpressionAsync<bool>(@"
@@ -325,7 +380,18 @@ Notes:
                 // restart form present?
                 var hasRestartForm = await page.EvaluateExpressionAsync<bool>(
                     @"!!document.querySelector('form[action$=""/start""] button[type=""submit""]')");
-                return !hasRestartForm;
+                if (hasRestartForm) return false;
+
+                var hasRunningBadge = await page.EvaluateExpressionAsync<bool>(@"
+                    !![...document.querySelectorAll('div,span,button')].some(el => /(^|\s)Running(\s|$)/i.test(el.textContent || ''))
+                ");
+                if (hasRunningBadge) return true;
+
+                var isSpacePage = await page.EvaluateExpressionAsync<bool>(
+                    @"!!(document.body && document.body.classList.contains('SpacePage'))");
+                if (!isSpacePage) return false;
+
+                return false;
             }
             catch
             {
