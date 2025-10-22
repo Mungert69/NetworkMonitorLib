@@ -44,6 +44,7 @@ public class MLParams
     private string _llmHFUrl = "";
     private bool _llmUseHF;
     private bool _isStream;
+    private bool _llmHfSupportsFunctionCalling = false;
     private string _llmHFModelVersion;
     private bool _llmReportProcess = false;
     private bool _xmlFunctionParsing = false;
@@ -114,6 +115,7 @@ public class MLParams
     public string LlmHFKey { get => _llmHFKey; set => _llmHFKey = value; }
     public string LlmHFUrl { get => _llmHFUrl; set => _llmHFUrl = value; }
     public bool LlmUseHF { get => _llmUseHF; set => _llmUseHF = value; }
+    public bool LlmHfSupportsFunctionCalling { get => _llmHfSupportsFunctionCalling; set => _llmHfSupportsFunctionCalling = value; }
     public string LlmHFModelVersion { get => _llmHFModelVersion; set => _llmHFModelVersion = value; }
     public int LlmCtxRatio { get => _llmCtxRatio; set => _llmCtxRatio = value; }
     public bool IsStream { get => _isStream; set => _isStream = value; }
