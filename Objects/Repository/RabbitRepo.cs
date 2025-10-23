@@ -89,9 +89,10 @@ namespace NetworkMonitor.Objects.Repository
                 _netConfig = netConfig;
                 // Derive TLS from the effective SystemUrl only; root UseTls deprecated
                 _isRestrictedPublishPerm = _netConfig.IsRestrictedPublishPerm;
-                _logger?.LogInformation($" Use Tls {_isTls}");
                 _systemUrl = _netConfig.LocalSystemUrl;
                 _isTls = _systemUrl.UseTls;
+                _logger?.LogInformation($" Use Tls {_isTls}");
+                
                 _maxRetries = _netConfig.MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = _netConfig.RetryDelayMilliseconds;
                 //ConnectAndSetUp();
