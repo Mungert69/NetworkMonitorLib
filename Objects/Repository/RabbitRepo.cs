@@ -91,7 +91,7 @@ namespace NetworkMonitor.Objects.Repository
                 _isRestrictedPublishPerm = _netConfig.IsRestrictedPublishPerm;
                 _systemUrl = _netConfig.LocalSystemUrl;
                 _isTls = _systemUrl.UseTls;
-                _logger?.LogInformation($" Use Tls {_isTls}");
+                _logger?.LogInformation($" Use Tls in RabbitRepo NetConnectConfig ctor {_isTls}");
                 
                 _maxRetries = _netConfig.MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = _netConfig.RetryDelayMilliseconds;
@@ -113,7 +113,7 @@ namespace NetworkMonitor.Objects.Repository
                 _logger = logger;
                 _systemUrl = systemUrl;
                 _isTls = systemUrl.UseTls;
-                _logger?.LogInformation($" Use Tls {_isTls}");
+                _logger?.LogInformation($" Use Tls in RabbitRepo SystemUrl ctor {_isTls}");
                 _maxRetries = MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = RetryDelayMilliseconds;
                 // _instanceName = _systemUrl.RabbitInstanceName;

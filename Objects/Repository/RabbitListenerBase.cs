@@ -35,6 +35,8 @@ namespace NetworkMonitor.Objects.Repository
             _systemUrl = systemUrl;
             _state = state ?? new RabbitListenerState();
             _isTls = systemUrl.UseTls;
+             _logger?.LogInformation($" Use Tls in RabbitListenerBase ctor {_isTls}");
+               
 
         }
         protected abstract void InitRabbitMQObjs();
