@@ -105,8 +105,6 @@ namespace NetworkMonitor.Connection
         private string _serviceServer = $"monitorsrv.{AppConstants.AppDomain}";
         private string _chatServer = $"chatsrv.{AppConstants.AppDomain}";
         private bool _isChatMode = false;
-        // Root-level TLS flag deprecated; use SystemUrl.UseTls instead
-        [Obsolete("Use SystemUrl.UseTls; root UseTls is deprecated")] private bool _useTls = true;
         private int _maxRetries = 3;
         private string _serviceDomain = AppConstants.AppDomain;
         private bool _isRestrictedPublishPerm = true;
@@ -179,7 +177,7 @@ namespace NetworkMonitor.Connection
         }
         public string LoadServer { get => _loadServer; set => _loadServer = value; }
 
-        [Obsolete("Use LocalSystemUrl.UseTls or SystemUrls[].UseTls instead")] public bool UseTls { get => _useTls; set => _useTls = value; }
+        // Removed legacy UseTls; use LocalSystemUrl.UseTls or SystemUrls[].UseTls
         public string ServiceDomain { get => _serviceDomain; set => _serviceDomain = value; }
         public string ServiceServer { get => _serviceServer; set => _serviceServer = value; }
         public bool IsRestrictedPublishPerm { get => _isRestrictedPublishPerm; set => _isRestrictedPublishPerm = value; }
