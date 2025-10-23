@@ -105,7 +105,8 @@ namespace NetworkMonitor.Connection
         private string _serviceServer = $"monitorsrv.{AppConstants.AppDomain}";
         private string _chatServer = $"chatsrv.{AppConstants.AppDomain}";
         private bool _isChatMode = false;
-        private bool _useTls = false;
+        // Root-level TLS flag deprecated; use SystemUrl.UseTls instead
+        [Obsolete("Use SystemUrl.UseTls; root UseTls is deprecated")] private bool _useTls = true;
         private int _maxRetries = 3;
         private string _serviceDomain = AppConstants.AppDomain;
         private bool _isRestrictedPublishPerm = true;
@@ -178,7 +179,7 @@ namespace NetworkMonitor.Connection
         }
         public string LoadServer { get => _loadServer; set => _loadServer = value; }
 
-        public bool UseTls { get => _useTls; set => _useTls = value; }
+        [Obsolete("Use LocalSystemUrl.UseTls or SystemUrls[].UseTls instead")] public bool UseTls { get => _useTls; set => _useTls = value; }
         public string ServiceDomain { get => _serviceDomain; set => _serviceDomain = value; }
         public string ServiceServer { get => _serviceServer; set => _serviceServer = value; }
         public bool IsRestrictedPublishPerm { get => _isRestrictedPublishPerm; set => _isRestrictedPublishPerm = value; }
@@ -280,6 +281,8 @@ namespace NetworkMonitor.Connection
                     RabbitVHost = config["LocalSystemUrl:RabbitVHost"] ?? "",
                     MaxLoad = int.TryParse(config["LocalSystemUrl:MaxLoad"], out int maxLoad) ? maxLoad : 1500,
                     MaxRuntime = int.TryParse(config["LocalSystemUrl:MaxRuntime"], out int maxRuntime) ? maxRuntime : 60,
+                    // Default to true unless explicitly set at SystemUrl level
+                    UseTls = bool.TryParse(config["LocalSystemUrl:UseTls"], out bool localUseTlsVal) ? localUseTlsVal : true,
                 };
 
                 RabbitPassword = LocalSystemUrl.RabbitPassword;
@@ -314,7 +317,7 @@ namespace NetworkMonitor.Connection
                 DefaultEndpointType = config["DefaultEndpointType"] ?? "icmp";
                 UseDefaultEndpointType = bool.TryParse(config["UseDefaultEndpointType"], out bool useDefaultEndpointType) ? useDefaultEndpointType : false;
                 ServiceDomain = config["ServiceDomain"] ?? AppConstants.AppDomain;
-                UseTls = bool.TryParse(config["UseTls"], out bool useTls) ? useTls : false;
+                // Root-level UseTls no longer read; rely on LocalSystemUrl:UseTls or default true.
                 IsRestrictedPublishPerm = bool.TryParse(config["IsRestrictedPublishPerm"], out bool restrictedPublishPerm) ? restrictedPublishPerm : false;
                 AgentUserFlow.IsAuthorized = bool.TryParse(config["AgentUserFlow:IsAuthorized"], out bool isAuthorized) ? isAuthorized : false;
                 AgentUserFlow.IsLoggedInWebsite = bool.TryParse(config["AgentUserFlow:IsLoggedInWebsite"], out bool isLoggedInWebsite) ? isLoggedInWebsite : false;

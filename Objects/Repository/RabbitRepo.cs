@@ -87,10 +87,11 @@ namespace NetworkMonitor.Objects.Repository
             {
                 _logger = logger;
                 _netConfig = netConfig;
-                _isTls = _netConfig.UseTls;
+                // Derive TLS from the effective SystemUrl only; root UseTls deprecated
                 _isRestrictedPublishPerm = _netConfig.IsRestrictedPublishPerm;
                 _logger?.LogInformation($" Use Tls {_isTls}");
                 _systemUrl = _netConfig.LocalSystemUrl;
+                _isTls = _systemUrl.UseTls;
                 _maxRetries = _netConfig.MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = _netConfig.RetryDelayMilliseconds;
                 //ConnectAndSetUp();
@@ -111,6 +112,7 @@ namespace NetworkMonitor.Objects.Repository
                 _logger = logger;
                 _systemUrl = systemUrl;
                 _isTls = systemUrl.UseTls;
+                _logger?.LogInformation($" Use Tls {_isTls}");
                 _maxRetries = MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = RetryDelayMilliseconds;
                 // _instanceName = _systemUrl.RabbitInstanceName;

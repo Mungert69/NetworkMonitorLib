@@ -14,7 +14,7 @@ namespace NetworkMonitor.Objects
        public string RabbitVHost {get;set;}="";
        public int MaxLoad {get;set;}=1500;
        public int MaxRuntime{get;set;}=60;
-        public bool UseTls { get; set; } = false;
+        public bool UseTls { get; set; } = true;
         public string Country { get; set; } = "US";
         public string Region { get; set; } = "America";
     }

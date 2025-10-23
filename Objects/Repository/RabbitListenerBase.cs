@@ -29,12 +29,12 @@ namespace NetworkMonitor.Objects.Repository
 
         protected IRabbitListenerState _state;
 
-        public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null, bool isTls = false)
+        public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null)
         {
             _logger = logger;
             _systemUrl = systemUrl;
             _state = state ?? new RabbitListenerState();
-            _isTls = isTls || systemUrl.UseTls;
+            _isTls = systemUrl.UseTls;
 
         }
         protected abstract void InitRabbitMQObjs();
