@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -12,16 +13,20 @@ using NetworkMonitor.Objects;
 namespace NetworkMonitor.Objects.Repository.Helpers
 {
     /// <summary>
-    /// For Android 5/6 (SDK <= 23) only: validate the server chain by
-    /// anchoring to ISRG Root X1 provided by the app (file or embedded PEM).
-    /// No device installs and no server changes required.
+    /// Android 5/6 (SDK <= 23) certificate validation:
+    /// - Anchor to ISRG Root X1 (embedded or file).
+    /// - Ensure Let's Encrypt E8 intermediate is available:
+    ///   * Prefer app-configured URL (served by your nginx),
+    ///   * else embedded copy,
+    ///   * plus any intermediates surfaced by the platform.
     /// </summary>
     internal static class LegacyAndroidSslHelper
     {
-        private const int LegacyAndroidMaxSdkLevel = 23; // Android 6.0 and below
+        private const int LegacyAndroidMaxSdkLevel = 23;
 
         private static X509Certificate2? _cachedIsrgRoot;
-        private static X509Certificate2? _cachedLetsEncryptE8;
+        private static X509Certificate2? _cachedLetsEncryptE8Embedded;
+        private static X509Certificate2? _cachedLetsEncryptE8FromUrl;
 
         internal static void Configure(SystemUrl systemUrl, SslOption sslOption, ILogger? logger)
         {
@@ -30,14 +35,10 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
             logger?.LogDebug("Applying legacy Android certificate handling for SDK level {SdkLevel}.", systemUrl.AndroidSdkLevel);
 
-            // Ensure SNI/hostname is set so the right cert is presented & name checks can pass
             if (string.IsNullOrWhiteSpace(sslOption.ServerName))
-                sslOption.ServerName = systemUrl.RabbitHostName;
+                sslOption.ServerName = systemUrl.RabbitHostName; // SNI + hostname check
 
-            // Keep policy strict; we’ll decide entirely in the callback
             sslOption.AcceptablePolicyErrors = SslPolicyErrors.None;
-
-            // Legacy-safe minimum
             sslOption.Version = SslProtocols.Tls12;
 
             sslOption.CertificateValidationCallback = (sender, certificate, chain, errors) =>
@@ -57,100 +58,167 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 return false;
             }
 
-            // Always enforce hostname matching
             if ((errors & SslPolicyErrors.RemoteCertificateNameMismatch) != 0)
             {
                 logger?.LogWarning("Certificate name mismatch.");
                 return false;
             }
 
-            // If the platform already trusts it (unlikely on 5/6), accept
-            if (errors == SslPolicyErrors.None) return true;
+            if (errors == SslPolicyErrors.None) return true; // rare on 5/6
+
+            X509Certificate2? leaf = null;
+            var disposeLeaf = false;
 
             try
             {
-                var leaf = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
-                var disposeLeaf = !(certificate is X509Certificate2);
+                leaf = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
+                disposeLeaf = !(certificate is X509Certificate2);
 
-                try
+                var root = GetRootCertificate(systemUrl, logger);
+
+                // Build a list of intermediates/extras we will offer the chain engine.
+                var extras = new List<X509Certificate2>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                void Add(X509Certificate2? c)
                 {
-                    var rootCert = GetRootCertificate(systemUrl, logger);
-                    var extraCertificates = new List<X509Certificate2>();
-                    var knownThumbprints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (c == null) return;
+                    var t = c.Thumbprint;
+                    if (string.IsNullOrEmpty(t)) return;
+                    if (seen.Add(t)) extras.Add(c);
+                }
 
-                    void AddExtra(X509Certificate2 cert)
+                // Root in ExtraStore helps path building on legacy.
+                Add(root);
+
+                // From platform callback (often empty on 5/6)
+                var platformSubjects = new List<string>();
+                if (platformChain != null)
+                {
+                    try
                     {
-                        var thumb = cert?.Thumbprint;
-                        if (cert == null || string.IsNullOrEmpty(thumb)) return;
-                        if (knownThumbprints.Add(thumb))
-                            extraCertificates.Add(cert);
+                        platformChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                        platformChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                        platformChain.Build(leaf);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogDebug(ex, "Failed to build platform chain before extracting intermediates.");
                     }
 
-                    AddExtra(rootCert);
-
-                    // Reuse any intermediates the platform handed us
-                    if (platformChain != null)
+                    foreach (var e in platformChain.ChainElements)
                     {
-                        var platformSubjects = new List<string>();
-
-                        try
-                        {
-                            platformChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-                            platformChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-                            platformChain.Build(leaf);
-                        }
-                        catch (Exception ex)
-                        {
-                            logger?.LogDebug(ex, "Failed to build platform chain before extracting intermediates.");
-                        }
-
-                        foreach (var element in platformChain.ChainElements)
-                        {
-                            var c = element.Certificate;
-                            if (c == null) continue;
-
-                            platformSubjects.Add(c.Subject);
-
-                            if (!string.Equals(c.Thumbprint, leaf.Thumbprint, StringComparison.OrdinalIgnoreCase))
-                                AddExtra(c);
-                        }
-
-                        logger?.LogDebug("Platform chain elems: {Elems}",
-                            platformSubjects.Count == 0
-                                ? "<empty>"
-                                : string.Join(" -> ", platformSubjects));
+                        var c = e.Certificate;
+                        if (c == null) continue;
+                        platformSubjects.Add(c.Subject);
+                        if (!string.Equals(c.Thumbprint, leaf.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                            Add(c);
                     }
 
-                    foreach (var intermediate in GetDefaultLegacyIntermediates(logger))
-                        AddExtra(intermediate);
-
-                    var extrasSnapshot = extraCertificates.ToList();
-
-                    if (TryBuildChain(leaf, rootCert, extrasSnapshot, useCustomRootTrust: true, logWarnings: false, logger, "custom-root"))
-                        return true;
-
-                    if (TryBuildChain(leaf, rootCert, extrasSnapshot, useCustomRootTrust: false, logWarnings: true, logger, "system-trust"))
-                        return true;
-
-                    return false;
+                    logger?.LogDebug("Platform chain elems: {Elems}",
+                        platformSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", platformSubjects));
                 }
-                finally
-                {
-                    if (disposeLeaf) leaf.Dispose();
-                }
+
+                // Try to fetch intermediate from URL (served by your nginx) – optional.
+                var urlIntermediate = TryFetchIntermediateFromUrl(systemUrl.LegacyIntermediateUrl, logger);
+                Add(urlIntermediate);
+
+                // Always add embedded E8 as a fallback.
+                Add(GetEmbeddedLetsEncryptE8(logger));
+
+                // Log extras we will provide
+                logger?.LogDebug("ExtraStore (subjects): {Subs}",
+                    extras.Count == 0 ? "<empty>" : string.Join(" | ", extras.Select(c => c.Subject)));
+
+                // Attempt 1: CustomRootTrust anchored at our ISRG root
+                if (TryBuildChain(leaf, root, extras, useCustomRootTrust: true, logWarnings: false, logger, "custom-root"))
+                    return true;
+
+                // Attempt 2: System trust (in case the platform is okay once extras are present)
+                if (TryBuildChain(leaf, root, extras, useCustomRootTrust: false, logWarnings: true, logger, "system-trust"))
+                    return true;
+
+                return false;
             }
             catch (Exception ex)
             {
                 logger?.LogError(ex, "Certificate validation threw an exception for legacy Android.");
                 return false;
             }
+            finally
+            {
+                if (disposeLeaf && leaf != null) leaf.Dispose();
+            }
+        }
+
+        private static bool TryBuildChain(
+            X509Certificate2 leaf,
+            X509Certificate2 rootCert,
+            IReadOnlyCollection<X509Certificate2> extraStore,
+            bool useCustomRootTrust,
+            bool logWarnings,
+            ILogger? logger,
+            string attemptLabel)
+        {
+            using var chain = new X509Chain();
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+            chain.ChainPolicy.CustomTrustStore.Clear();
+            chain.ChainPolicy.ExtraStore.Clear();
+
+            foreach (var cert in extraStore)
+                chain.ChainPolicy.ExtraStore.Add(cert);
+
+            if (useCustomRootTrust)
+            {
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                chain.ChainPolicy.CustomTrustStore.Add(rootCert);
+            }
+            else
+            {
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.System;
+            }
+
+            var ok = chain.Build(leaf);
+
+            var builtSubjects = chain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject).ToList();
+            logger?.LogDebug("{AttemptLabel} chain elems: {Elems}",
+                attemptLabel, builtSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", builtSubjects));
+
+            if (ok) return true;
+
+            foreach (var status in chain.ChainStatus)
+            {
+                if (logWarnings)
+                    logger?.LogWarning("Certificate chain validation failed ({Attempt}): {Status} - {Info}", attemptLabel, status.Status, status.StatusInformation);
+                else
+                    logger?.LogDebug("Certificate chain validation failed ({Attempt}): {Status} - {Info}", attemptLabel, status.Status, status.StatusInformation);
+            }
+
+            // Accept if we anchored at our ISRG root and only saw benign flags
+            var anchored = chain.ChainElements.Cast<X509ChainElement>()
+                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
+
+            bool onlyBenign = chain.ChainStatus.All(s =>
+                s.Status == X509ChainStatusFlags.UntrustedRoot ||
+                s.Status == X509ChainStatusFlags.PartialChain ||
+                s.Status == X509ChainStatusFlags.RevocationStatusUnknown);
+
+            if (anchored && onlyBenign)
+            {
+                logger?.LogDebug("{Attempt} chain anchored at embedded root; accepting despite statuses {Statuses}.",
+                    attemptLabel, string.Join(", ", chain.ChainStatus.Select(s => s.Status)));
+                return true;
+            }
+
+            return false;
         }
 
         private static X509Certificate2 GetRootCertificate(SystemUrl systemUrl, ILogger? logger)
         {
             if (_cachedIsrgRoot != null) return _cachedIsrgRoot;
 
-            var path = systemUrl.LegacyAndroidRootCertPath; // your app-provided file (PEM/DER)
+            var path = systemUrl.LegacyAndroidRootCertPath; // optional file on device
             if (!string.IsNullOrWhiteSpace(path))
             {
                 try
@@ -168,31 +236,55 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 }
             }
 
-            // Fallback to embedded PEM (keeps working even if the file is missing)
             _cachedIsrgRoot = X509Certificate2.CreateFromPem(IsrgRootX1Pem);
             return _cachedIsrgRoot;
         }
 
-
-        private static IEnumerable<X509Certificate2> GetDefaultLegacyIntermediates(ILogger? logger)
+        private static X509Certificate2? GetEmbeddedLetsEncryptE8(ILogger? logger)
         {
-            if (_cachedLetsEncryptE8 == null)
+            if (_cachedLetsEncryptE8Embedded != null) return _cachedLetsEncryptE8Embedded;
+            try
             {
-                try
-                {
-                    _cachedLetsEncryptE8 = X509Certificate2.CreateFromPem(LetsEncryptE8Pem);
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt E8 intermediate certificate.");
-                }
+                _cachedLetsEncryptE8Embedded = X509Certificate2.CreateFromPem(LetsEncryptE8Pem);
             }
-
-            if (_cachedLetsEncryptE8 != null)
-                yield return _cachedLetsEncryptE8;
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt E8 intermediate certificate.");
+            }
+            return _cachedLetsEncryptE8Embedded;
         }
 
+        private static X509Certificate2? TryFetchIntermediateFromUrl(string? url, ILogger? logger)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+            if (_cachedLetsEncryptE8FromUrl != null) return _cachedLetsEncryptE8FromUrl;
 
+            try
+            {
+                // Dedicated HttpClient that *does not* enforce TLS validation, to avoid bootstrap loops.
+                // We only fetch a public intermediate PEM and still validate chains ourselves later.
+                using var handler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = static (_, __, ___, ____) => true
+                };
+                using var client = new HttpClient(handler)
+                {
+                    Timeout = TimeSpan.FromSeconds(5)
+                };
+
+                var pem = client.GetStringAsync(url).GetAwaiter().GetResult();
+                if (string.IsNullOrWhiteSpace(pem)) return null;
+
+                _cachedLetsEncryptE8FromUrl = X509Certificate2.CreateFromPem(pem);
+                logger?.LogDebug("Downloaded intermediate from {Url}: {Subject}", url, _cachedLetsEncryptE8FromUrl.Subject);
+                return _cachedLetsEncryptE8FromUrl;
+            }
+            catch (Exception ex)
+            {
+                logger?.LogDebug(ex, "Failed to download intermediate from {Url}. Will rely on embedded copy / platform extras.", url);
+                return null;
+            }
+        }
 
         private const string IsrgRootX1Pem = @"-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -227,106 +319,30 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----";
 
         private const string LetsEncryptE8Pem = @"-----BEGIN CERTIFICATE-----
-MIIEVjCCAj6gAwIBAgIQY5WTY8JOcIJxWRi/w9ftVjANBgkqhkiG9w0BAQsFADBP
-MQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFy
-Y2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTAeFw0yNDAzMTMwMDAwMDBa
-Fw0yNzAzMTIyMzU5NTlaMDIxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBF
-bmNyeXB0MQswCQYDVQQDEwJFODB2MBAGByqGSM49AgEGBSuBBAAiA2IABNFl8l7c
-S7QMApzSsvru6WyrOq44ofTUOTIzxULUzDMMNMchIJBwXOhiLxxxs0LXeb5GDcHb
-R6EToMffgSZjO9SNHfY9gjMy9vQr5/WWOrQTZxh7az6NSNnq3u2ubT6HTKOB+DCB
-9TAOBgNVHQ8BAf8EBAMCAYYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMB
-MBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0OBBYEFI8NE6L2Ln7RUGwzGDhdWY4j
-cpHKMB8GA1UdIwQYMBaAFHm0WeZ7tuXkAXOACIjIGlj26ZtuMDIGCCsGAQUFBwEB
-BCYwJDAiBggrBgEFBQcwAoYWaHR0cDovL3gxLmkubGVuY3Iub3JnLzATBgNVHSAE
-DDAKMAgGBmeBDAECATAnBgNVHR8EIDAeMBygGqAYhhZodHRwOi8veDEuYy5sZW5j
-ci5vcmcvMA0GCSqGSIb3DQEBCwUAA4ICAQBnE0hGINKsCYWi0Xx1ygxD5qihEjZ0
-RI3tTZz1wuATH3ZwYPIp97kWEayanD1j0cDhIYzy4CkDo2jB8D5t0a6zZWzlr98d
-AQFNh8uKJkIHdLShy+nUyeZxc5bNeMp1Lu0gSzE4McqfmNMvIpeiwWSYO9w82Ob8
-otvXcO2JUYi3svHIWRm3+707DUbL51XMcY2iZdlCq4Wa9nbuk3WTU4gr6LY8MzVA
-aDQG2+4U3eJ6qUF10bBnR1uuVyDYs9RhrwucRVnfuDj29CMLTsplM5f5wSV5hUpm
-Uwp/vV7M4w4aGunt74koX71n4EdagCsL/Yk5+mAQU0+tue0JOfAV/R6t1k+Xk9s2
-HMQFeoxppfzAVC04FdG9M+AC2JWxmFSt6BCuh3CEey3fE52Qrj9YM75rtvIjsm/1
-Hl+u//Wqxnu1ZQ4jpa+VpuZiGOlWrqSP9eogdOhCGisnyewWJwRQOqK16wiGyZeR
-xs/Bekw65vwSIaVkBruPiTfMOo0Zh4gVa8/qJgMbJbyrwwG97z/PRgmLKCDl8z3d
-tA0Z7qq7fta0Gl24uyuB05dqI5J1LvAzKuWdIjT1tP8qCoxSE/xpix8hX2dt3h+/
-jujUgFPFZ0EVZ0xSyBNRF3MboGZnYXFUxpNjTWPKpagDHJQmqrAcDmWJnMsFY3jS
-u1igv3OefnWjSQ==
+MIIEVzCCAj+gAwIBAgIRAKp18eYrjwoiCWbTi7/UuqEwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjQwMzEzMDAwMDAw
+WhcNMjcwMzEyMjM1OTU5WjAyMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg
+RW5jcnlwdDELMAkGA1UEAxMCRTcwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAARB6AST
+CFh/vjcwDMCgQer+VtqEkz7JANurZxLP+U9TCeioL6sp5Z8VRvRbYk4P1INBmbef
+QHJFHCxcSjKmwtvGBWpl/9ra8HW0QDsUaJW2qOJqceJ0ZVFT3hbUHifBM/2jgfgw
+gfUwDgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+ATASBgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBSuSJ7chx1EoG/aouVgdAR4
+wpwAgDAfBgNVHSMEGDAWgBR5tFnme7bl5AFzgAiIyBpY9umbbjAyBggrBgEFBQcB
+AQQmMCQwIgYIKwYBBQUHMAKGFmh0dHA6Ly94MS5pLmxlbmNyLm9yZy8wEwYDVR0g
+BAwwCjAIBgZngQwBAgEwJwYDVR0fBCAwHjAcoBqgGIYWaHR0cDovL3gxLmMubGVu
+Y3Iub3JnLzANBgkqhkiG9w0BAQsFAAOCAgEAjx66fDdLk5ywFn3CzA1w1qfylHUD
+aEf0QZpXcJseddJGSfbUUOvbNR9N/QQ16K1lXl4VFyhmGXDT5Kdfcr0RvIIVrNxF
+h4lqHtRRCP6RBRstqbZ2zURgqakn/Xip0iaQL0IdfHBZr396FgknniRYFckKORPG
+yM3QKnd66gtMst8I5nkRQlAg/Jb+Gc3egIvuGKWboE1G89NTsN9LTDD3PLj0dUMr
+OIuqVjLB8pEC6yk9enrlrqjXQgkLEYhXzq7dLafv5Vkig6Gl0nuuqjqfp0Q1bi1o
+yVNAlXe6aUXw92CcghC9bNsKEO1+M52YY5+ofIXlS/SEQbvVYYBLZ5yeiglV6t3S
+M6H+vTG0aP9YHzLn/KVOHzGQfXDP7qM5tkf+7diZe7o2fw6O7IvN6fsQXEQQj8TJ
+UXJxv2/uJhcuy/tSDgXwHM8Uk34WNbRT7zGTGkQRX0gsbjAea/jYAoWv0ZvQRwpq
+Pe79D/i7Cep8qWnA+7AE/3B3S/3dEEYmc0lpe1366A/6GEgk3ktr9PEoQrLChs6I
+tu3wnNLB2euC8IKGLQFpGtOO/2/hiAKjyajaBP25w1jF0Wl8Bbqne3uZ2q1GyPFJ
+YRmT7/OXpmOH/FVLtwS+8ng1cAmpCujPwteJZNcDG0sF2n/sc0+SQf49fdyUK0ty
++VUwFj9tmWxyR/M=
 -----END CERTIFICATE-----";
-
-        private static bool TryBuildChain(
-            X509Certificate2 leaf,
-            X509Certificate2 rootCert,
-            IReadOnlyCollection<X509Certificate2> extraStore,
-            bool useCustomRootTrust,
-            bool logWarnings,
-            ILogger? logger,
-            string attemptLabel)
-        {
-            using var chain = new X509Chain();
-
-            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-            chain.ChainPolicy.CustomTrustStore.Clear();
-            chain.ChainPolicy.ExtraStore.Clear();
-
-            foreach (var cert in extraStore)
-                chain.ChainPolicy.ExtraStore.Add(cert);
-
-            if (useCustomRootTrust)
-            {
-                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                chain.ChainPolicy.CustomTrustStore.Add(rootCert);
-            }
-            else
-            {
-                chain.ChainPolicy.TrustMode = X509ChainTrustMode.System;
-            }
-
-            var ok = chain.Build(leaf);
-
-            var builtSubjects = chain.ChainElements
-                .Cast<X509ChainElement>()
-                .Select(e => e.Certificate.Subject)
-                .ToList();
-
-            logger?.LogDebug("{AttemptLabel} chain elems: {Elems}",
-                attemptLabel,
-                builtSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", builtSubjects));
-
-            if (ok) return true;
-
-            foreach (var status in chain.ChainStatus)
-            {
-                if (logWarnings)
-                {
-                    logger?.LogWarning("Certificate chain validation failed ({Attempt}): {Status} - {Info}",
-                        attemptLabel, status.Status, status.StatusInformation);
-                }
-                else
-                {
-                    logger?.LogDebug("Certificate chain validation failed ({Attempt}): {Status} - {Info}",
-                        attemptLabel, status.Status, status.StatusInformation);
-                }
-            }
-
-            var anchored = chain.ChainElements
-                .Cast<X509ChainElement>()
-                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
-
-            bool onlyBenign = chain.ChainStatus.All(s =>
-                s.Status == X509ChainStatusFlags.UntrustedRoot ||
-                s.Status == X509ChainStatusFlags.PartialChain ||
-                s.Status == X509ChainStatusFlags.RevocationStatusUnknown);
-
-            if (anchored && onlyBenign)
-            {
-                logger?.LogDebug("{Attempt} chain anchored at embedded root; accepting despite statuses {Statuses}.",
-                    attemptLabel,
-                    string.Join(", ", chain.ChainStatus.Select(s => s.Status)));
-                return true;
-            }
-
-            return false;
-        }
     }
 }
