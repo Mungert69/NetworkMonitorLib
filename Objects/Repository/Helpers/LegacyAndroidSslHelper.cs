@@ -21,6 +21,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
         private const int LegacyAndroidMaxSdkLevel = 23; // Android 6.0 and below
 
         private static X509Certificate2? _cachedIsrgRoot;
+        private static X509Certificate2? _cachedLetsEncryptE8;
 
         internal static void Configure(SystemUrl systemUrl, SslOption sslOption, ILogger? logger)
         {
@@ -86,6 +87,11 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                     chain.ChainPolicy.CustomTrustStore.Add(rootCert);
                     chain.ChainPolicy.ExtraStore.Add(rootCert); // <-- key fix: make root visible to path builder
 
+                    var knownIntermediates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        rootCert.Thumbprint
+                    };
+
                     // Reuse any intermediates the platform handed us
                     if (platformChain != null)
                     {
@@ -117,6 +123,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                                 !t.Equals(rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
                             {
                                 chain.ChainPolicy.ExtraStore.Add(c);
+                                knownIntermediates.Add(t);
                             }
                         }
 
@@ -127,11 +134,26 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                                 : string.Join(" -> ", platformSubjects));
                     }
 
+                    // Legacy devices frequently fail to send intermediates; supply the common Let's Encrypt chain.
+                    foreach (var intermediate in GetDefaultLegacyIntermediates(logger))
+                    {
+                        var thumb = intermediate.Thumbprint;
+                        if (!string.IsNullOrEmpty(thumb) && knownIntermediates.Add(thumb))
+                        {
+                            chain.ChainPolicy.ExtraStore.Add(intermediate);
+                        }
+                    }
+
                     var ok = chain.Build(leaf);
 
                     // (debug) what we actually built with
+                    var builtSubjects = chain.ChainElements
+                        .Cast<X509ChainElement>()
+                        .Select(e => e.Certificate.Subject)
+                        .ToList();
+
                     logger?.LogDebug("Built chain elems: {Elems}",
-                        string.Join(" -> ", chain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject)));
+                        builtSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", builtSubjects));
 
                     // Some legacy stacks may still report PartialChain/UntrustedRoot.
                     // Accept if the built chain actually anchors at our ISRG root.
@@ -199,6 +221,25 @@ namespace NetworkMonitor.Objects.Repository.Helpers
         }
 
 
+        private static IEnumerable<X509Certificate2> GetDefaultLegacyIntermediates(ILogger? logger)
+        {
+            if (_cachedLetsEncryptE8 == null)
+            {
+                try
+                {
+                    _cachedLetsEncryptE8 = X509Certificate2.CreateFromPem(LetsEncryptE8Pem);
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt E8 intermediate certificate.");
+                }
+            }
+
+            if (_cachedLetsEncryptE8 != null)
+                yield return _cachedLetsEncryptE8;
+        }
+
+
 
         private const string IsrgRootX1Pem = @"-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -230,6 +271,33 @@ oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
 4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
 mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
 emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+-----END CERTIFICATE-----";
+
+        private const string LetsEncryptE8Pem = @"-----BEGIN CERTIFICATE-----
+MIIEVjCCAj6gAwIBAgIQY5WTY8JOcIJxWRi/w9ftVjANBgkqhkiG9w0BAQsFADBP
+MQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFy
+Y2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTAeFw0yNDAzMTMwMDAwMDBa
+Fw0yNzAzMTIyMzU5NTlaMDIxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBF
+bmNyeXB0MQswCQYDVQQDEwJFODB2MBAGByqGSM49AgEGBSuBBAAiA2IABNFl8l7c
+S7QMApzSsvru6WyrOq44ofTUOTIzxULUzDMMNMchIJBwXOhiLxxxs0LXeb5GDcHb
+R6EToMffgSZjO9SNHfY9gjMy9vQr5/WWOrQTZxh7az6NSNnq3u2ubT6HTKOB+DCB
+9TAOBgNVHQ8BAf8EBAMCAYYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMB
+MBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0OBBYEFI8NE6L2Ln7RUGwzGDhdWY4j
+cpHKMB8GA1UdIwQYMBaAFHm0WeZ7tuXkAXOACIjIGlj26ZtuMDIGCCsGAQUFBwEB
+BCYwJDAiBggrBgEFBQcwAoYWaHR0cDovL3gxLmkubGVuY3Iub3JnLzATBgNVHSAE
+DDAKMAgGBmeBDAECATAnBgNVHR8EIDAeMBygGqAYhhZodHRwOi8veDEuYy5sZW5j
+ci5vcmcvMA0GCSqGSIb3DQEBCwUAA4ICAQBnE0hGINKsCYWi0Xx1ygxD5qihEjZ0
+RI3tTZz1wuATH3ZwYPIp97kWEayanD1j0cDhIYzy4CkDo2jB8D5t0a6zZWzlr98d
+AQFNh8uKJkIHdLShy+nUyeZxc5bNeMp1Lu0gSzE4McqfmNMvIpeiwWSYO9w82Ob8
+otvXcO2JUYi3svHIWRm3+707DUbL51XMcY2iZdlCq4Wa9nbuk3WTU4gr6LY8MzVA
+aDQG2+4U3eJ6qUF10bBnR1uuVyDYs9RhrwucRVnfuDj29CMLTsplM5f5wSV5hUpm
+Uwp/vV7M4w4aGunt74koX71n4EdagCsL/Yk5+mAQU0+tue0JOfAV/R6t1k+Xk9s2
+HMQFeoxppfzAVC04FdG9M+AC2JWxmFSt6BCuh3CEey3fE52Qrj9YM75rtvIjsm/1
+Hl+u//Wqxnu1ZQ4jpa+VpuZiGOlWrqSP9eogdOhCGisnyewWJwRQOqK16wiGyZeR
+xs/Bekw65vwSIaVkBruPiTfMOo0Zh4gVa8/qJgMbJbyrwwG97z/PRgmLKCDl8z3d
+tA0Z7qq7fta0Gl24uyuB05dqI5J1LvAzKuWdIjT1tP8qCoxSE/xpix8hX2dt3h+/
+jujUgFPFZ0EVZ0xSyBNRF3MboGZnYXFUxpNjTWPKpagDHJQmqrAcDmWJnMsFY3jS
+u1igv3OefnWjSQ==
 -----END CERTIFICATE-----";
     }
 }
