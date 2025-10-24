@@ -83,6 +83,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
                     var rootCert = GetRootCertificate(systemUrl, logger);
                     chain.ChainPolicy.CustomTrustStore.Add(rootCert);
+                    chain.ChainPolicy.ExtraStore.Add(rootCert); // <-- key fix: make root visible to path builder
 
                     // Reuse any intermediates the platform handed us
                     if (platformChain != null)
@@ -100,9 +101,17 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                                 chain.ChainPolicy.ExtraStore.Add(c);
                             }
                         }
+
+                        // (debug) what Android passed in
+                        logger?.LogDebug("Platform chain elems: {Elems}",
+                            string.Join(" -> ", platformChain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject)));
                     }
 
                     var ok = chain.Build(leaf);
+
+                    // (debug) what we actually built with
+                    logger?.LogDebug("Built chain elems: {Elems}",
+                        string.Join(" -> ", chain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject)));
 
                     // Some legacy stacks may still report PartialChain/UntrustedRoot.
                     // Accept if the built chain actually anchors at our ISRG root.
@@ -168,6 +177,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             _cachedIsrgRoot = X509Certificate2.CreateFromPem(IsrgRootX1Pem);
             return _cachedIsrgRoot;
         }
+
 
 
         private const string IsrgRootX1Pem = @"-----BEGIN CERTIFICATE-----
