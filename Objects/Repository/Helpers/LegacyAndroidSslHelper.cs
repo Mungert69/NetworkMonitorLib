@@ -33,10 +33,10 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
             sslOption.AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
             sslOption.CertificateValidationCallback = (sender, certificate, chain, errors) =>
-                ValidateWithCustomTrustStore(certificate, errors, logger, systemUrl);
+                ValidateWithCustomTrustStore(certificate, chain, errors, logger, systemUrl);
         }
 
-        private static bool ValidateWithCustomTrustStore(X509Certificate? certificate, SslPolicyErrors errors, ILogger? logger, SystemUrl systemUrl)
+        private static bool ValidateWithCustomTrustStore(X509Certificate? certificate, X509Chain? chain, SslPolicyErrors errors, ILogger? logger, SystemUrl systemUrl)
         {
             if (certificate == null)
             {
@@ -49,44 +49,71 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 return true;
             }
 
-            X509Certificate2? serverCertificate = certificate as X509Certificate2;
-            var disposeServerCertificate = false;
-            if (serverCertificate == null)
-            {
-                serverCertificate = new X509Certificate2(certificate);
-                disposeServerCertificate = true;
-            }
-
             try
             {
-                using var chain = new X509Chain();
-                chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-                chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                chain.ChainPolicy.CustomTrustStore.Add(GetRootCertificate(systemUrl, logger));
-
-                var isValid = chain.Build(serverCertificate);
-                if (!isValid)
+                X509Certificate2 serverCertificate;
+                var disposeServerCertificate = false;
+                if (certificate is X509Certificate2 existing)
                 {
-                    foreach (var status in chain.ChainStatus)
-                    {
-                        logger?.LogWarning("Certificate chain validation failed: {Status} - {Info}", status.Status, status.StatusInformation);
-                    }
+                    serverCertificate = existing;
+                }
+                else
+                {
+                    serverCertificate = new X509Certificate2(certificate);
+                    disposeServerCertificate = true;
                 }
 
-                return isValid;
+                var validationChain = chain ?? new X509Chain();
+                var disposeChain = chain == null;
+
+                try
+                {
+                    validationChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                    validationChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                    validationChain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                    validationChain.ChainPolicy.CustomTrustStore.Clear();
+                    validationChain.ChainPolicy.CustomTrustStore.Add(GetRootCertificate(systemUrl, logger));
+                    validationChain.ChainPolicy.ExtraStore.Clear();
+
+                    if (chain != null)
+                    {
+                        foreach (var element in chain.ChainElements)
+                        {
+                            if (!element.Certificate.Thumbprint.Equals(serverCertificate.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                            {
+                                validationChain.ChainPolicy.ExtraStore.Add(element.Certificate);
+                            }
+                        }
+                    }
+
+                    var isValid = validationChain.Build(serverCertificate);
+                    if (!isValid)
+                    {
+                        foreach (var status in validationChain.ChainStatus)
+                        {
+                            logger?.LogWarning("Certificate chain validation failed: {Status} - {Info}", status.Status, status.StatusInformation);
+                        }
+                    }
+
+                    return isValid;
+                }
+                finally
+                {
+                    if (disposeChain)
+                    {
+                        validationChain.Dispose();
+                    }
+
+                    if (disposeServerCertificate)
+                    {
+                        serverCertificate.Dispose();
+                    }
+                }
             }
             catch (Exception ex)
             {
                 logger?.LogError(ex, "Certificate validation threw an exception for legacy Android.");
                 return false;
-            }
-            finally
-            {
-                if (disposeServerCertificate)
-                {
-                    serverCertificate?.Dispose();
-                }
             }
         }
 
