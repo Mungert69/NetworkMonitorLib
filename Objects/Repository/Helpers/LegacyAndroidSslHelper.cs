@@ -72,16 +72,33 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                     validationChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
                     validationChain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
                     validationChain.ChainPolicy.CustomTrustStore.Clear();
-                    validationChain.ChainPolicy.CustomTrustStore.Add(GetRootCertificate(systemUrl, logger));
                     validationChain.ChainPolicy.ExtraStore.Clear();
+
+                    using var rootCert = GetRootCertificate(systemUrl, logger);
+                    validationChain.ChainPolicy.CustomTrustStore.Add(rootCert);
+                    var rootThumbprint = rootCert?.Thumbprint ?? string.Empty;
 
                     if (chain != null)
                     {
                         foreach (var element in chain.ChainElements)
                         {
-                            if (!element.Certificate.Thumbprint.Equals(serverCertificate.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                            var candidate = element.Certificate;
+                            if (candidate == null)
                             {
-                                validationChain.ChainPolicy.ExtraStore.Add(element.Certificate);
+                                continue;
+                            }
+
+                            var thumbprint = candidate.Thumbprint;
+                            if (string.IsNullOrEmpty(thumbprint))
+                            {
+                                continue;
+                            }
+
+                            if (!thumbprint.Equals(serverCertificate.Thumbprint, StringComparison.OrdinalIgnoreCase) &&
+                                !thumbprint.Equals(rootThumbprint, StringComparison.OrdinalIgnoreCase) &&
+                                !validationChain.ChainPolicy.ExtraStore.Contains(candidate))
+                            {
+                                validationChain.ChainPolicy.ExtraStore.Add(candidate);
                             }
                         }
                     }
