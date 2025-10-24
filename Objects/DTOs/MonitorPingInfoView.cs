@@ -12,6 +12,9 @@ public interface IMonitorPingInfoView : INotifyPropertyChanged
     List<MonitorPingInfo> MonitorPingInfos { get; set; }
     List<MPIndicator> MPIndicators { get; }
     MonitorPingInfo SelectedMonitorPingInfo { get; }
+    bool HasData { get; }
+    bool HasNoData { get; }
+    bool IsAnimationOn { get; set; }
     void Update();
     void SelectMonitorPingInfo(int id);
     event Action<MonitorPingInfo> OnShowPopupRequested;
