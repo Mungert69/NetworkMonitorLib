@@ -1,42 +1,53 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using NetworkMonitor.Objects;
-using System.IO;
 
 namespace NetworkMonitor.Objects.Repository.Helpers
 {
+    /// <summary>
+    /// For Android 5/6 (SDK <= 23) only: validate the server chain by
+    /// anchoring to ISRG Root X1 provided by the app (file or embedded PEM).
+    /// No device installs and no server changes required.
+    /// </summary>
     internal static class LegacyAndroidSslHelper
     {
-        private const int LegacyAndroidMaxSdkLevel = 23;
+        private const int LegacyAndroidMaxSdkLevel = 23; // Android 6.0 and below
+
+        private static X509Certificate2? _cachedIsrgRoot;
 
         internal static void Configure(SystemUrl systemUrl, SslOption sslOption, ILogger? logger)
         {
-            if (sslOption == null || systemUrl == null)
-            {
-                return;
-            }
-
-            if (!sslOption.Enabled)
-            {
-                return;
-            }
-
-            if (systemUrl.AndroidSdkLevel <= 0 || systemUrl.AndroidSdkLevel > LegacyAndroidMaxSdkLevel)
-            {
-                return;
-            }
+            if (sslOption == null || systemUrl == null || !sslOption.Enabled) return;
+            if (systemUrl.AndroidSdkLevel <= 0 || systemUrl.AndroidSdkLevel > LegacyAndroidMaxSdkLevel) return;
 
             logger?.LogDebug("Applying legacy Android certificate handling for SDK level {SdkLevel}.", systemUrl.AndroidSdkLevel);
 
-            sslOption.AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+            // Ensure SNI/hostname is set so the right cert is presented & name checks can pass
+            if (string.IsNullOrWhiteSpace(sslOption.ServerName))
+                sslOption.ServerName = systemUrl.Hostname;
+
+            // Keep policy strict; we’ll decide entirely in the callback
+            sslOption.AcceptablePolicyErrors = SslPolicyErrors.None;
+
+            // Legacy-safe minimum
+            sslOption.Version = SslProtocols.Tls12;
+
             sslOption.CertificateValidationCallback = (sender, certificate, chain, errors) =>
                 ValidateWithCustomTrustStore(certificate, chain, errors, logger, systemUrl);
         }
 
-        private static bool ValidateWithCustomTrustStore(X509Certificate? certificate, X509Chain? chain, SslPolicyErrors errors, ILogger? logger, SystemUrl systemUrl)
+        private static bool ValidateWithCustomTrustStore(
+            X509Certificate? certificate,
+            X509Chain? platformChain,
+            SslPolicyErrors errors,
+            ILogger? logger,
+            SystemUrl systemUrl)
         {
             if (certificate == null)
             {
@@ -44,87 +55,84 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 return false;
             }
 
-            if (errors == SslPolicyErrors.None)
+            // Always enforce hostname matching
+            if ((errors & SslPolicyErrors.RemoteCertificateNameMismatch) != 0)
             {
-                return true;
+                logger?.LogWarning("Certificate name mismatch.");
+                return false;
             }
+
+            // If the platform already trusts it (unlikely on 5/6), accept
+            if (errors == SslPolicyErrors.None) return true;
 
             try
             {
-                X509Certificate2 serverCertificate;
-                var disposeServerCertificate = false;
-                if (certificate is X509Certificate2 existing)
-                {
-                    serverCertificate = existing;
-                }
-                else
-                {
-                    serverCertificate = new X509Certificate2(certificate);
-                    disposeServerCertificate = true;
-                }
+                var leaf = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
+                var disposeLeaf = !(certificate is X509Certificate2);
 
-                var validationChain = chain ?? new X509Chain();
-                var disposeChain = chain == null;
+                var chain = new X509Chain();
+                var disposeChain = true;
 
                 try
                 {
-                    validationChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-                    validationChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-                    validationChain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                    validationChain.ChainPolicy.CustomTrustStore.Clear();
-                    validationChain.ChainPolicy.ExtraStore.Clear();
+                    chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck; // legacy devices
+                    chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                    chain.ChainPolicy.CustomTrustStore.Clear();
+                    chain.ChainPolicy.ExtraStore.Clear();
 
-                    using var rootCert = GetRootCertificate(systemUrl, logger);
-                    validationChain.ChainPolicy.CustomTrustStore.Add(rootCert);
-                    var rootThumbprint = rootCert?.Thumbprint ?? string.Empty;
+                    var rootCert = GetRootCertificate(systemUrl, logger);
+                    chain.ChainPolicy.CustomTrustStore.Add(rootCert);
 
-                    if (chain != null)
+                    // Reuse any intermediates the platform handed us
+                    if (platformChain != null)
                     {
-                        foreach (var element in chain.ChainElements)
+                        foreach (var element in platformChain.ChainElements)
                         {
-                            var candidate = element.Certificate;
-                            if (candidate == null)
-                            {
-                                continue;
-                            }
+                            var c = element.Certificate;
+                            if (c == null) continue;
+                            var t = c.Thumbprint;
+                            if (string.IsNullOrEmpty(t)) continue;
 
-                            var thumbprint = candidate.Thumbprint;
-                            if (string.IsNullOrEmpty(thumbprint))
+                            if (!t.Equals(leaf.Thumbprint, StringComparison.OrdinalIgnoreCase) &&
+                                !t.Equals(rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
                             {
-                                continue;
-                            }
-
-                            if (!thumbprint.Equals(serverCertificate.Thumbprint, StringComparison.OrdinalIgnoreCase) &&
-                                !thumbprint.Equals(rootThumbprint, StringComparison.OrdinalIgnoreCase) &&
-                                !validationChain.ChainPolicy.ExtraStore.Contains(candidate))
-                            {
-                                validationChain.ChainPolicy.ExtraStore.Add(candidate);
+                                chain.ChainPolicy.ExtraStore.Add(c);
                             }
                         }
                     }
 
-                    var isValid = validationChain.Build(serverCertificate);
-                    if (!isValid)
+                    var ok = chain.Build(leaf);
+
+                    // Some legacy stacks may still report PartialChain/UntrustedRoot.
+                    // Accept if the built chain actually anchors at our ISRG root.
+                    if (!ok)
                     {
-                        foreach (var status in validationChain.ChainStatus)
+                        bool onlyUnknownRootOrPartial = chain.ChainStatus.All(s =>
+                            s.Status == X509ChainStatusFlags.UntrustedRoot ||
+                            s.Status == X509ChainStatusFlags.PartialChain ||
+                            s.Status == X509ChainStatusFlags.RevocationStatusUnknown);
+
+                        if (onlyUnknownRootOrPartial)
                         {
+                            var anchored = chain.ChainElements
+                                .Cast<X509ChainElement>()
+                                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
+
+                            if (anchored)
+                                return true; // accept: we proved the chain terminates at our ISRG root
+                        }
+
+                        foreach (var status in chain.ChainStatus)
                             logger?.LogWarning("Certificate chain validation failed: {Status} - {Info}", status.Status, status.StatusInformation);
-                        }
                     }
 
-                    return isValid;
+                    return ok;
                 }
                 finally
                 {
-                    if (disposeChain)
-                    {
-                        validationChain.Dispose();
-                    }
-
-                    if (disposeServerCertificate)
-                    {
-                        serverCertificate.Dispose();
-                    }
+                    if (disposeChain) chain.Dispose();
+                    if (disposeLeaf) leaf.Dispose();
                 }
             }
             catch (Exception ex)
@@ -136,14 +144,17 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
         private static X509Certificate2 GetRootCertificate(SystemUrl systemUrl, ILogger? logger)
         {
-            var path = systemUrl.LegacyAndroidRootCertPath;
+            if (_cachedIsrgRoot != null) return _cachedIsrgRoot;
+
+            var path = systemUrl.LegacyAndroidRootCertPath; // your app-provided file (PEM/DER)
             if (!string.IsNullOrWhiteSpace(path))
             {
                 try
                 {
                     if (File.Exists(path))
                     {
-                        return X509CertificateLoader.LoadCertificateFromFile(path);
+                        _cachedIsrgRoot = X509CertificateLoader.LoadCertificateFromFile(path);
+                        return _cachedIsrgRoot;
                     }
                     logger?.LogWarning("Legacy Android root certificate was not found at {Path}. Falling back to embedded copy.", path);
                 }
@@ -152,8 +163,12 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                     logger?.LogWarning(ex, "Failed to load legacy Android root certificate from {Path}. Falling back to embedded copy.", path);
                 }
             }
-            return X509Certificate2.CreateFromPem(IsrgRootX1Pem);
+
+            // Fallback to embedded PEM (keeps working even if the file is missing)
+            _cachedIsrgRoot = X509Certificate2.CreateFromPem(IsrgRootX1Pem);
+            return _cachedIsrgRoot;
         }
+
 
         private const string IsrgRootX1Pem = @"-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
