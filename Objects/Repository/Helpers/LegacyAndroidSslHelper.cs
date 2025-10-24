@@ -13,7 +13,7 @@ using NetworkMonitor.Objects;
 namespace NetworkMonitor.Objects.Repository.Helpers
 {
     /// <summary>
-    /// Android 5/6 (SDK <= 23) certificate validation:
+    /// Android 5/6 (SDK &lt;= 23) certificate validation:
     /// - Anchor to ISRG Root X1 (embedded or file).
     /// - Ensure Let's Encrypt E8 intermediate is available:
     ///   * Prefer app-configured URL (served by your nginx),

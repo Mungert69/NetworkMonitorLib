@@ -20,5 +20,6 @@ namespace NetworkMonitor.Objects
         public string AndroidVersion { get; set; } = string.Empty;
         public int AndroidSdkLevel { get; set; } = -1;
         public string LegacyAndroidRootCertPath { get; set; } = string.Empty;
+        public string LegacyIntermediateUrl { get; set; } = string.Empty;
     }
 }
