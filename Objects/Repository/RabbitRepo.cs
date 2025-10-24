@@ -12,6 +12,7 @@ using NetworkMonitor.Connection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net.Security;
+using NetworkMonitor.Objects.Repository.Helpers;
 namespace NetworkMonitor.Objects.Repository
 {
     public interface IRabbitRepo
@@ -196,12 +197,7 @@ namespace NetworkMonitor.Objects.Repository
                     TopologyRecoveryEnabled = true,
                     Port = _systemUrl.RabbitPort,
                     RequestedHeartbeat = TimeSpan.FromSeconds(30),
-                    Ssl = new SslOption
-                    {
-                        Enabled = _isTls,
-                        ServerName = _systemUrl.RabbitHostName,
-                        AcceptablePolicyErrors = SslPolicyErrors.None
-                    }
+                    Ssl = BuildSslOption()
                 };
                 var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, _maxRetries, _retryDelayMilliseconds);
                 if (success)
@@ -252,6 +248,19 @@ namespace NetworkMonitor.Objects.Repository
 
 
 
+        }
+
+        private SslOption BuildSslOption()
+        {
+            var sslOption = new SslOption
+            {
+                Enabled = _isTls,
+                ServerName = _systemUrl.RabbitHostName,
+                AcceptablePolicyErrors = SslPolicyErrors.None
+            };
+
+            LegacyAndroidSslHelper.Configure(_systemUrl, sslOption, _logger);
+            return sslOption;
         }
 
 

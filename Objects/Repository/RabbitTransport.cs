@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects.Repository;   // IRabbitRepo
 using NetworkMonitor.Objects.Factory;      // SystemParams / SystemUrl
 using NetworkMonitor.Objects;              // ResultObj (if needed)
+using NetworkMonitor.Objects.Repository.Helpers;
 
 namespace NetworkMonitor.Objects.Repository
 {
@@ -67,7 +68,7 @@ namespace NetworkMonitor.Objects.Repository
             var replyKey = $"rk.{Guid.NewGuid():N}";
 
             // 2) create a short-lived connection + channel for the consumer
-            var factory = BuildConnectionFactory(_sys);
+            var factory = BuildConnectionFactory(_sys, _log);
             await using var conn = await factory.CreateConnectionAsync(ct);
             await using var ch = await conn.CreateChannelAsync();
 
@@ -162,7 +163,7 @@ namespace NetworkMonitor.Objects.Repository
             return dict;
         }
 
-        private static ConnectionFactory BuildConnectionFactory(SystemUrl sys)
+        private static ConnectionFactory BuildConnectionFactory(SystemUrl sys, ILogger? logger)
         {
             var f = new ConnectionFactory
             {
@@ -179,13 +180,15 @@ namespace NetworkMonitor.Objects.Repository
 
             if (sys.UseTls)
             {
-                f.Ssl = new SslOption
+                var sslOption = new SslOption
                 {
                     Enabled = true,
                     ServerName = sys.RabbitHostName,
                     Version = SslProtocols.Tls12 | SslProtocols.Tls13,
                     AcceptablePolicyErrors = SslPolicyErrors.None
                 };
+                LegacyAndroidSslHelper.Configure(sys, sslOption, logger);
+                f.Ssl = sslOption;
             }
 
             return f;

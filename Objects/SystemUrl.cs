@@ -17,5 +17,8 @@ namespace NetworkMonitor.Objects
         public bool UseTls { get; set; } = true;
         public string Country { get; set; } = "US";
         public string Region { get; set; } = "America";
+        public string AndroidVersion { get; set; } = string.Empty;
+        public int AndroidSdkLevel { get; set; } = -1;
+        public string LegacyAndroidRootCertPath { get; set; } = string.Empty;
     }
 }

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Security;
 using System.Collections.Concurrent;
+using NetworkMonitor.Objects.Repository.Helpers;
 namespace NetworkMonitor.Objects.Repository
 {
     public interface IRabbitListenerBase
@@ -104,12 +105,7 @@ namespace NetworkMonitor.Objects.Repository
                 TopologyRecoveryEnabled = true,
                 Port = _systemUrl.RabbitPort,
                 RequestedHeartbeat = TimeSpan.FromSeconds(30),
-                Ssl = new SslOption
-                {
-                    Enabled = _isTls,
-                    ServerName = _systemUrl.RabbitHostName,
-                    AcceptablePolicyErrors = SslPolicyErrors.None
-                }
+                Ssl = BuildSslOption()
             };
             _state.IsRabbitConnected = false;
             var result = new ResultObj();
@@ -202,6 +198,19 @@ namespace NetworkMonitor.Objects.Repository
             _state.RabbitSetupMessage = result.Message;
             // _running=result.Success;
             return result;
+        }
+
+        private SslOption BuildSslOption()
+        {
+            var sslOption = new SslOption
+            {
+                Enabled = _isTls,
+                ServerName = _systemUrl.RabbitHostName,
+                AcceptablePolicyErrors = SslPolicyErrors.None
+            };
+
+            LegacyAndroidSslHelper.Configure(_systemUrl, sslOption, _logger);
+            return sslOption;
         }
         private async Task OnConnectionShutdown(object? sender, ShutdownEventArgs e)
         {
