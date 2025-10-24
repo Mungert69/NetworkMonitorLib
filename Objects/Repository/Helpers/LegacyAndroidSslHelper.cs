@@ -30,7 +30,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
             // Ensure SNI/hostname is set so the right cert is presented & name checks can pass
             if (string.IsNullOrWhiteSpace(sslOption.ServerName))
-                sslOption.ServerName = systemUrl.Hostname;
+                sslOption.ServerName = systemUrl.RabbitHostName;
 
             // Keep policy strict; we’ll decide entirely in the callback
             sslOption.AcceptablePolicyErrors = SslPolicyErrors.None;
