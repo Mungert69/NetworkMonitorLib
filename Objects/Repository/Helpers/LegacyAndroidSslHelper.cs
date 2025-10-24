@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Security;
@@ -88,12 +89,29 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                     // Reuse any intermediates the platform handed us
                     if (platformChain != null)
                     {
+                        var platformSubjects = new List<string>();
+
+                        try
+                        {
+                            // Android 5/6 surfaces the chain object without building it.
+                            // Force a build so ChainElements is populated for reuse/logging.
+                            platformChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                            platformChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                            platformChain.Build(leaf);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger?.LogDebug(ex, "Failed to build platform chain before extracting intermediates.");
+                        }
+
                         foreach (var element in platformChain.ChainElements)
                         {
                             var c = element.Certificate;
                             if (c == null) continue;
                             var t = c.Thumbprint;
                             if (string.IsNullOrEmpty(t)) continue;
+
+                            platformSubjects.Add(c.Subject);
 
                             if (!t.Equals(leaf.Thumbprint, StringComparison.OrdinalIgnoreCase) &&
                                 !t.Equals(rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
@@ -104,7 +122,9 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
                         // (debug) what Android passed in
                         logger?.LogDebug("Platform chain elems: {Elems}",
-                            string.Join(" -> ", platformChain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject)));
+                            platformSubjects.Count == 0
+                                ? "<empty>"
+                                : string.Join(" -> ", platformSubjects));
                     }
 
                     var ok = chain.Build(leaf);
