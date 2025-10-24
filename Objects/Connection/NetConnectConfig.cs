@@ -177,7 +177,6 @@ namespace NetworkMonitor.Connection
         }
         public string LoadServer { get => _loadServer; set => _loadServer = value; }
 
-        // Removed legacy UseTls; use LocalSystemUrl.UseTls or SystemUrls[].UseTls
         public string ServiceDomain { get => _serviceDomain; set => _serviceDomain = value; }
         public string ServiceServer { get => _serviceServer; set => _serviceServer = value; }
         public bool IsRestrictedPublishPerm { get => _isRestrictedPublishPerm; set => _isRestrictedPublishPerm = value; }
@@ -315,7 +314,6 @@ namespace NetworkMonitor.Connection
                 DefaultEndpointType = config["DefaultEndpointType"] ?? "icmp";
                 UseDefaultEndpointType = bool.TryParse(config["UseDefaultEndpointType"], out bool useDefaultEndpointType) ? useDefaultEndpointType : false;
                 ServiceDomain = config["ServiceDomain"] ?? AppConstants.AppDomain;
-                // Root-level UseTls no longer read; rely on LocalSystemUrl:UseTls or default true.
                 IsRestrictedPublishPerm = bool.TryParse(config["IsRestrictedPublishPerm"], out bool restrictedPublishPerm) ? restrictedPublishPerm : false;
                 AgentUserFlow.IsAuthorized = bool.TryParse(config["AgentUserFlow:IsAuthorized"], out bool isAuthorized) ? isAuthorized : false;
                 AgentUserFlow.IsLoggedInWebsite = bool.TryParse(config["AgentUserFlow:IsLoggedInWebsite"], out bool isLoggedInWebsite) ? isLoggedInWebsite : false;
