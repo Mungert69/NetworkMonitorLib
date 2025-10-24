@@ -26,7 +26,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             if (sslOption == null || systemUrl == null || !sslOption.Enabled) return;
             if (systemUrl.AndroidSdkLevel <= 0 || systemUrl.AndroidSdkLevel > LegacyAndroidMaxSdkLevel) return;
 
-            logger?.LogInformation("Applying legacy Android certificate handling for SDK level {SdkLevel}.", systemUrl.AndroidSdkLevel);
+            logger?.LogDebug("Applying legacy Android certificate handling for SDK level {SdkLevel}.", systemUrl.AndroidSdkLevel);
 
             // Ensure SNI/hostname is set so the right cert is presented & name checks can pass
             if (string.IsNullOrWhiteSpace(sslOption.ServerName))
@@ -103,14 +103,14 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                         }
 
                         // (debug) what Android passed in
-                        logger?.LogInformation("Platform chain elems: {Elems}",
+                        logger?.LogDebug("Platform chain elems: {Elems}",
                             string.Join(" -> ", platformChain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject)));
                     }
 
                     var ok = chain.Build(leaf);
 
                     // (debug) what we actually built with
-                    logger?.LogInformation("Built chain elems: {Elems}",
+                    logger?.LogDebug("Built chain elems: {Elems}",
                         string.Join(" -> ", chain.ChainElements.Cast<X509ChainElement>().Select(e => e.Certificate.Subject)));
 
                     // Some legacy stacks may still report PartialChain/UntrustedRoot.
