@@ -72,25 +72,21 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 var leaf = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
                 var disposeLeaf = !(certificate is X509Certificate2);
 
-                var chain = new X509Chain();
-                var disposeChain = true;
-
                 try
                 {
-                    chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck; // legacy devices
-                    chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-                    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                    chain.ChainPolicy.CustomTrustStore.Clear();
-                    chain.ChainPolicy.ExtraStore.Clear();
-
                     var rootCert = GetRootCertificate(systemUrl, logger);
-                    chain.ChainPolicy.CustomTrustStore.Add(rootCert);
-                    chain.ChainPolicy.ExtraStore.Add(rootCert); // <-- key fix: make root visible to path builder
+                    var extraCertificates = new List<X509Certificate2>();
+                    var knownThumbprints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                    var knownIntermediates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    void AddExtra(X509Certificate2 cert)
                     {
-                        rootCert.Thumbprint
-                    };
+                        var thumb = cert?.Thumbprint;
+                        if (cert == null || string.IsNullOrEmpty(thumb)) return;
+                        if (knownThumbprints.Add(thumb))
+                            extraCertificates.Add(cert);
+                    }
+
+                    AddExtra(rootCert);
 
                     // Reuse any intermediates the platform handed us
                     if (platformChain != null)
@@ -99,8 +95,6 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
                         try
                         {
-                            // Android 5/6 surfaces the chain object without building it.
-                            // Force a build so ChainElements is populated for reuse/logging.
                             platformChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
                             platformChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
                             platformChain.Build(leaf);
@@ -114,75 +108,34 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                         {
                             var c = element.Certificate;
                             if (c == null) continue;
-                            var t = c.Thumbprint;
-                            if (string.IsNullOrEmpty(t)) continue;
 
                             platformSubjects.Add(c.Subject);
 
-                            if (!t.Equals(leaf.Thumbprint, StringComparison.OrdinalIgnoreCase) &&
-                                !t.Equals(rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
-                            {
-                                chain.ChainPolicy.ExtraStore.Add(c);
-                                knownIntermediates.Add(t);
-                            }
+                            if (!string.Equals(c.Thumbprint, leaf.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                                AddExtra(c);
                         }
 
-                        // (debug) what Android passed in
                         logger?.LogDebug("Platform chain elems: {Elems}",
                             platformSubjects.Count == 0
                                 ? "<empty>"
                                 : string.Join(" -> ", platformSubjects));
                     }
 
-                    // Legacy devices frequently fail to send intermediates; supply the common Let's Encrypt chain.
                     foreach (var intermediate in GetDefaultLegacyIntermediates(logger))
-                    {
-                        var thumb = intermediate.Thumbprint;
-                        if (!string.IsNullOrEmpty(thumb) && knownIntermediates.Add(thumb))
-                        {
-                            chain.ChainPolicy.ExtraStore.Add(intermediate);
-                        }
-                    }
+                        AddExtra(intermediate);
 
-                    var ok = chain.Build(leaf);
+                    var extrasSnapshot = extraCertificates.ToList();
 
-                    // (debug) what we actually built with
-                    var builtSubjects = chain.ChainElements
-                        .Cast<X509ChainElement>()
-                        .Select(e => e.Certificate.Subject)
-                        .ToList();
+                    if (TryBuildChain(leaf, rootCert, extrasSnapshot, useCustomRootTrust: true, logWarnings: false, logger, "custom-root"))
+                        return true;
 
-                    logger?.LogDebug("Built chain elems: {Elems}",
-                        builtSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", builtSubjects));
+                    if (TryBuildChain(leaf, rootCert, extrasSnapshot, useCustomRootTrust: false, logWarnings: true, logger, "system-trust"))
+                        return true;
 
-                    // Some legacy stacks may still report PartialChain/UntrustedRoot.
-                    // Accept if the built chain actually anchors at our ISRG root.
-                    if (!ok)
-                    {
-                        bool onlyUnknownRootOrPartial = chain.ChainStatus.All(s =>
-                            s.Status == X509ChainStatusFlags.UntrustedRoot ||
-                            s.Status == X509ChainStatusFlags.PartialChain ||
-                            s.Status == X509ChainStatusFlags.RevocationStatusUnknown);
-
-                        if (onlyUnknownRootOrPartial)
-                        {
-                            var anchored = chain.ChainElements
-                                .Cast<X509ChainElement>()
-                                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
-
-                            if (anchored)
-                                return true; // accept: we proved the chain terminates at our ISRG root
-                        }
-
-                        foreach (var status in chain.ChainStatus)
-                            logger?.LogWarning("Certificate chain validation failed: {Status} - {Info}", status.Status, status.StatusInformation);
-                    }
-
-                    return ok;
+                    return false;
                 }
                 finally
                 {
-                    if (disposeChain) chain.Dispose();
                     if (disposeLeaf) leaf.Dispose();
                 }
             }
@@ -299,5 +252,81 @@ tA0Z7qq7fta0Gl24uyuB05dqI5J1LvAzKuWdIjT1tP8qCoxSE/xpix8hX2dt3h+/
 jujUgFPFZ0EVZ0xSyBNRF3MboGZnYXFUxpNjTWPKpagDHJQmqrAcDmWJnMsFY3jS
 u1igv3OefnWjSQ==
 -----END CERTIFICATE-----";
+
+        private static bool TryBuildChain(
+            X509Certificate2 leaf,
+            X509Certificate2 rootCert,
+            IReadOnlyCollection<X509Certificate2> extraStore,
+            bool useCustomRootTrust,
+            bool logWarnings,
+            ILogger? logger,
+            string attemptLabel)
+        {
+            using var chain = new X509Chain();
+
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+            chain.ChainPolicy.CustomTrustStore.Clear();
+            chain.ChainPolicy.ExtraStore.Clear();
+
+            foreach (var cert in extraStore)
+                chain.ChainPolicy.ExtraStore.Add(cert);
+
+            if (useCustomRootTrust)
+            {
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                chain.ChainPolicy.CustomTrustStore.Add(rootCert);
+            }
+            else
+            {
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.System;
+            }
+
+            var ok = chain.Build(leaf);
+
+            var builtSubjects = chain.ChainElements
+                .Cast<X509ChainElement>()
+                .Select(e => e.Certificate.Subject)
+                .ToList();
+
+            logger?.LogDebug("{AttemptLabel} chain elems: {Elems}",
+                attemptLabel,
+                builtSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", builtSubjects));
+
+            if (ok) return true;
+
+            foreach (var status in chain.ChainStatus)
+            {
+                if (logWarnings)
+                {
+                    logger?.LogWarning("Certificate chain validation failed ({Attempt}): {Status} - {Info}",
+                        attemptLabel, status.Status, status.StatusInformation);
+                }
+                else
+                {
+                    logger?.LogDebug("Certificate chain validation failed ({Attempt}): {Status} - {Info}",
+                        attemptLabel, status.Status, status.StatusInformation);
+                }
+            }
+
+            var anchored = chain.ChainElements
+                .Cast<X509ChainElement>()
+                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
+
+            bool onlyBenign = chain.ChainStatus.All(s =>
+                s.Status == X509ChainStatusFlags.UntrustedRoot ||
+                s.Status == X509ChainStatusFlags.PartialChain ||
+                s.Status == X509ChainStatusFlags.RevocationStatusUnknown);
+
+            if (anchored && onlyBenign)
+            {
+                logger?.LogDebug("{Attempt} chain anchored at embedded root; accepting despite statuses {Statuses}.",
+                    attemptLabel,
+                    string.Join(", ", chain.ChainStatus.Select(s => s.Status)));
+                return true;
+            }
+
+            return false;
+        }
     }
 }
