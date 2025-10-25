@@ -15,7 +15,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
     /// <summary>
     /// Android 5/6 (SDK &lt;= 23) certificate validation:
     /// - Anchor to ISRG Root X1 (embedded or file).
-    /// - Ensure Let's Encrypt E8 intermediate is available:
+    /// - Ensure Let's Encrypt chain.pem intermediate is available:
     ///   * Prefer app-configured URL (served by your nginx),
     ///   * else embedded copy,
     ///   * plus any intermediates surfaced by the platform.
@@ -25,8 +25,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
         private const int LegacyAndroidMaxSdkLevel = 23;
 
         private static X509Certificate2? _cachedIsrgRoot;
-        private static X509Certificate2? _cachedLetsEncryptE8Embedded;
-        private static X509Certificate2? _cachedLetsEncryptE7Embedded;
+        private static X509Certificate2? _cachedLetsEncryptChainEmbedded;
         private static readonly Dictionary<string, X509Certificate2> DownloadedIntermediates = new(StringComparer.OrdinalIgnoreCase);
 
         internal static void Configure(SystemUrl systemUrl, SslOption sslOption, ILogger? logger)
@@ -127,7 +126,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 }
 
                 // Always add embedded fallback.
-                Add(GetEmbeddedLetsEncryptE8(logger));
+                Add(GetEmbeddedLetsEncryptChain(logger));
 
                 // Log extras we will provide
                 logger?.LogDebug("ExtraStore (subjects): {Subs}",
@@ -243,32 +242,18 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             return _cachedIsrgRoot;
         }
 
-        private static X509Certificate2? GetEmbeddedLetsEncryptE8(ILogger? logger)
+        private static X509Certificate2? GetEmbeddedLetsEncryptChain(ILogger? logger)
         {
-            if (_cachedLetsEncryptE8Embedded != null) return _cachedLetsEncryptE8Embedded;
+            if (_cachedLetsEncryptChainEmbedded != null) return _cachedLetsEncryptChainEmbedded;
             try
             {
-                _cachedLetsEncryptE8Embedded = X509Certificate2.CreateFromPem(LetsEncryptE8Pem);
+                _cachedLetsEncryptChainEmbedded = X509Certificate2.CreateFromPem(LetsEncryptChainPem);
             }
             catch (Exception ex)
             {
-                logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt E8 intermediate certificate.");
+                logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt chain.pem intermediate certificate.");
             }
-            return _cachedLetsEncryptE8Embedded;
-        }
-
-        private static X509Certificate2? GetEmbeddedLetsEncryptE7(ILogger? logger)
-        {
-            if (_cachedLetsEncryptE7Embedded != null) return _cachedLetsEncryptE7Embedded;
-            try
-            {
-                _cachedLetsEncryptE7Embedded = X509Certificate2.CreateFromPem(LetsEncryptE7Pem);
-            }
-            catch (Exception ex)
-            {
-                logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt E7 intermediate certificate.");
-            }
-            return _cachedLetsEncryptE7Embedded;
+            return _cachedLetsEncryptChainEmbedded;
         }
 
         private static X509Certificate2? TryFetchIntermediateFromUrl(string? url, ILogger? logger)
@@ -315,8 +300,7 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 yield break;
             }
 
-            yield return $"{trimmed}/e8.pem";
-            yield return $"{trimmed}/e7.pem";
+            yield return $"{trimmed}/chain.pem";
         }
 
         private const string IsrgRootX1Pem = @"-----BEGIN CERTIFICATE-----
@@ -351,34 +335,7 @@ mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
 emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----";
 
-        private const string LetsEncryptE8Pem = @"-----BEGIN CERTIFICATE-----
-MIIEVzCCAj+gAwIBAgIRAKp18eYrjwoiCWbTi7/UuqEwDQYJKoZIhvcNAQELBQAw
-TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
-cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjQwMzEzMDAwMDAw
-WhcNMjcwMzEyMjM1OTU5WjAyMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg
-RW5jcnlwdDELMAkGA1UEAxMCRTcwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAARB6AST
-CFh/vjcwDMCgQer+VtqEkz7JANurZxLP+U9TCeioL6sp5Z8VRvRbYk4P1INBmbef
-QHJFHCxcSjKmwtvGBWpl/9ra8HW0QDsUaJW2qOJqceJ0ZVFT3hbUHifBM/2jgfgw
-gfUwDgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
-ATASBgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBSuSJ7chx1EoG/aouVgdAR4
-wpwAgDAfBgNVHSMEGDAWgBR5tFnme7bl5AFzgAiIyBpY9umbbjAyBggrBgEFBQcB
-AQQmMCQwIgYIKwYBBQUHMAKGFmh0dHA6Ly94MS5pLmxlbmNyLm9yZy8wEwYDVR0g
-BAwwCjAIBgZngQwBAgEwJwYDVR0fBCAwHjAcoBqgGIYWaHR0cDovL3gxLmMubGVu
-Y3Iub3JnLzANBgkqhkiG9w0BAQsFAAOCAgEAjx66fDdLk5ywFn3CzA1w1qfylHUD
-aEf0QZpXcJseddJGSfbUUOvbNR9N/QQ16K1lXl4VFyhmGXDT5Kdfcr0RvIIVrNxF
-h4lqHtRRCP6RBRstqbZ2zURgqakn/Xip0iaQL0IdfHBZr396FgknniRYFckKORPG
-yM3QKnd66gtMst8I5nkRQlAg/Jb+Gc3egIvuGKWboE1G89NTsN9LTDD3PLj0dUMr
-OIuqVjLB8pEC6yk9enrlrqjXQgkLEYhXzq7dLafv5Vkig6Gl0nuuqjqfp0Q1bi1o
-yVNAlXe6aUXw92CcghC9bNsKEO1+M52YY5+ofIXlS/SEQbvVYYBLZ5yeiglV6t3S
-M6H+vTG0aP9YHzLn/KVOHzGQfXDP7qM5tkf+7diZe7o2fw6O7IvN6fsQXEQQj8TJ
-UXJxv2/uJhcuy/tSDgXwHM8Uk34WNbRT7zGTGkQRX0gsbjAea/jYAoWv0ZvQRwpq
-Pe79D/i7Cep8qWnA+7AE/3B3S/3dEEYmc0lpe1366A/6GEgk3ktr9PEoQrLChs6I
-tu3wnNLB2euC8IKGLQFpGtOO/2/hiAKjyajaBP25w1jF0Wl8Bbqne3uZ2q1GyPFJ
-YRmT7/OXpmOH/FVLtwS+8ng1cAmpCujPwteJZNcDG0sF2n/sc0+SQf49fdyUK0ty
-+VUwFj9tmWxyR/M=
------END CERTIFICATE-----";
-
-        private const string LetsEncryptE7Pem = @"-----BEGIN CERTIFICATE-----
+        private const string LetsEncryptChainPem = @"-----BEGIN CERTIFICATE-----
 MIIEVjCCAj6gAwIBAgIQY5WTY8JOcIJxWRi/w9ftVjANBgkqhkiG9w0BAQsFADBP
 MQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFy
 Y2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTAeFw0yNDAzMTMwMDAwMDBa
@@ -404,5 +361,6 @@ tA0Z7qq7fta0Gl24uyuB05dqI5J1LvAzKuWdIjT1tP8qCoxSE/xpix8hX2dt3h+/
 jujUgFPFZ0EVZ0xSyBNRF3MboGZnYXFUxpNjTWPKpagDHJQmqrAcDmWJnMsFY3jS
 u1igv3OefnWjSQ==
 -----END CERTIFICATE-----";
+
     }
 }
