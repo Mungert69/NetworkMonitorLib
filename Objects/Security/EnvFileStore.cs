@@ -83,6 +83,13 @@ namespace NetworkMonitor.Security
             await _mutex.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                var normalizedValue = value ?? string.Empty;
+                if (string.Equals(normalizedValue.Trim(), ".env", StringComparison.Ordinal))
+                {
+                    _logger?.LogWarning("Skipped writing placeholder value for {Key} to {Path}", key, EnvFilePath);
+                    return;
+                }
+
                 var lines = new List<string>();
                 bool replaced = false;
 
@@ -93,7 +100,7 @@ namespace NetworkMonitor.Security
                     {
                         if (TryMatchKey(line, key))
                         {
-                            lines.Add(FormatLine(key, value));
+                            lines.Add(FormatLine(key, normalizedValue));
                             replaced = true;
                         }
                         else
@@ -109,11 +116,11 @@ namespace NetworkMonitor.Security
                     {
                         lines.Add(string.Empty);
                     }
-                    lines.Add(FormatLine(key, value));
+                    lines.Add(FormatLine(key, normalizedValue));
                 }
 
                 await File.WriteAllLinesAsync(EnvFilePath, lines, cancellationToken).ConfigureAwait(false);
-                Environment.SetEnvironmentVariable(key, value);
+                Environment.SetEnvironmentVariable(key, normalizedValue);
                 _logger?.LogInformation("Updated environment variable {Key} in file {Path}", key, EnvFilePath);
             }
             finally
