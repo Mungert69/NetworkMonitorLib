@@ -42,13 +42,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     var attempt = retryCount + 1;
                     object maxDisplay = maxRetries == -1 ? "infinite" : maxRetries;
-                    string? endpointDetails = null;
-
-                    if (ex is BrokerUnreachableException brokerEx && brokerEx.InnerExceptions?.Count > 0)
-                    {
-                        endpointDetails = string.Join(" | ",
-                            brokerEx.InnerExceptions.Select(inner => $"{inner.GetType().Name}: {inner.Message}"));
-                    }
+                    var endpointDetails = SummarizeExceptionChain(ex);
 
                     if (!string.IsNullOrEmpty(endpointDetails))
                     {
@@ -69,6 +63,28 @@ namespace NetworkMonitor.Objects.Repository
                 await Task.Delay(retryDelayMilliseconds);
             }
             return (false, null); // Connection failed after max retries
+        }
+
+        private static string SummarizeExceptionChain(Exception ex)
+        {
+            var summaries = new List<string>();
+            void Walk(Exception? current)
+            {
+                if (current == null) return;
+                summaries.Add($"{current.GetType().Name}: {current.Message}");
+                if (current is AggregateException aggregate)
+                {
+                    foreach (var inner in aggregate.InnerExceptions)
+                        Walk(inner);
+                }
+                else
+                {
+                    Walk(current.InnerException);
+                }
+            }
+
+            Walk(ex);
+            return string.Join(" | ", summaries.Distinct());
         }
     }
 }
