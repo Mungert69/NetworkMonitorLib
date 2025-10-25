@@ -1,5 +1,6 @@
 // AndroidProcWrapperRunner.cs
 #if ANDROID
+using System;
 using Android.App;
 using Android.OS;
 using Android.Content.PM;
@@ -18,6 +19,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 {
     private readonly ILogger _logger;
     private readonly string _nativeDir;
+    private readonly bool _useLegacyLinkerWrap;
 
     // Heuristic flag: are native libs extracted to filesystem?
     // True  -> files should exist under _nativeDir/lib<abi> and be chmod-able
@@ -30,6 +32,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         _nativeDir = string.IsNullOrWhiteSpace(nativeDir)
             ? Application.Context.ApplicationInfo!.NativeLibraryDir!
             : nativeDir!;
+        _useLegacyLinkerWrap = (int)Build.VERSION.SdkInt <= (int)BuildVersionCodes.M;
     }
 
     public async Task<string> RunAsync(
@@ -43,6 +46,26 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         string exeFullPath = System.IO.Path.IsPathRooted(executablePath)
             ? executablePath
             : System.IO.Path.Combine(_nativeDir, executablePath);
+
+        string launchPath = exeFullPath;
+        string launchArguments = arguments;
+
+        if (_useLegacyLinkerWrap && exeFullPath.EndsWith(".so", System.StringComparison.OrdinalIgnoreCase))
+        {
+            string linkerPath = "/system/bin/linker";
+            try
+            {
+                if (Is64BitExecutable(exeFullPath) && System.IO.File.Exists("/system/bin/linker64"))
+                {
+                    linkerPath = "/system/bin/linker64";
+                }
+            }
+            catch { /* best-effort only */ }
+
+            launchArguments = $"--library-path {_nativeDir} {exeFullPath} {arguments}".TrimEnd();
+            launchPath = linkerPath;
+            _logger.LogInformation("Legacy linker wrap enabled: {Linker} --library-path {Dir} {Target}", linkerPath, _nativeDir, exeFullPath);
+        }
 
         // Detect + log install mode up front
         DetectInstallMode();
@@ -95,14 +118,14 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
         using var ctr = token.Register(() => { try { ps.Stop(); } catch { } });
 
-        _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", exeFullPath, arguments);
+        _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", launchPath, launchArguments);
 
-        var argv = NetworkMonitor.Utils.Argv.Tokenize(arguments);
+        var argv = NetworkMonitor.Utils.Argv.Tokenize(launchArguments);
         _logger.LogInformation("argv: {Argv}", NetworkMonitor.Utils.Argv.ForLog(argv));
-        if (!ps.Start(exeFullPath, argv))
+        if (!ps.Start(launchPath, argv))
         {
-            _logger.LogError("Failed to start process: {Path}", exeFullPath);
-            return $"Failed to start: {exeFullPath}";
+            _logger.LogError("Failed to start process: {Path}", launchPath);
+            return $"Failed to start: {launchPath}";
         }
 
         var exit = await ps.WaitForExitAsync(50, token);
@@ -302,5 +325,21 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
     }
 
     // (BuildArgvVector inlined into ps.Start() call above; keep if you prefer)
+
+    private static bool Is64BitExecutable(string path)
+    {
+        try
+        {
+            using var fs = System.IO.File.OpenRead(path);
+            Span<byte> eHdr = stackalloc byte[5];
+            if (fs.Read(eHdr) == eHdr.Length)
+            {
+                // ELF magic + class byte
+                return eHdr[0] == 0x7f && eHdr[1] == (byte)'E' && eHdr[2] == (byte)'L' && eHdr[3] == (byte)'F' && eHdr[4] == 2;
+            }
+        }
+        catch { }
+        return false;
+    }
 }
 #endif
