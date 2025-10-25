@@ -22,6 +22,6 @@ namespace NetworkMonitor.Objects
         public string LegacyAndroidRootCertPath { get; set; } = string.Empty;
         public string LegacyIntermediateUrl { get; set; } = DefaultLegacyIntermediateUrl;
 
-        private const string DefaultLegacyIntermediateUrl = "https://readyforquantum.com/.well-known/le/e8.pem";
+        private const string DefaultLegacyIntermediateUrl = "https://readyforquantum.com/.well-known/le/chain.pem";
     }
 }

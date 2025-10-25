@@ -26,7 +26,8 @@ namespace NetworkMonitor.Objects.Repository.Helpers
 
         private static X509Certificate2? _cachedIsrgRoot;
         private static X509Certificate2? _cachedLetsEncryptE8Embedded;
-        private static X509Certificate2? _cachedLetsEncryptE8FromUrl;
+        private static X509Certificate2? _cachedLetsEncryptE7Embedded;
+        private static readonly Dictionary<string, X509Certificate2> DownloadedIntermediates = new(StringComparer.OrdinalIgnoreCase);
 
         internal static void Configure(SystemUrl systemUrl, SslOption sslOption, ILogger? logger)
         {
@@ -119,11 +120,13 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                         platformSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", platformSubjects));
                 }
 
-                // Try to fetch intermediate from URL (served by your nginx) – optional.
-                var urlIntermediate = TryFetchIntermediateFromUrl(systemUrl.LegacyIntermediateUrl, logger);
-                Add(urlIntermediate);
+                // Try to fetch intermediates from configured path(s) – optional.
+                foreach (var url in EnumerateIntermediateUrls(systemUrl))
+                {
+                    Add(TryFetchIntermediateFromUrl(url, logger));
+                }
 
-                // Always add embedded E8 as a fallback.
+                // Always add embedded fallback.
                 Add(GetEmbeddedLetsEncryptE8(logger));
 
                 // Log extras we will provide
@@ -254,15 +257,27 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             return _cachedLetsEncryptE8Embedded;
         }
 
+        private static X509Certificate2? GetEmbeddedLetsEncryptE7(ILogger? logger)
+        {
+            if (_cachedLetsEncryptE7Embedded != null) return _cachedLetsEncryptE7Embedded;
+            try
+            {
+                _cachedLetsEncryptE7Embedded = X509Certificate2.CreateFromPem(LetsEncryptE7Pem);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to parse embedded Let's Encrypt E7 intermediate certificate.");
+            }
+            return _cachedLetsEncryptE7Embedded;
+        }
+
         private static X509Certificate2? TryFetchIntermediateFromUrl(string? url, ILogger? logger)
         {
             if (string.IsNullOrWhiteSpace(url)) return null;
-            if (_cachedLetsEncryptE8FromUrl != null) return _cachedLetsEncryptE8FromUrl;
+            if (DownloadedIntermediates.TryGetValue(url, out var cached)) return cached;
 
             try
             {
-                // Dedicated HttpClient that *does not* enforce TLS validation, to avoid bootstrap loops.
-                // We only fetch a public intermediate PEM and still validate chains ourselves later.
                 using var handler = new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback = static (_, __, ___, ____) => true
@@ -275,15 +290,33 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 var pem = client.GetStringAsync(url).GetAwaiter().GetResult();
                 if (string.IsNullOrWhiteSpace(pem)) return null;
 
-                _cachedLetsEncryptE8FromUrl = X509Certificate2.CreateFromPem(pem);
-                logger?.LogDebug("Downloaded intermediate from {Url}: {Subject}", url, _cachedLetsEncryptE8FromUrl.Subject);
-                return _cachedLetsEncryptE8FromUrl;
+                var cert = X509Certificate2.CreateFromPem(pem);
+                DownloadedIntermediates[url] = cert;
+                logger?.LogDebug("Downloaded intermediate from {Url}: {Subject}", url, cert.Subject);
+                return cert;
             }
             catch (Exception ex)
             {
                 logger?.LogDebug(ex, "Failed to download intermediate from {Url}. Will rely on embedded copy / platform extras.", url);
                 return null;
             }
+        }
+
+        private static IEnumerable<string> EnumerateIntermediateUrls(SystemUrl systemUrl)
+        {
+            if (string.IsNullOrWhiteSpace(systemUrl.LegacyIntermediateUrl))
+                yield break;
+
+            var trimmed = systemUrl.LegacyIntermediateUrl.TrimEnd('/');
+
+            if (trimmed.EndsWith(".pem", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return trimmed;
+                yield break;
+            }
+
+            yield return $"{trimmed}/e8.pem";
+            yield return $"{trimmed}/e7.pem";
         }
 
         private const string IsrgRootX1Pem = @"-----BEGIN CERTIFICATE-----
@@ -343,6 +376,33 @@ Pe79D/i7Cep8qWnA+7AE/3B3S/3dEEYmc0lpe1366A/6GEgk3ktr9PEoQrLChs6I
 tu3wnNLB2euC8IKGLQFpGtOO/2/hiAKjyajaBP25w1jF0Wl8Bbqne3uZ2q1GyPFJ
 YRmT7/OXpmOH/FVLtwS+8ng1cAmpCujPwteJZNcDG0sF2n/sc0+SQf49fdyUK0ty
 +VUwFj9tmWxyR/M=
+-----END CERTIFICATE-----";
+
+        private const string LetsEncryptE7Pem = @"-----BEGIN CERTIFICATE-----
+MIIEVjCCAj6gAwIBAgIQY5WTY8JOcIJxWRi/w9ftVjANBgkqhkiG9w0BAQsFADBP
+MQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFy
+Y2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTAeFw0yNDAzMTMwMDAwMDBa
+Fw0yNzAzMTIyMzU5NTlaMDIxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBF
+bmNyeXB0MQswCQYDVQQDEwJFODB2MBAGByqGSM49AgEGBSuBBAAiA2IABNFl8l7c
+S7QMApzSsvru6WyrOq44ofTUOTIzxULUzDMMNMchIJBwXOhiLxxxs0LXeb5GDcHb
+R6EToMffgSZjO9SNHfY9gjMy9vQr5/WWOrQTZxh7az6NSNnq3u2ubT6HTKOB+DCB
+9TAOBgNVHQ8BAf8EBAMCAYYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMB
+MBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0OBBYEFI8NE6L2Ln7RUGwzGDhdWY4j
+cpHKMB8GA1UdIwQYMBaAFHm0WeZ7tuXkAXOACIjIGlj26ZtuMDIGCCsGAQUFBwEB
+BCYwJDAiBggrBgEFBQcwAoYWaHR0cDovL3gxLmkubGVuY3Iub3JnLzATBgNVHSAE
+DDAKMAgGBmeBDAECATAnBgNVHR8EIDAeMBygGqAYhhZodHRwOi8veDEuYy5sZW5j
+ci5vcmcvMA0GCSqGSIb3DQEBCwUAA4ICAQBnE0hGINKsCYWi0Xx1ygxD5qihEjZ0
+RI3tTZz1wuATH3ZwYPIp97kWEayanD1j0cDhIYzy4CkDo2jB8D5t0a6zZWzlr98d
+AQFNh8uKJkIHdLShy+nUyeZxc5bNeMp1Lu0gSzE4McqfmNMvIpeiwWSYO9w82Ob8
+otvXcO2JUYi3svHIWRm3+707DUbL51XMcY2iZdlCq4Wa9nbuk3WTU4gr6LY8MzVA
+aDQG2+4U3eJ6qUF10bBnR1uuVyDYs9RhrwucRVnfuDj29CMLTsplM5f5wSV5hUpm
+Uwp/vV7M4w4aGunt74koX71n4EdagCsL/Yk5+mAQU0+tue0JOfAV/R6t1k+Xk9s2
+HMQFeoxppfzAVC04FdG9M+AC2JWxmFSt6BCuh3CEey3fE52Qrj9YM75rtvIjsm/1
+Hl+u//Wqxnu1ZQ4jpa+VpuZiGOlWrqSP9eogdOhCGisnyewWJwRQOqK16wiGyZeR
+xs/Bekw65vwSIaVkBruPiTfMOo0Zh4gVa8/qJgMbJbyrwwG97z/PRgmLKCDl8z3d
+tA0Z7qq7fta0Gl24uyuB05dqI5J1LvAzKuWdIjT1tP8qCoxSE/xpix8hX2dt3h+/
+jujUgFPFZ0EVZ0xSyBNRF3MboGZnYXFUxpNjTWPKpagDHJQmqrAcDmWJnMsFY3jS
+u1igv3OefnWjSQ==
 -----END CERTIFICATE-----";
     }
 }
