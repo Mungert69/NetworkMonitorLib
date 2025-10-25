@@ -35,7 +35,7 @@ namespace NetworkMonitor.Connection
             _logger = logger;
 
 #if ANDROID
-            _runner = new AndroidProcWrapperRunner(logger, _nativeLibDir);
+            _runner = new AndroidProcWrapperRunner(logger);
 #else
             _runner = new DefaultProcessRunner(logger);
 #endif

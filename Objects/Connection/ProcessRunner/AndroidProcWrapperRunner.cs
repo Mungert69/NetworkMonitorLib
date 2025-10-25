@@ -1,6 +1,5 @@
 // AndroidProcWrapperRunner.cs
 #if ANDROID
-using System;
 using Android.App;
 using Android.OS;
 using Android.Content.PM;
@@ -19,7 +18,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 {
     private readonly ILogger _logger;
     private readonly string _nativeDir;
-    private readonly bool _useLegacyLinkerWrap;
+    private readonly bool _useLegacyShellWrap;
 
     // Heuristic flag: are native libs extracted to filesystem?
     // True  -> files should exist under _nativeDir/lib<abi> and be chmod-able
@@ -32,7 +31,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         _nativeDir = string.IsNullOrWhiteSpace(nativeDir)
             ? Application.Context.ApplicationInfo!.NativeLibraryDir!
             : nativeDir!;
-        _useLegacyLinkerWrap = (int)Build.VERSION.SdkInt <= (int)BuildVersionCodes.M;
+        _useLegacyShellWrap = (int)Build.VERSION.SdkInt <= (int)BuildVersionCodes.M;
     }
 
     public async Task<string> RunAsync(
@@ -46,26 +45,6 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         string exeFullPath = System.IO.Path.IsPathRooted(executablePath)
             ? executablePath
             : System.IO.Path.Combine(_nativeDir, executablePath);
-
-        string launchPath = exeFullPath;
-        string launchArguments = arguments;
-
-        if (_useLegacyLinkerWrap && exeFullPath.EndsWith(".so", System.StringComparison.OrdinalIgnoreCase))
-        {
-            string linkerPath = "/system/bin/linker";
-            try
-            {
-                if (Is64BitExecutable(exeFullPath) && System.IO.File.Exists("/system/bin/linker64"))
-                {
-                    linkerPath = "/system/bin/linker64";
-                }
-            }
-            catch { /* best-effort only */ }
-
-            launchArguments = $"--library-path {_nativeDir} {exeFullPath} {arguments}".TrimEnd();
-            launchPath = linkerPath;
-            _logger.LogInformation("Legacy linker wrap enabled: {Linker} --library-path {Dir} {Target}", linkerPath, _nativeDir, exeFullPath);
-        }
 
         // Detect + log install mode up front
         DetectInstallMode();
@@ -118,11 +97,19 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
 
         using var ctr = token.Register(() => { try { ps.Stop(); } catch { } });
 
-        _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", launchPath, launchArguments);
+        string launchPath = exeFullPath;
+        string[] launchArgv = NetworkMonitor.Utils.Argv.Tokenize(arguments);
 
-        var argv = NetworkMonitor.Utils.Argv.Tokenize(launchArguments);
-        _logger.LogInformation("argv: {Argv}", NetworkMonitor.Utils.Argv.ForLog(argv));
-        if (!ps.Start(launchPath, argv))
+        if (_useLegacyShellWrap && exeFullPath.EndsWith(".so", System.StringComparison.OrdinalIgnoreCase))
+        {
+            launchPath = "/system/bin/sh";
+            var shellCommand = BuildLegacyShellCommand(exeFullPath, launchArgv);
+            launchArgv = new[] { "-lc", shellCommand };
+            _logger.LogInformation("Legacy shell wrap enabled: sh -lc {Cmd}", shellCommand);
+        }
+
+        _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", launchPath, NetworkMonitor.Utils.Argv.ForLog(launchArgv));
+        if (!ps.Start(launchPath, launchArgv))
         {
             _logger.LogError("Failed to start process: {Path}", launchPath);
             return $"Failed to start: {launchPath}";
@@ -324,22 +311,47 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
             System.Environment.SetEnvironmentVariable("LD_LIBRARY_PATH", string.Join(':', ordered));
     }
 
+    private string BuildLegacyShellCommand(string exeFullPath, string[] argumentVector)
+    {
+        var sb = new StringBuilder();
+        bool first = true;
+
+        void AppendWithSpace(string segment)
+        {
+            if (!first)
+                sb.Append(' ');
+            sb.Append(segment);
+            first = false;
+        }
+
+        if (!string.IsNullOrEmpty(_nativeDir))
+        {
+            AppendWithSpace($"LD_LIBRARY_PATH={ShellQuote(_nativeDir)}");
+            AppendWithSpace($"OPENSSL_MODULES={ShellQuote(_nativeDir)}");
+        }
+
+        AppendWithSpace(ShellQuote(exeFullPath));
+        foreach (var arg in argumentVector)
+        {
+            AppendWithSpace(ShellQuote(arg));
+        }
+
+        return sb.ToString();
+    }
+
+    private static string ShellQuote(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "''";
+
+        var safe = value.All(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' or '/' or ':' or '@');
+        if (safe)
+            return value;
+
+        return "'" + value.Replace("'", "'\"'\"'") + "'";
+    }
+
     // (BuildArgvVector inlined into ps.Start() call above; keep if you prefer)
 
-    private static bool Is64BitExecutable(string path)
-    {
-        try
-        {
-            using var fs = System.IO.File.OpenRead(path);
-            Span<byte> eHdr = stackalloc byte[5];
-            if (fs.Read(eHdr) == eHdr.Length)
-            {
-                // ELF magic + class byte
-                return eHdr[0] == 0x7f && eHdr[1] == (byte)'E' && eHdr[2] == (byte)'L' && eHdr[3] == (byte)'F' && eHdr[4] == 2;
-            }
-        }
-        catch { }
-        return false;
-    }
 }
 #endif
