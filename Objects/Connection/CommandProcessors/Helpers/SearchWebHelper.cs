@@ -68,11 +68,11 @@ namespace NetworkMonitor.Connection
             try
             {
                 await page.WaitForFunctionAsync(
-                    @"() => document.querySelectorAll('a[href^=""/url?q=""]').length > 0",
+                    @"() => document.querySelectorAll('#search a[href^=""http""], #search a[href^=""/url?""]').length > 0",
                     new WaitForFunctionOptions { Timeout = _microTimeout }
                 );
             }
-            catch (TimeoutException)
+            catch (Exception ex) when (ex is TimeoutException || ex is WaitTaskTimeoutException)
             {
                 _logger.LogWarning("No search results detected—falling back to API");
                 return await FetchUrlsFromGoogleApi(searchTerm);
@@ -83,19 +83,68 @@ namespace NetworkMonitor.Connection
             string[] rawUrls;
             try
             {
-                rawUrls = await page.EvaluateFunctionAsync<string[]>(@"() => 
-                    Array.from(document.querySelectorAll('a[href^=""/url?q=""]'))
-                         .map(a => {
-                             try {
-                                 return new URL(a.href, window.location.origin)
-                                           .searchParams.get('q');
-                             } catch {
-                                 return null;
-                             }
-                         })
-                         .filter(url => url &&
-                                        (url.startsWith('http://') || url.startsWith('https://'))
-                                        && !url.includes('webcache'))");
+                rawUrls = await page.EvaluateFunctionAsync<string[]>(@"() => {
+                    const anchors = Array.from(document.querySelectorAll('#search a[href]'));
+                    const results = [];
+                    const seen = new Set();
+                    const disallowedExactText = [
+                        'cached',
+                        'view all',
+                        'similar',
+                        'report this result',
+                        'translate this page'
+                    ];
+                    const disallowedPrefixes = ['javascript:', 'mailto:'];
+
+                    for (const anchor of anchors) {
+                        if (!anchor) continue;
+
+                        let href = anchor.getAttribute('href') || '';
+                        if (!href) continue;
+
+                        const label = (anchor.textContent || '').trim().toLowerCase();
+                        if (label && disallowedExactText.includes(label)) continue;
+
+                        if (href.startsWith('/url?')) {
+                            try {
+                                const wrapped = new URL(href, window.location.origin);
+                                href = wrapped.searchParams.get('q') || '';
+                            } catch (err) {
+                                href = '';
+                            }
+                        } else if (!href.startsWith('http')) {
+                            continue;
+                        }
+
+                        if (!href) continue;
+
+                        const normalized = href.trim();
+                        const lowerHref = normalized.toLowerCase();
+
+                        if (disallowedPrefixes.some(prefix => lowerHref.startsWith(prefix))) continue;
+                        if (lowerHref.includes('webcache.googleusercontent.com')) continue;
+
+                        try {
+                            const urlObj = new URL(normalized);
+                            if (urlObj.hostname === 'www.google.com') {
+                                const path = urlObj.pathname;
+                                if (!path || path === '/' || path.startsWith('/search') || path.startsWith('/aclk') || path.startsWith('/imgres')) {
+                                    continue;
+                                }
+                            }
+
+                            const finalHref = urlObj.href;
+                            if (!seen.has(finalHref)) {
+                                seen.add(finalHref);
+                                results.push(finalHref);
+                            }
+                        } catch (err) {
+                            continue;
+                        }
+                    }
+
+                    return results;
+                }");
             }
             catch (Exception e)
             {
