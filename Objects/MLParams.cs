@@ -144,8 +144,11 @@ public class MLParams
     public string EmbeddingApiModel { get => _embeddingApiModel; set => _embeddingApiModel = value; }
     public string EmbeddingApiUrl { get => _embeddingApiUrl; set => _embeddingApiUrl = value; }
     public string ModelSelection { get; set; } = "TimesFM";
+    public string PrimaryModelSelection { get; set; } = "TimesFM";
+    public string? SecondaryModelSelection { get; set; }
     public Dictionary<string, ModelParameterSet> ModelParameters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public ResolvedModelParameters ActiveModelParameters { get; set; } = new();
+    public ResolvedModelParameters SecondaryModelParameters { get; set; } = new();
 
     // Read-only string property for VectorSearchMode
     public string VectorSearchModeStr => VectorSearchModeHelper.ToString(_vectorSearchMode);
@@ -196,6 +199,21 @@ public class ResolvedModelParameters
     public int SpikeDetectionThreshold { get; set; }
     public TimesFmResolvedSettings TimesFmChangeSettings { get; set; } = new();
     public TimesFmResolvedSettings TimesFmSpikeSettings { get; set; } = new();
+
+    public ResolvedModelParameters Clone()
+    {
+        return new ResolvedModelParameters
+        {
+            ChangeConfidence = ChangeConfidence,
+            SpikeConfidence = SpikeConfidence,
+            ChangePreTrain = ChangePreTrain,
+            SpikePreTrain = SpikePreTrain,
+            PredictWindow = PredictWindow,
+            SpikeDetectionThreshold = SpikeDetectionThreshold,
+            TimesFmChangeSettings = TimesFmChangeSettings?.Clone() ?? new TimesFmResolvedSettings(),
+            TimesFmSpikeSettings = TimesFmSpikeSettings?.Clone() ?? new TimesFmResolvedSettings()
+        };
+    }
 }
 
 public class TimesFmSettingsConfig

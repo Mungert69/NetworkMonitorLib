@@ -210,8 +210,18 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.MaxTokenLengthCap = int.TryParse(_config["MaxTokenLengthCap"], out int maxTokenLengthCap) ? maxTokenLengthCap : 4096;
             mlParams.MinTokenLengthCap = int.TryParse(_config["MinTokenLengthCap"], out int minTokenLengthCap) ? minTokenLengthCap : 128;
 
-            var resolvedTimesFmChangeSettings = new TimesFmResolvedSettings();
-            var resolvedTimesFmSpikeSettings = new TimesFmResolvedSettings();
+            var defaultResolvedParameters = new ResolvedModelParameters
+            {
+                ChangeConfidence = mlParams.ChangeConfidence,
+                SpikeConfidence = mlParams.SpikeConfidence,
+                ChangePreTrain = mlParams.ChangePreTrain,
+                SpikePreTrain = mlParams.SpikePreTrain,
+                PredictWindow = mlParams.PredictWindow,
+                SpikeDetectionThreshold = mlParams.SpikeDetectionThreshold,
+                TimesFmChangeSettings = new TimesFmResolvedSettings(),
+                TimesFmSpikeSettings = new TimesFmResolvedSettings()
+            };
+
             var modelParametersSection = _config.GetSection("ModelParameters");
             if (modelParametersSection.Exists())
             {
@@ -222,51 +232,68 @@ namespace NetworkMonitor.Utils.Helpers
                     modelParameters[child.Key] = set;
                 }
                 mlParams.ModelParameters = modelParameters;
-                if (modelParameters.TryGetValue(modelSelection, out var selected))
-                {
-                    if (selected.ChangeConfidence.HasValue)
-                        mlParams.ChangeConfidence = selected.ChangeConfidence.Value;
-                    if (selected.SpikeConfidence.HasValue)
-                        mlParams.SpikeConfidence = selected.SpikeConfidence.Value;
-                    if (selected.ChangePreTrain.HasValue)
-                        mlParams.ChangePreTrain = selected.ChangePreTrain.Value;
-                    if (selected.SpikePreTrain.HasValue)
-                        mlParams.SpikePreTrain = selected.SpikePreTrain.Value;
-                    if (selected.PredictWindow.HasValue)
-                        mlParams.PredictWindow = selected.PredictWindow.Value;
-                    if (selected.SpikeDetectionThreshold.HasValue)
-                        mlParams.SpikeDetectionThreshold = selected.SpikeDetectionThreshold.Value;
-                    if (selected.TimesFmSettings is { } timesFm)
-                    {
-                        ApplyTimesFmSettings(timesFm, resolvedTimesFmChangeSettings);
-                        ApplyTimesFmSettings(timesFm, resolvedTimesFmSpikeSettings);
-                    }
-                    if (selected.TimesFmChangeSettings is { } changeTimesFm)
-                    {
-                        ApplyTimesFmSettings(changeTimesFm, resolvedTimesFmChangeSettings);
-                    }
-                    if (selected.TimesFmSpikeSettings is { } spikeTimesFm)
-                    {
-                        ApplyTimesFmSettings(spikeTimesFm, resolvedTimesFmSpikeSettings);
-                    }
-                }
             }
             else
             {
                 mlParams.ModelParameters = new Dictionary<string, ModelParameterSet>(StringComparer.OrdinalIgnoreCase);
             }
 
-            mlParams.ActiveModelParameters = new ResolvedModelParameters
+            ResolvedModelParameters BuildResolvedParameters(string key)
             {
-                ChangeConfidence = mlParams.ChangeConfidence,
-                SpikeConfidence = mlParams.SpikeConfidence,
-                ChangePreTrain = mlParams.ChangePreTrain,
-                SpikePreTrain = mlParams.SpikePreTrain,
-                PredictWindow = mlParams.PredictWindow,
-                SpikeDetectionThreshold = mlParams.SpikeDetectionThreshold,
-                TimesFmChangeSettings = resolvedTimesFmChangeSettings,
-                TimesFmSpikeSettings = resolvedTimesFmSpikeSettings
-            };
+                var resolved = defaultResolvedParameters.Clone();
+                if (mlParams.ModelParameters.TryGetValue(key, out var set))
+                {
+                    if (set.ChangeConfidence.HasValue)
+                        resolved.ChangeConfidence = set.ChangeConfidence.Value;
+                    if (set.SpikeConfidence.HasValue)
+                        resolved.SpikeConfidence = set.SpikeConfidence.Value;
+                    if (set.ChangePreTrain.HasValue)
+                        resolved.ChangePreTrain = set.ChangePreTrain.Value;
+                    if (set.SpikePreTrain.HasValue)
+                        resolved.SpikePreTrain = set.SpikePreTrain.Value;
+                    if (set.PredictWindow.HasValue)
+                        resolved.PredictWindow = set.PredictWindow.Value;
+                    if (set.SpikeDetectionThreshold.HasValue)
+                        resolved.SpikeDetectionThreshold = set.SpikeDetectionThreshold.Value;
+                    if (set.TimesFmSettings is { } timesFm)
+                    {
+                        ApplyTimesFmSettings(timesFm, resolved.TimesFmChangeSettings);
+                        ApplyTimesFmSettings(timesFm, resolved.TimesFmSpikeSettings);
+                    }
+                    if (set.TimesFmChangeSettings is { } changeTimesFm)
+                    {
+                        ApplyTimesFmSettings(changeTimesFm, resolved.TimesFmChangeSettings);
+                    }
+                    if (set.TimesFmSpikeSettings is { } spikeTimesFm)
+                    {
+                        ApplyTimesFmSettings(spikeTimesFm, resolved.TimesFmSpikeSettings);
+                    }
+                }
+                return resolved;
+            }
+
+            if (string.Equals(modelSelection, "Hybrid", StringComparison.OrdinalIgnoreCase))
+            {
+                mlParams.PrimaryModelSelection = "MicrosoftMLTS";
+                mlParams.SecondaryModelSelection = "TimesFM";
+                mlParams.ActiveModelParameters = BuildResolvedParameters(mlParams.PrimaryModelSelection);
+                mlParams.SecondaryModelParameters = BuildResolvedParameters(mlParams.SecondaryModelSelection);
+            }
+            else
+            {
+                mlParams.PrimaryModelSelection = modelSelection;
+                mlParams.SecondaryModelSelection = null;
+                mlParams.ActiveModelParameters = BuildResolvedParameters(modelSelection);
+                mlParams.SecondaryModelParameters = defaultResolvedParameters.Clone();
+            }
+
+            var primaryActive = mlParams.ActiveModelParameters;
+            mlParams.ChangeConfidence = primaryActive.ChangeConfidence;
+            mlParams.SpikeConfidence = primaryActive.SpikeConfidence;
+            mlParams.ChangePreTrain = primaryActive.ChangePreTrain;
+            mlParams.SpikePreTrain = primaryActive.SpikePreTrain;
+            mlParams.PredictWindow = primaryActive.PredictWindow;
+            mlParams.SpikeDetectionThreshold = primaryActive.SpikeDetectionThreshold;
 
             mlParams.LlmModelPath = _config.GetValue<string>("LlmModelPath") ?? "";
             mlParams.LlmVersion = _config.GetValue<string>("LlmVersion") ?? "";
