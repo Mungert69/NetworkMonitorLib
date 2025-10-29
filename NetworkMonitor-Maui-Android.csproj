@@ -3,6 +3,7 @@
     <TargetFramework>net9.0-android</TargetFramework>
     <AssemblyName>NetworkMonitor</AssemblyName>
     <RootNamespace>NetworkMonitor</RootNamespace>
+      <TargetName>NetworkMonitor</TargetName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AndroidSdkDirectory>/usr/lib/android-sdk</AndroidSdkDirectory>
