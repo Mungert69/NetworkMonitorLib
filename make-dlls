@@ -48,6 +48,7 @@ cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.CodeA
 cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.CodeAnalysis.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
 cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
 cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Markdig.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/NetworkMonitor.dll  ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
 
 rm ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish/_Microsoft.Android.Resource.Designer.dll
 log "Successfully copied files to android publish directory"
