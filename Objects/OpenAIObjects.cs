@@ -122,6 +122,66 @@ namespace NetworkMonitor.Service.Services.OpenAI
         [JsonPropertyName("logit_bias")]
         public Dictionary<int, int> logit_bias { get; set; } = new Dictionary<int, int>();
     }
+
+    public class ResponseRequest
+    {
+        [JsonPropertyName("model")]
+        public string? Model { get; set; }
+
+        [JsonPropertyName("input")]
+        public List<ResponseMessage>? Input { get; set; }
+    }
+
+    public class ResponseMessage
+    {
+        [JsonPropertyName("role")]
+        public string? Role { get; set; }
+
+        [JsonPropertyName("content")]
+        public List<ResponseMessageContent>? Content { get; set; }
+    }
+
+    public class ResponseMessageContent
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = "input_text";
+
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
+    }
+
+    public class OpenAiResponse
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("created")]
+        public long Created { get; set; }
+
+        [JsonPropertyName("model")]
+        public string? Model { get; set; }
+
+        [JsonPropertyName("output")]
+        public List<OpenAiResponseOutput>? Output { get; set; }
+
+        [JsonPropertyName("output_text")]
+        public List<string>? OutputText { get; set; }
+    }
+
+    public class OpenAiResponseOutput
+    {
+        [JsonPropertyName("content")]
+        public List<OpenAiResponseContent>? Content { get; set; }
+    }
+
+    public class OpenAiResponseContent
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
+    }
     public class BlogList
     {
         public string? Content { get; set; }
