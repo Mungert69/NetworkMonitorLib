@@ -1,7 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
-    <AssemblyName>NetworkMonitor</AssemblyName>
+        <AssemblyName>NetworkMonitor</AssemblyName>
+    <RootNamespace>NetworkMonitor</RootNamespace>
+      <TargetName>NetworkMonitor</TargetName>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
