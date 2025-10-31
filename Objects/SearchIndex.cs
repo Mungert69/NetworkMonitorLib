@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace NetworkMonitor.Objects;
 
 public class CreateIndexRequest
@@ -70,6 +73,8 @@ public class QueryResultObj
 {
     public string Input { get; set; }
     public string Output { get; set; }
+    public float Score { get; set; }
+    public Dictionary<string, string> Metadata { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 
@@ -77,8 +82,6 @@ public class CreateSnapshotRequest
 {
     public string SnapshotRepo { get; set; } = "local_backup";
     public string SnapshotName { get; set; } = "";
-    public string Indices { get; set; } = "documents,mitre,securitybooks";
+    public string Indices { get; set; } = "documents,mitre,securitybooks,blogs";
 }
-
-
 

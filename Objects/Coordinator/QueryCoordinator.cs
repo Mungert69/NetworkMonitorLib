@@ -20,7 +20,8 @@ namespace NetworkMonitor.Coordinator
     public interface IQueryCoordinator
     {
         Task<string> ExecuteQueryAsync(QueryIndexRequest queryIndexRequest,TimeSpan? timeout = null);
-        void CompleteQuery(string messageId, string result);
+        void CompleteQuery(string messageId, string result, QueryIndexRequest? request = null);
+        bool TryTakeCompletedRequest(string messageId, out QueryIndexRequest? request);
         void CancelQuery(string messageId);
         void RemoveSystemRag(List<ChatMessage> localHistory);
         Task AddSystemRag(string messageId, List<ChatMessage> localHistory);
@@ -35,6 +36,10 @@ namespace NetworkMonitor.Coordinator
             new ConcurrentDictionary<string, TaskCompletionSource<string>>();
         private readonly ConcurrentDictionary<string, string> _userQueries =
             new ConcurrentDictionary<string, string>();
+        private readonly ConcurrentDictionary<string, QueryIndexRequest> _completedRequests =
+            new ConcurrentDictionary<string, QueryIndexRequest>();
+        private readonly ConcurrentDictionary<string, CancellationTokenSource> _timeoutTokens =
+            new ConcurrentDictionary<string, CancellationTokenSource>();
 
 
         private readonly IRabbitRepo _rabbitRepo;
@@ -148,14 +153,23 @@ namespace NetworkMonitor.Coordinator
 
 
             var cts = new CancellationTokenSource();
-            var timeoutTask = Task.Delay(timeout ?? _defaultTimeout, cts.Token)
-                .ContinueWith(_ =>
+            _timeoutTokens[messageId] = cts;
+
+            _ = Task.Delay(timeout ?? _defaultTimeout, cts.Token)
+                .ContinueWith(delayTask =>
                 {
-                    if (_pendingQueries.TryGetValue(messageId, out var removedTcs) && !removedTcs.Task.IsCompleted)
+                    if (_pendingQueries.TryRemove(messageId, out var removedTcs) && !removedTcs.Task.IsCompleted)
                     {
                         removedTcs.TrySetException(new TimeoutException("Query timed out."));
                     }
-                }, TaskScheduler.Default);
+
+                    _userQueries.TryRemove(messageId, out _);
+                    if (_completedRequests.TryRemove(messageId, out _)) { }
+                    if (_timeoutTokens.TryRemove(messageId, out var tokenSource))
+                    {
+                        tokenSource.Dispose();
+                    }
+                }, TaskContinuationOptions.OnlyOnRanToCompletion);
 
             queryIndexRequest.RoutingKey = _routingKey;
 
@@ -194,12 +208,22 @@ namespace NetworkMonitor.Coordinator
             _logger.LogInformation("RAG query cache cleared");
         }
 
-        public void CompleteQuery(string messageId, string result)
+        public void CompleteQuery(string messageId, string result, QueryIndexRequest? request = null)
         {
             if (_pendingQueries.TryGetValue(messageId, out var tcs))
             {
-                // Set the result on the TaskCompletionSource
                 tcs.TrySetResult(result);
+                _pendingQueries.TryRemove(messageId, out _);
+                _userQueries.TryRemove(messageId, out _);
+                if (request != null)
+                {
+                    _completedRequests[messageId] = request;
+                }
+                if (_timeoutTokens.TryRemove(messageId, out var tokenSource))
+                {
+                    tokenSource.Cancel();
+                    tokenSource.Dispose();
+                }
                 _logger.LogInformation($"RAG result completed for message ID: {messageId}");
             }
             else
@@ -208,11 +232,30 @@ namespace NetworkMonitor.Coordinator
             }
         }
 
+        public bool TryTakeCompletedRequest(string messageId, out QueryIndexRequest? request)
+        {
+            if (_completedRequests.TryRemove(messageId, out var stored))
+            {
+                request = stored;
+                return true;
+            }
+
+            request = null;
+            return false;
+        }
+
         public void CancelQuery(string messageId)
         {
             if (_pendingQueries.TryGetValue(messageId, out var tcs))
             {
                 tcs.TrySetCanceled();
+                _pendingQueries.TryRemove(messageId, out _);
+                _userQueries.TryRemove(messageId, out _);
+                if (_timeoutTokens.TryRemove(messageId, out var tokenSource))
+                {
+                    tokenSource.Cancel();
+                    tokenSource.Dispose();
+                }
                 _logger.LogInformation($"RAG query canceled for message ID: {messageId}");
             }
             else
