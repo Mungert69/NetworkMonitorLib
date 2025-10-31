@@ -57,6 +57,7 @@ public class QueryIndexRequest
     public string AuthKey { get; set; } = "";
     public string MessageID { get; set; } = "";
     public string LLMRunnerType { get; set; } = "";
+    public string ResponseExchange { get; set; } = "";
     public List<QueryResultObj> QueryResults { get; set; } = new();
     public bool Success { get; set; }
     public string Message { get; set; } = "";
@@ -84,4 +85,3 @@ public class CreateSnapshotRequest
     public string SnapshotName { get; set; } = "";
     public string Indices { get; set; } = "documents,mitre,securitybooks,blogs";
 }
-
