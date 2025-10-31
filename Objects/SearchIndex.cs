@@ -16,6 +16,7 @@ public class CreateIndexRequest
     public bool Success { get; set; }
     public string Message { get; set; } = "";
     public bool CreateFromJsonDataDir { get; set; } = false;
+    public string ResponseExchange { get; set; } = "";
 }
 public enum VectorSearchMode
 {
