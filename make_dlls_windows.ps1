@@ -15,19 +15,19 @@ function Log {
 
 # Publish NetworkMonitor for win-x64
 Log "Publishing NetworkMonitor for win-x64"
-$publishOutput = dotnet publish NetworkMonitor.csproj -c Release -r win-x64 --self-contained true 2>&1
+$publishOutput = dotnet publish NetworkMonitor-Maui.csproj -c Release -r win-x64 --self-contained true 2>&1
 $publishOutput | Out-File -Append $LOG_FILE
 Log "Publish completed with output: $publishOutput"
 
 # Define source path
-$windowsSourcePath = "C:\code\NetworkMonitorLib\bin\Release\net9.0\win-x64\publish"
+$windowsSourcePath = "C:\code\NetworkMonitorLib\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish"
 if (!(Test-Path $windowsSourcePath)) {
     Log "ERROR: Source path '$windowsSourcePath' does not exist!"
     exit 1
 }
 
 # Files to copy
-$filesToCopy = @( "System*.dll", "PuppeteerSharp.dll", "RestSharp.dll", "Nito*.dll", "Nanoid.dll", "mscorlib.dll", "netstandard.dll", "HtmlAgilityPack.dll", "FluentFTP.dll", "Betalgo.Ranul.OpenAI.dll", "BouncyCastle.Cryptography.dll", "Microsoft.Extensions*.dll", "Microsoft.IdentityModel*.dll", "Microsoft.Bcl.AsyncInterfaces.dll", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Microsoft.CSharp.dll", "Markdig.dll")
+$filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "RestSharp.dll", "Nito*.dll", "Nanoid.dll", "mscorlib.dll", "netstandard.dll", "HtmlAgilityPack.dll", "FluentFTP.dll", "Betalgo.Ranul.OpenAI.dll", "BouncyCastle.Cryptography.dll", "Microsoft.Extensions*.dll", "Microsoft.IdentityModel*.dll", "Microsoft.Bcl.AsyncInterfaces.dll", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Microsoft.CSharp.dll", "Markdig.dll")
 
 # Windows DLL final destinations
 $windowsDestinations = @(
