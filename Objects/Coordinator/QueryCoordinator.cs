@@ -141,13 +141,13 @@ namespace NetworkMonitor.Coordinator
             if (_queryCache.TryGetValue(hashKey, out var cached) &&
                 DateTime.UtcNow - cached.timestamp < _cacheTTL)
             {
-                _logger.LogInformation($"Cache hit for query: {queryText}");
+                _logger.LogInformation($"QueryCoordinator cache hit for query='{queryText}'. Returning cached result.");
                 return cached.result;
             }
             var tcs = new TaskCompletionSource<string>();
             if (!_pendingQueries.TryAdd(messageId, tcs) || !_userQueries.TryAdd(messageId, queryText))
             {
-                _logger.LogWarning($"Message ID {messageId} already exists in pending queries.");
+                _logger.LogWarning($"QueryCoordinator messageId={messageId} already pending; ignoring duplicate query.");
                 return string.Empty;
             }
 
@@ -160,6 +160,7 @@ namespace NetworkMonitor.Coordinator
                 {
                     if (_pendingQueries.TryRemove(messageId, out var removedTcs) && !removedTcs.Task.IsCompleted)
                     {
+                        _logger.LogWarning("QueryCoordinator timeout reached for messageId={MessageId}.", messageId);
                         removedTcs.TrySetException(new TimeoutException("Query timed out."));
                     }
 
@@ -174,6 +175,7 @@ namespace NetworkMonitor.Coordinator
             queryIndexRequest.RoutingKey = _routingKey;
 
             // Publish the query to RabbitMQ
+            _logger.LogInformation("QueryCoordinator publishing query messageId={MessageId}, index={Index}, routingKey='{RoutingKey}'", messageId, queryIndexRequest.IndexName, _routingKey);
             await _rabbitRepo.PublishAsync("queryIndex", queryIndexRequest);
 
             try
@@ -181,6 +183,7 @@ namespace NetworkMonitor.Coordinator
                 var result = await tcs.Task;
                 // Only cache successful results
                 _queryCache[hashKey] = (result, DateTime.UtcNow);
+                _logger.LogInformation("QueryCoordinator received result for messageId={MessageId}.", messageId);
                 return result;
             }
             catch
