@@ -9,6 +9,7 @@ public class CreateIndexRequest
     public string JsonMapping { get; set; } = "";
     public string JsonFile { get; set; } = "";
     public bool RecreateIndex { get; set; } = false;
+    public bool IncrementalUpdate { get; set; } = false;
     public string AppID { get; set; } = "";
     public string AuthKey { get; set; } = "";
 
