@@ -31,39 +31,39 @@ log "Successfully published NetworkMonitor-Maui-Android for android"
 
 # Copy files from linux-x64 to android publish directory
 log "Copying files from linux-x64 to android publish directory"
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/System* ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/PuppeteerSharp.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/RestSharp.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/System* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/PuppeteerSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/RestSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
 
 # Allow missing Nito* safely
 shopt -s nullglob
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Nito* ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1 || true
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Nito* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1 || true
 shopt -u nullglob
 
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Nanoid.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/mscorlib.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/netstandard.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/HtmlAgilityPack.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/FluentFTP.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Betalgo.Ranul.OpenAI.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/BouncyCastle.Cryptography.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.Extensions* ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1 || true
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.IdentityModel* ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1 || true
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.Bcl.AsyncInterfaces.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.CodeAnalysis.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.CodeAnalysis.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Microsoft.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/Markdig.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Nanoid.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/mscorlib.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/netstandard.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/HtmlAgilityPack.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/FluentFTP.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Betalgo.Ranul.OpenAI.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/BouncyCastle.Cryptography.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.Extensions* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1 || true
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.IdentityModel* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1 || true
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.Bcl.AsyncInterfaces.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.CodeAnalysis.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.CodeAnalysis.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Markdig.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
 # difference here use the android NetworkMonitor.dll later overwritten for linux kept for andoid.
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/NetworkMonitor.dll ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/NetworkMonitor.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
 
-rm -f ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish/_Microsoft.Android.Resource.Designer.dll
+rm -f ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/_Microsoft.Android.Resource.Designer.dll
 log "Successfully copied files to android publish directory"
 
 log "Copying files to NetworkMonitorProcessor"
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish/* ~/code/NetworkMonitorProcessor/openssl/bin/dlls >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorProcessor/openssl/bin/dlls >> $LOG_FILE 2>&1
 # use the linux-x64 NetworkMonitor.dll
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0/linux-x64/publish/NetworkMonitor.dll  ~/code/NetworkMonitorProcessor/openssl/bin/dlls >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/NetworkMonitor.dll  ~/code/NetworkMonitorProcessor/openssl/bin/dlls >> $LOG_FILE 2>&1
 log "Successfully copied files to android publish directory"
 
 if [ $? -ne 0 ]; then
@@ -74,7 +74,7 @@ log "Successfully copied files to NetworkMonitorProcessor"
 
 # Copy files to NetworkMonitorQuantumSecure
 log "Copying files to NetworkMonitorQuantumSecure"
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish/* ~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls >> $LOG_FILE 2>&1
 # Guard chmod when folder is briefly empty
 shopt -s nullglob; chmod 755 ~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls/*; shopt -u nullglob
 if [ $? -ne 0 ]; then
@@ -94,7 +94,7 @@ log "Successfully ran create-manifest for NetworkMonitorQuantumSecure"
 
 # Copy files to FreeNetworkMonitorAgent
 log "Copying files to FreeNetworkMonitorAgent"
-cp ~/code/NetworkMonitorLib/bin/Release/net9.0-android/android/publish/* ~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls >> $LOG_FILE 2>&1
 # Guard chmod when folder is briefly empty
 shopt -s nullglob; chmod 755 ~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls/*; shopt -u nullglob
 if [ $? -ne 0 ]; then
