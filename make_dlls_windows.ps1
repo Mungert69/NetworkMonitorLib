@@ -31,8 +31,8 @@ $filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "Res
 
 # Windows DLL final destinations
 $windowsDestinations = @(
-    "C:\code\NetworkMonitorQuantumSecure\Resources\Raw\windowsdlls",
-    "C:\code\FreeNetworkMonitorAgent\Resources\Raw\windowsdlls"
+    "C:\code\QuantumSecure\Resources\Raw\windowsdlls",
+    "C:\code\NetworkMonitorAgent\Resources\Raw\windowsdlls"
 )
 
 # Copy Windows DLLs directly to their final destinations
@@ -71,8 +71,8 @@ foreach ($dest in $windowsDestinations) {
 
 # Run create-manifest scripts
 $manifestScripts = @(
-    "C:\code\NetworkMonitorQuantumSecure\Resources\Raw\windowsdlls\create-manifest-windows.ps1",
-    "C:\code\FreeNetworkMonitorAgent\Resources\Raw\windowsdlls\create-manifest-windows.ps1"
+    "C:\code\QuantumSecure\Resources\Raw\windowsdlls\create-manifest-windows.ps1",
+    "C:\code\NetworkMonitorAgent\Resources\Raw\windowsdlls\create-manifest-windows.ps1"
 )
 
 foreach ($script in $manifestScripts) {
