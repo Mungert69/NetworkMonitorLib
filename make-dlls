@@ -72,45 +72,45 @@ if [ $? -ne 0 ]; then
 fi
 log "Successfully copied files to NetworkMonitorProcessor"
 
-# Copy files to NetworkMonitorQuantumSecure
-log "Copying files to NetworkMonitorQuantumSecure"
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls >> $LOG_FILE 2>&1
+# Copy files to QuantumSecure
+log "Copying files to QuantumSecure"
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/QuantumSecure/Resources/Raw/dlls >> $LOG_FILE 2>&1
 # Guard chmod when folder is briefly empty
-shopt -s nullglob; chmod 755 ~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls/*; shopt -u nullglob
+shopt -s nullglob; chmod 755 ~/code/QuantumSecure/Resources/Raw/dlls/*; shopt -u nullglob
 if [ $? -ne 0 ]; then
-    log "Failed to copy files to NetworkMonitorQuantumSecure"
+    log "Failed to copy files to QuantumSecure"
     exit 1
 fi
-log "Successfully copied files to NetworkMonitorQuantumSecure"
+log "Successfully copied files to QuantumSecure"
 
-# Run create-manifest for NetworkMonitorQuantumSecure
-log "Running create-manifest for NetworkMonitorQuantumSecure"
-~/code/NetworkMonitorQuantumSecure/Resources/Raw/dlls/create-manifest >> $LOG_FILE 2>&1
+# Run create-manifest for QuantumSecure
+log "Running create-manifest for QuantumSecure"
+~/code/QuantumSecure/Resources/Raw/dlls/create-manifest >> $LOG_FILE 2>&1
 if [ $? -ne 0 ]; then
-    log "Failed to run create-manifest for NetworkMonitorQuantumSecure"
+    log "Failed to run create-manifest for QuantumSecure"
     exit 1
 fi
-log "Successfully ran create-manifest for NetworkMonitorQuantumSecure"
+log "Successfully ran create-manifest for QuantumSecure"
 
-# Copy files to FreeNetworkMonitorAgent
-log "Copying files to FreeNetworkMonitorAgent"
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls >> $LOG_FILE 2>&1
+# Copy files to NetworkMonitorAgent
+log "Copying files to NetworkMonitorAgent"
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorAgent/Resources/Raw/dlls >> $LOG_FILE 2>&1
 # Guard chmod when folder is briefly empty
-shopt -s nullglob; chmod 755 ~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls/*; shopt -u nullglob
+shopt -s nullglob; chmod 755 ~/code/NetworkMonitorAgent/Resources/Raw/dlls/*; shopt -u nullglob
 if [ $? -ne 0 ]; then
-    log "Failed to copy files to FreeNetworkMonitorAgent"
+    log "Failed to copy files to NetworkMonitorAgent"
     exit 1
 fi
-log "Successfully copied files to FreeNetworkMonitorAgent"
+log "Successfully copied files to NetworkMonitorAgent"
 
-# Run create-manifest for FreeNetworkMonitorAgent
-log "Running create-manifest for FreeNetworkMonitorAgent"
-~/code/FreeNetworkMonitorAgent/Resources/Raw/dlls/create-manifest >> $LOG_FILE 2>&1
+# Run create-manifest for NetworkMonitorAgent
+log "Running create-manifest for NetworkMonitorAgent"
+~/code/NetworkMonitorAgent/Resources/Raw/dlls/create-manifest >> $LOG_FILE 2>&1
 if [ $? -ne 0 ]; then
-    log "Failed to run create-manifest for FreeNetworkMonitorAgent"
+    log "Failed to run create-manifest for NetworkMonitorAgent"
     exit 1
 fi
-log "Successfully ran create-manifest for FreeNetworkMonitorAgent"
+log "Successfully ran create-manifest for NetworkMonitorAgent"
 
 log "Script completed successfully"
 echo "Script completed successfully. Check $LOG_FILE for details."
