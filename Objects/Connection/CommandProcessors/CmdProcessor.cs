@@ -169,60 +169,45 @@ namespace NetworkMonitor.Connection
 
         private async Task ProcessQueueAsync()
         {
-            var tasks = new List<Task>();
-
             while (_currentQueue.TryDequeue(out var commandTask))
             {
                 try
                 {
-                    if (!commandTask.IsRunning)
+                    if (commandTask.IsRunning)
                     {
-                        await _semaphore.WaitAsync(); // Wait for a semaphore slot to be available
-                        commandTask.IsRunning = true;
-                        _runningTasks.TryAdd(commandTask.MessageId, commandTask);
-
-
-                        // Launch a task without awaiting it directly
-                        var task = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                await commandTask.TaskFunc();
-                                commandTask.IsSuccessful = true;
-                            }
-                            catch (OperationCanceledException)
-                            {
-                                _logger.LogInformation($"Command {commandTask.MessageId} was cancelled.");
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError($"Command {commandTask.MessageId} failed with exception: {ex.Message}");
-                            }
-                            finally
-                            {
-                                commandTask.IsRunning = false;
-                                _semaphore.Release(); // Release the semaphore slot
-                            }
-                        });
-                        commandTask.RunningTask = task;
-                        tasks.Add(task);
+                        continue;
                     }
 
+                    await _semaphore.WaitAsync();
+                    commandTask.IsRunning = true;
+                    _runningTasks.TryAdd(commandTask.MessageId, commandTask);
+
+                    commandTask.RunningTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await commandTask.TaskFunc();
+                            commandTask.IsSuccessful = true;
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            _logger.LogInformation($"Command {commandTask.MessageId} was cancelled.");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Command {commandTask.MessageId} failed with exception: {ex.Message}");
+                        }
+                        finally
+                        {
+                            commandTask.IsRunning = false;
+                            _semaphore.Release();
+                        }
+                    });
                 }
                 catch (Exception e)
                 {
                     _logger.LogError($" Error : in ProcessQueue while loop : {e.Message}");
                 }
-            }
-
-            if (tasks.Count > 0)
-            {
-                await Task.WhenAny(tasks); // Optionally wait for the first task to finish, or use Task.WhenAll for all
-            }
-            else
-            {
-                // If no tasks, briefly delay to prevent tight loop
-                await Task.Delay(1000);
             }
         }
 
