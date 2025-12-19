@@ -60,17 +60,17 @@ cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/NetworkMonitor.d
 rm -f ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/_Microsoft.Android.Resource.Designer.dll
 log "Successfully copied files to android publish directory"
 
-log "Copying files to NetworkMonitorProcessor"
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorProcessor/openssl/bin/dlls >> $LOG_FILE 2>&1
+log "Copying files to NetworkMonitorProcessorAgent"
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorProcessorAgent/openssl/bin/dlls >> $LOG_FILE 2>&1
 # use the linux-x64 NetworkMonitor.dll
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/NetworkMonitor.dll  ~/code/NetworkMonitorProcessor/openssl/bin/dlls >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/NetworkMonitor.dll  ~/code/NetworkMonitorProcessorAgent/openssl/bin/dlls >> $LOG_FILE 2>&1
 log "Successfully copied files to android publish directory"
 
 if [ $? -ne 0 ]; then
-    log "Failed to copy files to NetworkMonitorProcessor"
+    log "Failed to copy files to NetworkMonitorProcessorAgent"
     exit 1
 fi
-log "Successfully copied files to NetworkMonitorProcessor"
+log "Successfully copied files to NetworkMonitorProcessorAgent"
 
 # Copy files to QuantumSecure
 log "Copying files to QuantumSecure"
