@@ -162,6 +162,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 try { File.Replace(tmp, path, null); }
                 catch (PlatformNotSupportedException) { File.Move(tmp, path, overwrite: true); }
+                catch (FileNotFoundException) { File.Move(tmp, path, overwrite: true); }
             }
             finally
             {
@@ -188,6 +189,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 try { File.Replace(tmp, path, null); }
                 catch (PlatformNotSupportedException) { File.Move(tmp, path, overwrite: true); }
+                catch (FileNotFoundException) { File.Move(tmp, path, overwrite: true); }
             }
             finally
             {
@@ -211,6 +213,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 try { File.Replace(tmp, path, null); }
                 catch (PlatformNotSupportedException) { File.Move(tmp, path, overwrite: true); }
+                catch (FileNotFoundException) { File.Move(tmp, path, overwrite: true); }
             }
             finally
             {
@@ -236,6 +239,7 @@ namespace NetworkMonitor.Objects.Repository
 
                 try { File.Replace(tmp, path, null); }
                 catch (PlatformNotSupportedException) { File.Move(tmp, path, overwrite: true); }
+                catch (FileNotFoundException) { File.Move(tmp, path, overwrite: true); }
             }
             finally
             {
