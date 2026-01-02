@@ -212,6 +212,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         {
             "libprocwrapper.so",
             "libopenssl_exec.so",
+            "libbusybox_exec.so",
             "libnmap_exec.so",
             "libssl.so",
             "libcrypto.so",

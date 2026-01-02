@@ -55,6 +55,15 @@ namespace NetworkMonitor.Connection
             return arguments;
         }
 
+#if ANDROID
+        private string BuildShellArgs(string arguments)
+        {
+            var trimmed = TrimShellCommand(arguments);
+            var escaped = trimmed.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            return $"-c \"{escaped}\"";
+        }
+#endif
+
         public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
         {
             var result = new ResultObj();
@@ -71,6 +80,32 @@ namespace NetworkMonitor.Connection
 
                 }
 
+#if ANDROID
+                if (Environment.OSVersion.Platform == PlatformID.Unix &&
+                    Environment.OSVersion.VersionString.Contains("Android", StringComparison.OrdinalIgnoreCase))
+                {
+                    var runner = new AndroidProcWrapperRunner(_logger);
+                    string workingDirectory = _netConfig.CommandPath;
+                    string execPath;
+                    string execArgs;
+
+                    if (arguments.TrimStart().StartsWith("sh", StringComparison.Ordinal))
+                    {
+                        execPath = "/system/bin/sh";
+                        execArgs = BuildShellArgs(arguments);
+                    }
+                    else
+                    {
+                        execPath = "libbusybox_exec.so";
+                        execArgs = arguments;
+                    }
+
+                    output = await runner.RunAsync(execPath, execArgs, workingDirectory, null, cancellationToken);
+                    result.Success = !output.StartsWith("Failed to start:", StringComparison.OrdinalIgnoreCase);
+                    result.Message = output;
+                    return result;
+                }
+#endif
 
                 using (var process = new Process())
                 {
