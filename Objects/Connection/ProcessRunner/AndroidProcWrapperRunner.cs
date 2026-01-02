@@ -5,6 +5,7 @@ using Android.OS;
 using Android.Content.PM;
 using JFile = Java.IO.File;
 using IOFile = System.IO.File;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -109,10 +110,29 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         }
 
         _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", launchPath, NetworkMonitor.Utils.Argv.ForLog(launchArgv));
+        var previousDir = System.Environment.CurrentDirectory;
+        var switchedDir = false;
+        if (!string.IsNullOrWhiteSpace(workingDirectory) && Directory.Exists(workingDirectory))
+        {
+            try
+            {
+                System.Environment.CurrentDirectory = workingDirectory;
+                switchedDir = true;
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to set working directory to {Dir}", workingDirectory);
+            }
+        }
+
         if (!ps.Start(launchPath, launchArgv))
         {
             _logger.LogError("Failed to start process: {Path}", launchPath);
             return $"Failed to start: {launchPath}";
+        }
+        if (switchedDir)
+        {
+            try { System.Environment.CurrentDirectory = previousDir; } catch { /* ignore */ }
         }
 
         var exit = await ps.WaitForExitAsync(50, token);

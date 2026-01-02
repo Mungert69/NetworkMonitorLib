@@ -72,10 +72,10 @@ public static class NativeProc
 
         private const int BUF_SIZE = 4096;
 
-        public bool Start(string exePath, string[] args)
+        public bool Start(string exePath, string[] args, string? argv0Override = null)
         {
             string[] argv = new string[args.Length + 1];
-            argv[0] = exePath;
+            argv[0] = string.IsNullOrEmpty(argv0Override) ? exePath : argv0Override;
             Array.Copy(args, 0, argv, 1, args.Length);
 
             Logger?.LogInformation($"[proc] start: {exePath} {string.Join(" ", args)}");
@@ -268,4 +268,3 @@ public static class NativeProc
     }
 
 }
-

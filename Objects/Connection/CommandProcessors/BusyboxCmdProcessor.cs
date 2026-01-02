@@ -81,21 +81,27 @@ namespace NetworkMonitor.Connection
                 }
 
 #if ANDROID
-                if (Environment.OSVersion.Platform == PlatformID.Unix &&
-                    Environment.OSVersion.VersionString.Contains("Android", StringComparison.OrdinalIgnoreCase))
+                if (OperatingSystem.IsAndroid())
                 {
-                    var runner = new AndroidProcWrapperRunner(_logger);
                     string workingDirectory = _netConfig.CommandPath;
+                    if (string.IsNullOrWhiteSpace(workingDirectory))
+                    {
+                        workingDirectory = Environment.CurrentDirectory;
+                        _logger.LogWarning("Busybox working directory not set; falling back to {Dir}", workingDirectory);
+                    }
                     string execPath;
                     string execArgs;
+                    IPlatformProcessRunner runner;
 
                     if (arguments.TrimStart().StartsWith("sh", StringComparison.Ordinal))
                     {
+                        runner = new AndroidProcWrapperRunner(_logger);
                         execPath = "/system/bin/sh";
                         execArgs = BuildShellArgs(arguments);
                     }
                     else
                     {
+                        runner = new BusyboxProcessRunner(_logger);
                         execPath = "libbusybox_exec.so";
                         execArgs = arguments;
                     }
