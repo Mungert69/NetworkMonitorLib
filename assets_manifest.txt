@@ -1589,6 +1589,7 @@
 ./Objects/Connection/FilterStrategy/Tests/ConfigurableEndpointFilterStrategyTest.cs
 ./Objects/Connection/ProcessRunner/AndroidProcessRunner.cs
 ./Objects/Connection/ProcessRunner/AndroidProcWrapperRunner.cs
+./Objects/Connection/ProcessRunner/BusyboxProcessRunner.cs
 ./Objects/Connection/ProcessRunner/DefaultProcessRunner.cs
 ./Objects/Connection/ProcessRunner/IPlatformProcessRunner.cs
 ./Objects/Connection/ProcessRunner/NativeProc.cs
