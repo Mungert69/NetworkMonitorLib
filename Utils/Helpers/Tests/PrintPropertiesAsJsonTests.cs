@@ -121,7 +121,10 @@ public class PrintPropertiesAsJsonTests
             Enabled = false,
             AgentLocation = "Scanner - EU",
             UserID = "default",
-            AddUserEmail = "owner@example.com"
+            AddUserEmail = "owner@example.com",
+            Username = "user1",
+            Password = "secret",
+            Args = "--format victron"
         };
 
         var json = PrintPropertiesAsJson.PrintMonitorIPProperties(monitorIp, detail: true);
@@ -129,6 +132,9 @@ public class PrintPropertiesAsJsonTests
         Assert.Contains("\"address\" : \"example.com\"", json);
         Assert.Contains("\"auth_key\" : \"auth\"", json);
         Assert.Contains("\"enabled\" : false", json);
+        Assert.Contains("\"username\" : \"user1\"", json);
+        Assert.Contains("\"password\" : \"****\"", json);
+        Assert.Contains("\"args\" : \"--format victron\"", json);
     }
 
     [Fact]

@@ -216,6 +216,9 @@ public class PrintPropertiesAsJson
             output.Append("\"timeout\" : ").Append(monitorIP.Timeout).Append(", ");
             if (!monitorIP.Enabled) output.Append("\"enabled\" : ").Append(monitorIP.Enabled.ToString().ToLowerInvariant()).Append(", ");
             output.Append("\"agent_location\" : \"").Append(monitorIP.AgentLocation).Append("\", ");
+            if (!string.IsNullOrEmpty(monitorIP.Username)) output.Append("\"username\" : \"").Append(monitorIP.Username).Append("\", ");
+            if (!string.IsNullOrEmpty(monitorIP.Password)) output.Append("\"password\" : \"").Append(MaskSecret(monitorIP.Password)).Append("\", ");
+            if (!string.IsNullOrEmpty(monitorIP.Args)) output.Append("\"args\" : \"").Append(monitorIP.Args).Append("\", ");
 
         }
         if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
@@ -224,6 +227,11 @@ public class PrintPropertiesAsJson
         }
         output.Append("}");
         return output.ToString();
+    }
+
+    private static string MaskSecret(string value)
+    {
+        return string.IsNullOrEmpty(value) ? "" : "****";
     }
 
     public static string PrintAgentLocation(string agentLocation)
