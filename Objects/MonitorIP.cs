@@ -33,6 +33,7 @@ namespace NetworkMonitor.Objects
             this.AppID = newMonIP.AppID;
             this.Username = newMonIP.Username;
             this.Password = newMonIP.Password;
+            this.Args = newMonIP.Args;
             this.UserInfo = newMonIP.UserInfo; // Note: This will copy the reference, not the object itself.
             this.AddUserEmail = newMonIP.AddUserEmail;
             this.IsEmailVerified = newMonIP.IsEmailVerified;
@@ -162,6 +163,12 @@ namespace NetworkMonitor.Objects
         /// Username used for authenticatin the service on the host.
         /// </summary>
         public string? Password { get => _password; set => _password = value; }
+
+        /// <summary>
+        /// Extra arguments for command-style endpoints.
+        /// </summary>
+        [MaxLength(2048)]
+        public string? Args { get; set; }
 
         [ForeignKey("UserInfoUserID")]
         public virtual UserInfo? UserInfo { get; set; }

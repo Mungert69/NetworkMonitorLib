@@ -23,6 +23,7 @@ namespace NetworkMonitor.Objects
                 Port = monitorPingInfo.Port;
                 Username = monitorPingInfo.Username;
                 Password = monitorPingInfo.Password;
+                Args = monitorPingInfo.Args;
                 MonitorIPID = monitorPingInfo.MonitorIPID;
                 EndPointType = monitorPingInfo.EndPointType;
                 Timeout = monitorPingInfo.Timeout;
@@ -167,6 +168,34 @@ namespace NetworkMonitor.Objects
                 try
                 {
                     _password = value;
+                }
+                finally
+                {
+                    _rwLock.ExitWriteLock();
+                }
+            }
+        }
+
+        public string? Args
+        {
+            get
+            {
+                _rwLock.EnterReadLock();
+                try
+                {
+                    return _args;
+                }
+                finally
+                {
+                    _rwLock.ExitReadLock();
+                }
+            }
+            set
+            {
+                _rwLock.EnterWriteLock();
+                try
+                {
+                    _args = value;
                 }
                 finally
                 {
@@ -380,6 +409,7 @@ namespace NetworkMonitor.Objects
         private ushort _port;
         private string? _username = "";
         private string? _password = "";
+        private string? _args = "";
         private int _monitorIPID;
         private string _endPointType = "";
         private int _timeout;

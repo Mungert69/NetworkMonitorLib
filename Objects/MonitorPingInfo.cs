@@ -52,6 +52,7 @@ namespace NetworkMonitor.Objects
             PingInfos = new List<PingInfo>();
             Username = copy.Username;
             Password = copy.Password;
+            Args = copy.Args;
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
@@ -89,6 +90,7 @@ namespace NetworkMonitor.Objects
             PingInfos = copy.PingInfos;
             Username = copy.Username;
             Password = copy.Password;
+            Args = copy.Args;
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
@@ -121,6 +123,7 @@ namespace NetworkMonitor.Objects
             Enabled = copy.Enabled;
             Username = copy.Username;
             Password = copy.Password;
+            Args = copy.Args;
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
@@ -158,6 +161,7 @@ namespace NetworkMonitor.Objects
             PingInfos = new List<PingInfo>();
             Username = copy.Username;
             Password= copy.Password;
+            Args = copy.Args;
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
             IsArchived = copy.IsArchived;
@@ -227,6 +231,11 @@ namespace NetworkMonitor.Objects
 
         [MaxLength(512)]
         public string? Password { get; set; }
+        /// <summary>
+        /// Extra arguments for command-style endpoints.
+        /// </summary>
+        [MaxLength(2048)]
+        public string? Args { get; set; }
         /// <summary>
         /// The endpoint type. Endpoint types are: quantum is a quantum safe encryption test, http is a website ping, https is an SSL certificate check, httphtml is a website HTML load, icmp is a host ping, dns is a DNS lookup, smtp is an email server helo message confirmation, rawconnect is a low-level raw socket connection, nmap is a nmap service scan of the host, nmapvuln is a nmap vulnerability scan of the host and crawlsite performs a simulated user crawl of the site that generates site traffic using chrome browser.
         /// </summary>
@@ -360,4 +369,3 @@ namespace NetworkMonitor.Objects
 #pragma warning restore IL2026
     }
 }
-

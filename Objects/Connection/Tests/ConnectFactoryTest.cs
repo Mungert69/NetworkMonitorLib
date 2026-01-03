@@ -48,7 +48,8 @@ public class ConnectFactoryTest
             Port = 80,
             Timeout = 1000,
             Username = "user",
-            Password = "pass"
+            Password = "pass",
+            Args = "--metric pv_power"
         };
         var pingParams = new PingParams { Timeout = 1000 };
 
@@ -60,6 +61,7 @@ public class ConnectFactoryTest
         Assert.Equal(1000, nc.MpiStatic.Timeout);
         Assert.Equal("user", nc.MpiStatic.Username);
         Assert.Equal("pass", nc.MpiStatic.Password);
+        Assert.Equal("--metric pv_power", nc.MpiStatic.Args);
     }
 
     [Fact]
@@ -78,7 +80,8 @@ public class ConnectFactoryTest
             Port = 80,
             Timeout = 1000,
             Username = "user",
-            Password = "pass"
+            Password = "pass",
+            Args = "--metric pv_power"
         };
         var pingParams = new PingParams { Timeout = 1000 };
         var nc = factory.GetNetConnectObj(mpi, pingParams);
@@ -90,6 +93,7 @@ public class ConnectFactoryTest
         mpi.Timeout = 2000;
         mpi.Username = "changeduser";
         mpi.Password = "changedpass";
+        mpi.Args = "--metric battery_voltage";
 
         factory.UpdateNetConnectionInfo(nc, mpi, pingParams);
 
@@ -99,5 +103,6 @@ public class ConnectFactoryTest
         Assert.Equal(2000, nc.MpiStatic.Timeout);
         Assert.Equal("changeduser", nc.MpiStatic.Username);
         Assert.Equal("changedpass", nc.MpiStatic.Password);
+        Assert.Equal("--metric battery_voltage", nc.MpiStatic.Args);
     }
 }
