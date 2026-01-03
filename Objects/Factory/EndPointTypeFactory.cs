@@ -52,7 +52,13 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP", "email server HELO message confirmation"),
             new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test"),
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections", "low-level raw socket connection"),
-            new EndpointType("blebroadcast", "LinkIcon", "BLE Broadcast (Android)", "Listen for BLE broadcasts and decrypt payloads", "BLE broadcast listener"),
+            new EndpointType(
+                "blebroadcast",
+                "BluetoothIcon",
+                "BLE Broadcast (Android)",
+                "Listen for BLE broadcasts on Android and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current.",
+                "BLE broadcast listener (Android only; Password=key, Args=cmd flags)"
+            ),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans", "vulnerability scan using Nmap scripts"),
             new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites", "traffic generator that crawls a site"),
