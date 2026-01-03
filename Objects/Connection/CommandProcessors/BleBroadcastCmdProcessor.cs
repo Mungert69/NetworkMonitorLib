@@ -66,6 +66,15 @@ namespace NetworkMonitor.Connection
                 },
                 new ArgSpec
                 {
+                    Key = "format",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    DefaultValue = "aesgcm",
+                    Help = "Payload format: aesgcm or victron."
+                },
+                new ArgSpec
+                {
                     Key = "payload",
                     Required = false,
                     IsFlag = false,
@@ -89,6 +98,14 @@ namespace NetworkMonitor.Connection
                     IsFlag = false,
                     TypeHint = "value",
                     Help = "Service UUID to select service data (optional)."
+                },
+                new ArgSpec
+                {
+                    Key = "raw_payload",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Hex payload override (skip scan and decode this payload)."
                 }
             };
         }
@@ -113,9 +130,16 @@ namespace NetworkMonitor.Connection
 
             string address = parsed.GetString("address");
             string keyRaw = parsed.GetString("key");
+            string format = parsed.GetString("format", "aesgcm");
             string payloadMode = parsed.GetString("payload", "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
             string serviceUuid = parsed.GetString("service_uuid");
+            string rawPayload = parsed.GetString("raw_payload");
+
+            if (!TryNormalizeAddress(address, out var normalizedAddress, out var addressError))
+            {
+                return new ResultObj { Success = false, Message = addressError };
+            }
 
             if (!TryParseKey(keyRaw, out var keyBytes, out var keyError))
             {
@@ -130,12 +154,37 @@ namespace NetworkMonitor.Connection
 
             try
             {
-                var capture = await ScanOnceAsync(
-                    address,
-                    payloadMode,
-                    manufacturerId,
-                    serviceUuid,
-                    cancellationToken);
+                format = format.Trim().ToLowerInvariant();
+                if (format == "victron" && manufacturerId == -1)
+                {
+                    manufacturerId = 0x02E1; // Victron manufacturer ID
+                }
+
+                BleCapture capture;
+                if (!string.IsNullOrWhiteSpace(rawPayload))
+                {
+                    if (!TryParseHex(rawPayload, out var rawBytes, out var rawError))
+                    {
+                        return new ResultObj { Success = false, Message = rawError };
+                    }
+
+                    capture = new BleCapture(normalizedAddress, "raw_input", rawBytes);
+                }
+                else
+                {
+                    capture = await ScanOnceAsync(
+                        normalizedAddress,
+                        payloadMode,
+                        manufacturerId,
+                        serviceUuid,
+                        cancellationToken);
+                }
+
+                if (format == "victron")
+                {
+                    var message = BuildVictronMessage(capture);
+                    return new ResultObj { Success = true, Message = message };
+                }
 
                 if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
                 {
@@ -496,6 +545,95 @@ namespace NetworkMonitor.Connection
             }
         }
 
+        private static bool TryNormalizeAddress(string input, out string normalized, out string error)
+        {
+            normalized = "";
+            error = "";
+
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                error = "Missing BLE address.";
+                return false;
+            }
+
+            var trimmed = input.Trim();
+            if (trimmed.Length == 12 && IsHexString(trimmed))
+            {
+                normalized = string.Create(17, trimmed, (span, hex) =>
+                {
+                    int di = 0;
+                    for (int i = 0; i < hex.Length; i += 2)
+                    {
+                        if (di > 0) span[di++] = ':';
+                        span[di++] = char.ToUpperInvariant(hex[i]);
+                        span[di++] = char.ToUpperInvariant(hex[i + 1]);
+                    }
+                });
+                return true;
+            }
+
+            if (IsColonMac(trimmed))
+            {
+                normalized = trimmed.ToUpperInvariant();
+                return true;
+            }
+
+            if (TryNormalizeDashedMac(trimmed, out var dashed))
+            {
+                normalized = dashed;
+                return true;
+            }
+
+            error = $"Invalid BLE address format: {input}. Expected 12 hex chars or AA:BB:CC:DD:EE:FF.";
+            return false;
+        }
+
+        private static bool IsColonMac(string value)
+        {
+            if (value.Length != 17) return false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                if ((i + 1) % 3 == 0)
+                {
+                    if (value[i] != ':') return false;
+                }
+                else
+                {
+                    char c = value[i];
+                    bool isHex = (c >= '0' && c <= '9')
+                                 || (c >= 'a' && c <= 'f')
+                                 || (c >= 'A' && c <= 'F');
+                    if (!isHex) return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool TryNormalizeDashedMac(string value, out string normalized)
+        {
+            normalized = "";
+            if (value.Length != 17) return false;
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if ((i + 1) % 3 == 0)
+                {
+                    if (value[i] != '-') return false;
+                }
+                else
+                {
+                    char c = value[i];
+                    bool isHex = (c >= '0' && c <= '9')
+                                 || (c >= 'a' && c <= 'f')
+                                 || (c >= 'A' && c <= 'F');
+                    if (!isHex) return false;
+                }
+            }
+
+            normalized = value.Replace('-', ':').ToUpperInvariant();
+            return true;
+        }
+
         private static bool IsHexString(string value)
         {
             if (string.IsNullOrWhiteSpace(value) || value.Length % 2 != 0)
@@ -533,6 +671,15 @@ namespace NetworkMonitor.Connection
             return sb.ToString().Trim();
         }
 
+        private static string BuildVictronMessage(BleCapture capture)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"BLE address: {capture.Address}");
+            sb.AppendLine($"Payload ({capture.PayloadType}): {ToHex(capture.Payload)}");
+            sb.AppendLine("Victron decode: raw payload captured (decoder not implemented).");
+            return sb.ToString().Trim();
+        }
+
         private static string ToHex(byte[] data)
         {
             if (data.Length == 0) return "";
@@ -562,6 +709,34 @@ namespace NetworkMonitor.Connection
             }
 
             return printable >= text.Length * 0.7 ? text : ToHex(data);
+        }
+
+        private static bool TryParseHex(string value, out byte[] bytes, out string error)
+        {
+            bytes = Array.Empty<byte>();
+            error = "";
+            var trimmed = value?.Trim() ?? "";
+            if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = trimmed.Substring(2);
+            }
+
+            if (!IsHexString(trimmed))
+            {
+                error = "Raw payload must be hex (even length).";
+                return false;
+            }
+
+            try
+            {
+                bytes = Convert.FromHexString(trimmed);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = $"Invalid raw payload hex: {ex.Message}";
+                return false;
+            }
         }
     }
 }
