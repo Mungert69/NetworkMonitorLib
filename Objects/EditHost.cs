@@ -68,6 +68,10 @@ namespace NetworkMonitor.Objects
         /// On editting set the authentication password for connection to the host.
         /// </summary>
         public string? SetPassword { get; set; }
+        /// <summary>
+        /// On editting set extra arguments for command-style endpoints.
+        /// </summary>
+        public string? SetArgs { get; set; }
         ///
         /// This field is required. The prompt that was entered by the user. The backend will use this to assist in creating a useful reponse for the user.
         ///

@@ -32,6 +32,7 @@ namespace NetworkMonitor.Objects
             IsEmailVerified=m.IsEmailVerified;
             Username=m.Username;
             Password=m.Password;
+            Args = m.Args;
             MonitorModelConfigId = m.MonitorModelConfigId;
             if (m.ModelConfig != null)
             {
