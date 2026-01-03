@@ -38,7 +38,9 @@ namespace NetworkMonitor.Connection
 
         private readonly List<string> _coreProcessorTypes = new()
         {
-            "Nmap", "Meta", "Openssl", "Busybox", "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite","HugSpaceWake","HugSpaceKeepAlive", "Ping", "QuantumConnect", "QuantumPortScanner", "QuantumInfo"
+            "Nmap", "Meta", "Openssl", "Busybox", "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite",
+            "HugSpaceWake", "HugSpaceKeepAlive", "Ping", "QuantumConnect", "QuantumPortScanner", "QuantumInfo",
+            "BleBroadcast"
         };
         private readonly List<string> _requiresWebAutomation = new()
         {

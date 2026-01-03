@@ -52,6 +52,7 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP", "email server HELO message confirmation"),
             new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test"),
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections", "low-level raw socket connection"),
+            new EndpointType("blebroadcast", "LinkIcon", "BLE Broadcast (Android)", "Listen for BLE broadcasts and decrypt payloads", "BLE broadcast listener"),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans", "vulnerability scan using Nmap scripts"),
             new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites", "traffic generator that crawls a site"),
@@ -77,6 +78,8 @@ namespace NetworkMonitor.Objects.Factory
                 return "2-5 minutes";
             if (endpointType.Contains("ping"))
                 return "1-2 minutes";
+            if (endpointType.Contains("ble"))
+                return "5-20 seconds (depends on broadcast interval)";
 
             return "2-10 minutes";
         }
@@ -110,6 +113,7 @@ namespace NetworkMonitor.Objects.Factory
     
     // RawConnect - Raw socket connection is fast, so keeping low thresholds
     { "rawconnect", new ResponseTimeThreshold(new ThresholdValues(100, 200, 400), new ThresholdValues(100, 200, 400)) },
+    { "blebroadcast", new ResponseTimeThreshold(new ThresholdValues(500, 1000, 2000), new ThresholdValues(500, 1000, 2000)) },
 
     // Adjusted thresholds for nmap scans based on observed execution times. Note these are 10 times less than the above as the timeout is set is 10s of milliseconds nmap connects.
     { "nmap", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
@@ -190,6 +194,7 @@ namespace NetworkMonitor.Objects.Factory
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),
                 "rawconnect" => new SocketConnect(),
+                "blebroadcast" => new BleBroadcastConnect(cmdProcessorProvider),
                 "nmap" => new NmapCmdConnect(cmdProcessorProvider, "-sV"),
                 "nmapvuln" => new NmapCmdConnect(cmdProcessorProvider, "--script vuln"),
                 "crawlsite" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 3 --max_pages 10"),
@@ -243,6 +248,19 @@ namespace NetworkMonitor.Objects.Factory
             else if (type.Contains("dailycrawl"))
             {
                 return await apiService.CheckCrawlSite(hostObject);
+            }
+            else if (type.Contains("blebroadcast"))
+            {
+                return new TResultObj<DataObj>
+                {
+                    Success = false,
+                    Message = "BLE broadcast checks are only supported on Android agents.",
+                    Data = new DataObj
+                    {
+                        ResultStatus = "BLE broadcast checks are agent-only.",
+                        ResponseTime = -1
+                    }
+                };
             }
             else if (type.Contains("quantum"))
             {
