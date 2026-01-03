@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
+using System.Buffers.Binary;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
@@ -101,6 +102,14 @@ namespace NetworkMonitor.Connection
                 },
                 new ArgSpec
                 {
+                    Key = "metric",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    Help = "Metric to surface in connect logs (e.g., pv_power, battery_voltage)."
+                },
+                new ArgSpec
+                {
                     Key = "raw_payload",
                     Required = false,
                     IsFlag = false,
@@ -182,8 +191,12 @@ namespace NetworkMonitor.Connection
 
                 if (format == "victron")
                 {
-                    var message = BuildVictronMessage(capture);
-                    return new ResultObj { Success = true, Message = message };
+                    if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
+                    {
+                        return new ResultObj { Success = false, Message = victronError };
+                    }
+
+                    return new ResultObj { Success = true, Message = victronMessage };
                 }
 
                 if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
@@ -671,13 +684,170 @@ namespace NetworkMonitor.Connection
             return sb.ToString().Trim();
         }
 
-        private static string BuildVictronMessage(BleCapture capture)
+        private static bool TryDecodeVictron(BleCapture capture, byte[] keyBytes, out string message, out string error)
         {
+            message = "";
+            error = "";
+
+            if (keyBytes.Length != 16)
+            {
+                error = "Victron decode requires a 16-byte AES-128 key.";
+                return false;
+            }
+
+            if (!TryExtractVictronRecord(capture.Payload, out var record, out var extractError))
+            {
+                error = extractError;
+                return false;
+            }
+
+            if (record.KeyCheck != keyBytes[0])
+            {
+                error = $"Victron key check mismatch (header=0x{record.KeyCheck:X2}, key[0]=0x{keyBytes[0]:X2}).";
+                return false;
+            }
+
+            if (record.Cipher.Length == 0 || record.Cipher.Length > 16)
+            {
+                error = $"Victron cipher length {record.Cipher.Length} is invalid (expected 1..16).";
+                return false;
+            }
+
+            byte[] plaintext = DecryptVictronAesCtr(keyBytes, record.Nonce, record.Cipher);
+
             var sb = new StringBuilder();
             sb.AppendLine($"BLE address: {capture.Address}");
             sb.AppendLine($"Payload ({capture.PayloadType}): {ToHex(capture.Payload)}");
-            sb.AppendLine("Victron decode: raw payload captured (decoder not implemented).");
-            return sb.ToString().Trim();
+            sb.AppendLine($"Victron recordType: 0x{record.RecordType:X2}");
+            sb.AppendLine($"Victron nonce: 0x{record.Nonce:X4}");
+            sb.AppendLine($"Victron plaintext: {ToHex(plaintext)}");
+
+            if (record.RecordType == 0x01)
+            {
+                if (plaintext.Length < 10)
+                {
+                    error = $"Victron solar payload too short ({plaintext.Length}).";
+                    return false;
+                }
+
+                byte deviceState = plaintext[0];
+                byte chargerError = plaintext[1];
+                short batteryVoltageRaw = BinaryPrimitives.ReadInt16LittleEndian(plaintext.AsSpan(2, 2));
+                short batteryCurrentRaw = BinaryPrimitives.ReadInt16LittleEndian(plaintext.AsSpan(4, 2));
+                ushort yieldTodayRaw = BinaryPrimitives.ReadUInt16LittleEndian(plaintext.AsSpan(6, 2));
+                ushort pvPowerRaw = BinaryPrimitives.ReadUInt16LittleEndian(plaintext.AsSpan(8, 2));
+
+                double batteryVoltage = batteryVoltageRaw / 100.0;
+                double batteryCurrent = batteryCurrentRaw / 10.0;
+                double yieldToday = yieldTodayRaw / 100.0;
+
+                sb.AppendLine($"Battery voltage: {batteryVoltage:F2} V");
+                sb.AppendLine($"Battery current: {batteryCurrent:F1} A");
+                sb.AppendLine($"Yield today: {yieldToday:F2} kWh");
+                sb.AppendLine($"PV power: {pvPowerRaw} W");
+                sb.AppendLine($"Device state: {deviceState}");
+                sb.AppendLine($"Charger error: {chargerError}");
+
+                if (plaintext.Length >= 12)
+                {
+                    ushort load9 = (ushort)(plaintext[10] | ((plaintext[11] & 0x01) << 8));
+                    double? loadCurrentA = load9 == 0x1FF ? null : load9 / 10.0;
+                    sb.AppendLine(loadCurrentA is null
+                        ? "Load current: NA"
+                        : $"Load current: {loadCurrentA:F1} A");
+                }
+            }
+
+            message = sb.ToString().Trim();
+            return true;
+        }
+
+        private struct VictronRecord
+        {
+            public byte RecordType;
+            public ushort Nonce;
+            public byte KeyCheck;
+            public byte[] Cipher;
+        }
+
+        private static bool TryExtractVictronRecord(byte[] payload, out VictronRecord record, out string error)
+        {
+            record = default;
+            error = "";
+
+            if (payload.Length < 6)
+            {
+                error = "Victron payload too short.";
+                return false;
+            }
+
+            var span = payload.AsSpan();
+            if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
+            {
+                span = span.Slice(2);
+            }
+
+            if (span.Length < 6)
+            {
+                error = "Victron payload too short after company ID.";
+                return false;
+            }
+
+            int offset = 0;
+            if (span[0] == 0x10)
+            {
+                // Product advertisement record; extra record starts at index 4.
+                if (span.Length < 9)
+                {
+                    error = "Victron product advertisement too short.";
+                    return false;
+                }
+                offset = 4;
+            }
+
+            if (span.Length < offset + 4)
+            {
+                error = "Victron extra record header missing.";
+                return false;
+            }
+
+            record.RecordType = span[offset];
+            record.Nonce = BinaryPrimitives.ReadUInt16LittleEndian(span.Slice(offset + 1, 2));
+            record.KeyCheck = span[offset + 3];
+            record.Cipher = span.Slice(offset + 4).ToArray();
+
+            if (span.Length > 24)
+            {
+                error = "Victron payload too long.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static byte[] DecryptVictronAesCtr(byte[] key, ushort nonce, ReadOnlySpan<byte> cipher)
+        {
+            byte[] counterBlock = new byte[16];
+            counterBlock[0] = (byte)(nonce & 0xFF);
+            counterBlock[1] = (byte)(nonce >> 8);
+
+            byte[] keystream = new byte[16];
+            using (var aes = Aes.Create())
+            {
+                aes.Mode = CipherMode.ECB;
+                aes.Padding = PaddingMode.None;
+                aes.Key = key;
+                using var enc = aes.CreateEncryptor();
+                enc.TransformBlock(counterBlock, 0, 16, keystream, 0);
+            }
+
+            byte[] plain = new byte[cipher.Length];
+            for (int i = 0; i < cipher.Length; i++)
+            {
+                plain[i] = (byte)(cipher[i] ^ keystream[i]);
+            }
+
+            return plain;
         }
 
         private static string ToHex(byte[] data)
