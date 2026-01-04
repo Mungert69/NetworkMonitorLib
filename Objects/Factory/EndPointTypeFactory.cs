@@ -56,8 +56,15 @@ namespace NetworkMonitor.Objects.Factory
                 "blebroadcast",
                 "BluetoothIcon",
                 "BLE Broadcast",
-                "Listen for BLE broadcasts and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
-                "BLE broadcast listener (Password=key, Args=cmd flags)"
+                "Listen for BLE broadcasts from a specific address and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
+                "BLE broadcast (targeted). Password=key, Args=cmd flags"
+            ),
+            new EndpointType(
+                "blebroadcastlisten",
+                "BluetoothIcon",
+                "BLE Broadcast Listen",
+                "Listen for any BLE broadcasts within the timeout window and return a capped list of payloads. Password is optional (used as the key). Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid>.",
+                "BLE broadcast (listen mode, no address required)"
             ),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),
             new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans", "vulnerability scan using Nmap scripts"),
@@ -120,6 +127,7 @@ namespace NetworkMonitor.Objects.Factory
     // RawConnect - Raw socket connection is fast, so keeping low thresholds
     { "rawconnect", new ResponseTimeThreshold(new ThresholdValues(100, 200, 400), new ThresholdValues(100, 200, 400)) },
     { "blebroadcast", new ResponseTimeThreshold(new ThresholdValues(500, 1000, 2000), new ThresholdValues(500, 1000, 2000)) },
+    { "blebroadcastlisten", new ResponseTimeThreshold(new ThresholdValues(500, 1000, 2000), new ThresholdValues(500, 1000, 2000)) },
 
     // Adjusted thresholds for nmap scans based on observed execution times. Note these are 10 times less than the above as the timeout is set is 10s of milliseconds nmap connects.
     { "nmap", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
@@ -201,6 +209,7 @@ namespace NetworkMonitor.Objects.Factory
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),
                 "rawconnect" => new SocketConnect(),
                 "blebroadcast" => new BleBroadcastConnect(cmdProcessorProvider),
+                "blebroadcastlisten" => new BleBroadcastListenConnect(cmdProcessorProvider),
                 "nmap" => new NmapCmdConnect(cmdProcessorProvider, "-sV"),
                 "nmapvuln" => new NmapCmdConnect(cmdProcessorProvider, "--script vuln"),
                 "crawlsite" => new CrawlSiteCmdConnect(cmdProcessorProvider, " --max_depth 3 --max_pages 10"),

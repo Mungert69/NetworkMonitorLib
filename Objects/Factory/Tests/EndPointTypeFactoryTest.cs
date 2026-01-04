@@ -29,6 +29,7 @@ public class EndPointTypeFactoryTest
         Assert.Equal("2-5 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("https"));
         Assert.Equal("1-2 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("ping"));
         Assert.Equal("5-20 seconds (depends on broadcast interval)", EndPointTypeFactory.GetProcessingTimeEstimate("blebroadcast"));
+        Assert.Equal("5-20 seconds (depends on broadcast interval)", EndPointTypeFactory.GetProcessingTimeEstimate("blebroadcastlisten"));
         Assert.Equal("2-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("sitehash"));
         Assert.Equal("2-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("unknown"));
         Assert.Equal("2-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate(null));
@@ -47,6 +48,7 @@ public class EndPointTypeFactoryTest
         Assert.Contains(types, t => t.InternalType == "sitehash");
         Assert.Contains(types, t => t.InternalType == "dailyhugkeepalive");
         Assert.Contains(types, t => t.InternalType == "blebroadcast");
+        Assert.Contains(types, t => t.InternalType == "blebroadcastlisten");
     }
 
     [Fact]
@@ -130,6 +132,7 @@ public class EndPointTypeFactoryTest
         mockProvider.Setup(p => p.GetProcessor(It.IsAny<string>())).Returns((ICmdProcessor?)null);
         var mockBrowser = new Mock<IBrowserHost>();
         Assert.IsType<BleBroadcastConnect>(EndPointTypeFactory.CreateNetConnect("blebroadcast", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, mockProvider.Object));
+        Assert.IsType<BleBroadcastListenConnect>(EndPointTypeFactory.CreateNetConnect("blebroadcastlisten", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, mockProvider.Object));
         Assert.IsType<HugSpaceKeepAliveConnect>(EndPointTypeFactory.CreateNetConnect("dailyhugkeepalive", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, mockProvider.Object));
         Assert.IsType<SiteHashConnect>(EndPointTypeFactory.CreateNetConnect("sitehash", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, browserHost: mockBrowser.Object));
 

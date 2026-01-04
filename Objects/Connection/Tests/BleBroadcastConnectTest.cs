@@ -45,17 +45,23 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         }
 
         [Fact]
-        public async Task Connect_MissingKey_ReportsError()
+        public async Task Connect_MissingKey_OmitsKeyArgument()
         {
             var processor = new Mock<ICmdProcessor>();
+            ProcessorScanDataObj? sent = null;
+            processor
+                .Setup(p => p.QueueCommand(It.IsAny<CancellationTokenSource>(), It.IsAny<ProcessorScanDataObj>()))
+                .Callback<CancellationTokenSource, ProcessorScanDataObj>((_, data) => sent = data)
+                .ReturnsAsync(new ResultObj { Success = true, Message = "payload ok" });
             var connect = CreateConnect(processor.Object);
             connect.MpiStatic = new MPIStatic { Address = "AA:BB:CC:DD:EE:FF", Password = "", Timeout = 2000, EndPointType = "blebroadcast" };
 
             await connect.Connect();
 
-            Assert.False(connect.MpiConnect.IsUp);
-            Assert.Contains("Missing BLE key", connect.MpiConnect.Message);
-            Assert.Equal("Error", connect.MpiConnect.PingInfo.Status);
+            Assert.True(connect.MpiConnect.IsUp);
+            Assert.NotNull(sent);
+            Assert.Contains("--address \"AA:BB:CC:DD:EE:FF\"", sent!.Arguments);
+            Assert.DoesNotContain("--key", sent.Arguments);
         }
 
         [Fact]

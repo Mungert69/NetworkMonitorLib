@@ -26,9 +26,10 @@ using Windows.Storage.Streams;
 
 namespace NetworkMonitor.Connection
 {
-    public class BleBroadcastCmdProcessor : CmdProcessor
+    public class BleBroadcastListenCmdProcessor : CmdProcessor
     {
         private readonly List<ArgSpec> _schema;
+        private const int DefaultMaxCaptures = 10;
 
         private sealed class BleCapture
         {
@@ -44,7 +45,19 @@ namespace NetworkMonitor.Connection
             public byte[] Payload { get; }
         }
 
-        public BleBroadcastCmdProcessor(
+        private sealed class BleListenScanResult
+        {
+            public BleListenScanResult(List<BleCapture> captures, string endReason)
+            {
+                Captures = captures;
+                EndReason = endReason;
+            }
+
+            public List<BleCapture> Captures { get; }
+            public string EndReason { get; }
+        }
+
+        public BleBroadcastListenCmdProcessor(
             ILogger logger,
             ILocalCmdProcessorStates cmdProcessorStates,
             IRabbitRepo rabbitRepo,
@@ -55,19 +68,11 @@ namespace NetworkMonitor.Connection
             {
                 new ArgSpec
                 {
-                    Key = "address",
-                    Required = true,
-                    IsFlag = false,
-                    TypeHint = "value",
-                    Help = "BLE device address (AA:BB:CC:DD:EE:FF)."
-                },
-                new ArgSpec
-                {
                     Key = "key",
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    Help = "Encryption key (hex, base64, or raw; 16/24/32 bytes). Omit to skip decryption."
+                    Help = "Encryption key (hex, base64, or raw; 16/24/32 bytes). Optional."
                 },
                 new ArgSpec
                 {
@@ -106,14 +111,6 @@ namespace NetworkMonitor.Connection
                 },
                 new ArgSpec
                 {
-                    Key = "metric",
-                    Required = false,
-                    IsFlag = false,
-                    TypeHint = "value",
-                    Help = "Metric to surface in connect logs (e.g., pv_power, battery_voltage)."
-                },
-                new ArgSpec
-                {
                     Key = "raw_payload",
                     Required = false,
                     IsFlag = false,
@@ -141,18 +138,14 @@ namespace NetworkMonitor.Connection
                 return new ResultObj { Success = false, Message = err };
             }
 
-                string address = parsed.GetString("address");
-                string keyRaw = parsed.GetString("key");
+            string keyRaw = parsed.GetString("key");
             string format = parsed.GetString("format", "aesgcm");
             string payloadMode = parsed.GetString("payload", "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
             string serviceUuid = parsed.GetString("service_uuid");
             string rawPayload = parsed.GetString("raw_payload");
 
-            if (!TryNormalizeAddress(address, out var normalizedAddress, out var addressError))
-            {
-                return new ResultObj { Success = false, Message = addressError };
-            }
+            string normalizedAddress = "";
 
             if (!TryParseKey(keyRaw, out var keyBytes, out var keyError))
             {
@@ -227,7 +220,7 @@ namespace NetworkMonitor.Connection
                     manufacturerId = 0x02E1; // Victron manufacturer ID
                 }
 
-                BleCapture capture;
+                BleListenScanResult scanResult;
                 if (!string.IsNullOrWhiteSpace(rawPayload))
                 {
                     if (!TryParseHex(rawPayload, out var rawBytes, out var rawError))
@@ -235,11 +228,14 @@ namespace NetworkMonitor.Connection
                         return new ResultObj { Success = false, Message = rawError };
                     }
 
-                    capture = new BleCapture(normalizedAddress, "raw_input", rawBytes);
+                    var captureAddress = string.IsNullOrWhiteSpace(normalizedAddress) ? "unknown" : normalizedAddress;
+                    scanResult = new BleListenScanResult(
+                        new List<BleCapture> { new BleCapture(captureAddress, "raw_input", rawBytes) },
+                        "raw_payload");
                 }
                 else
                 {
-                    capture = await ScanOnceAsync(
+                    scanResult = await ScanListenAsync(
                         normalizedAddress,
                         payloadMode,
                         manufacturerId,
@@ -249,11 +245,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildResult(format, capture, keyBytes);
-            }
-            catch (System.OperationCanceledException)
-            {
-                return new ResultObj { Success = false, Message = "BLE scan canceled or timed out." };
+                return BuildListenResult(format, scanResult, keyBytes);
             }
             catch (Exception ex)
             {
@@ -262,7 +254,7 @@ namespace NetworkMonitor.Connection
             }
         }
 
-        private async Task<BleCapture> ScanOnceAsync(
+        private async Task<BleListenScanResult> ScanListenAsync(
             string address,
             string payloadMode,
             int manufacturerId,
@@ -290,14 +282,17 @@ namespace NetworkMonitor.Connection
                 throw new InvalidOperationException("Bluetooth LE scanner not available.");
             }
 
-            var tcs = new TaskCompletionSource<BleCapture>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var callback = new BleScanCallback(
+            var captures = new List<BleCapture>();
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var callback = new BleListenScanCallback(
                 address,
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
                 requireVictronInstantReadout,
                 victronKeyFirstByte,
+                DefaultMaxCaptures,
+                captures,
                 tcs,
                 _logger);
 
@@ -308,17 +303,20 @@ namespace NetworkMonitor.Connection
             var filters = BuildFilters(address, serviceUuid);
             scanner.StartScan(filters, settings, callback);
 
+            string endReason = "timeout";
             try
             {
-                using (cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken)))
+                using (cancellationToken.Register(() => tcs.TrySetResult("timeout")))
                 {
-                    return await tcs.Task;
+                    endReason = await tcs.Task;
                 }
             }
             finally
             {
                 scanner.StopScan(callback);
             }
+
+            return new BleListenScanResult(captures, endReason);
         }
 
         private static IList<ScanFilter> BuildFilters(string address, string serviceUuid)
@@ -348,7 +346,7 @@ namespace NetworkMonitor.Connection
             return filters;
         }
 
-        private sealed class BleScanCallback : ScanCallback
+        private sealed class BleListenScanCallback : ScanCallback
         {
             private readonly string _targetAddress;
             private readonly string _payloadMode;
@@ -356,17 +354,22 @@ namespace NetworkMonitor.Connection
             private readonly string _serviceUuid;
             private readonly bool _requireVictronInstantReadout;
             private readonly byte _victronKeyFirstByte;
-            private readonly TaskCompletionSource<BleCapture> _tcs;
+            private readonly int _maxCaptures;
+            private readonly List<BleCapture> _captures;
+            private readonly object _lock = new object();
+            private readonly TaskCompletionSource<string> _tcs;
             private readonly ILogger _logger;
 
-            public BleScanCallback(
+            public BleListenScanCallback(
                 string targetAddress,
                 string payloadMode,
                 int manufacturerId,
                 string serviceUuid,
                 bool requireVictronInstantReadout,
                 byte victronKeyFirstByte,
-                TaskCompletionSource<BleCapture> tcs,
+                int maxCaptures,
+                List<BleCapture> captures,
+                TaskCompletionSource<string> tcs,
                 ILogger logger)
             {
                 _targetAddress = targetAddress ?? "";
@@ -375,6 +378,8 @@ namespace NetworkMonitor.Connection
                 _serviceUuid = serviceUuid ?? "";
                 _requireVictronInstantReadout = requireVictronInstantReadout;
                 _victronKeyFirstByte = victronKeyFirstByte;
+                _maxCaptures = maxCaptures;
+                _captures = captures;
                 _tcs = tcs;
                 _logger = logger;
             }
@@ -405,7 +410,23 @@ namespace NetworkMonitor.Connection
                     return;
                 }
 
-                _tcs.TrySetResult(new BleCapture(result.Device.Address ?? _targetAddress, payloadType, payload));
+                bool shouldComplete = false;
+                lock (_lock)
+                {
+                    if (_captures.Count < _maxCaptures)
+                    {
+                        _captures.Add(new BleCapture(result.Device.Address ?? _targetAddress, payloadType, payload));
+                        if (_captures.Count >= _maxCaptures)
+                        {
+                            shouldComplete = true;
+                        }
+                    }
+                }
+
+                if (shouldComplete)
+                {
+                    _tcs.TrySetResult("capture_limit");
+                }
             }
 
             public override void OnScanFailed(ScanFailure errorCode)
@@ -546,7 +567,7 @@ namespace NetworkMonitor.Connection
                     manufacturerId = 0x02E1;
                 }
 
-                BleCapture capture;
+                BleListenScanResult scanResult;
                 if (!string.IsNullOrWhiteSpace(rawPayload))
                 {
                     if (!TryParseHex(rawPayload, out var rawBytes, out var rawError))
@@ -554,11 +575,14 @@ namespace NetworkMonitor.Connection
                         return new ResultObj { Success = false, Message = rawError };
                     }
 
-                    capture = new BleCapture(normalizedAddress, "raw_input", rawBytes);
+                    var captureAddress = string.IsNullOrWhiteSpace(normalizedAddress) ? "unknown" : normalizedAddress;
+                    scanResult = new BleListenScanResult(
+                        new List<BleCapture> { new BleCapture(captureAddress, "raw_input", rawBytes) },
+                        "raw_payload");
                 }
                 else
                 {
-                    capture = await ScanOnceLinuxAsync(
+                    scanResult = await ScanListenLinuxAsync(
                         normalizedAddress,
                         payloadMode,
                         manufacturerId,
@@ -568,29 +592,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                if (format == "victron")
-                {
-                    if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
-                    {
-                        var message = BuildOutputMessage(capture, null, victronError);
-                        return new ResultObj { Success = false, Message = message };
-                    }
-
-                    return new ResultObj { Success = true, Message = victronMessage };
-                }
-
-                if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
-                {
-                    var message = BuildOutputMessage(capture, null, decryptError);
-                    return new ResultObj { Success = false, Message = message };
-                }
-
-                var successMessage = BuildOutputMessage(capture, plaintext, null);
-                return new ResultObj { Success = true, Message = successMessage };
-            }
-            catch (System.OperationCanceledException)
-            {
-                return new ResultObj { Success = false, Message = "BLE scan canceled or timed out." };
+                return BuildListenResult(format, scanResult, keyBytes);
             }
             catch (Exception ex)
             {
@@ -599,7 +601,7 @@ namespace NetworkMonitor.Connection
             }
         }
 
-        private Task<BleCapture> ScanOnceLinuxAsync(
+        private Task<BleListenScanResult> ScanListenLinuxAsync(
             string address,
             string payloadMode,
             int manufacturerId,
@@ -644,7 +646,7 @@ namespace NetworkMonitor.Connection
                     manufacturerId = 0x02E1; // Victron manufacturer ID
                 }
 
-                BleCapture capture;
+                BleListenScanResult scanResult;
                 if (!string.IsNullOrWhiteSpace(rawPayload))
                 {
                     if (!TryParseHex(rawPayload, out var rawBytes, out var rawError))
@@ -652,11 +654,14 @@ namespace NetworkMonitor.Connection
                         return new ResultObj { Success = false, Message = rawError };
                     }
 
-                    capture = new BleCapture(normalizedAddress, "raw_input", rawBytes);
+                    var captureAddress = string.IsNullOrWhiteSpace(normalizedAddress) ? "unknown" : normalizedAddress;
+                    scanResult = new BleListenScanResult(
+                        new List<BleCapture> { new BleCapture(captureAddress, "raw_input", rawBytes) },
+                        "raw_payload");
                 }
                 else
                 {
-                    capture = await ScanOnceWindowsAsync(
+                    scanResult = await ScanListenWindowsAsync(
                         normalizedAddress,
                         payloadMode,
                         manufacturerId,
@@ -666,11 +671,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildResult(format, capture, keyBytes);
-            }
-            catch (System.OperationCanceledException)
-            {
-                return new ResultObj { Success = false, Message = "BLE scan canceled or timed out." };
+                return BuildListenResult(format, scanResult, keyBytes);
             }
             catch (Exception ex)
             {
@@ -679,7 +680,7 @@ namespace NetworkMonitor.Connection
             }
         }
 
-        private async Task<BleCapture> ScanOnceWindowsAsync(
+        private async Task<BleListenScanResult> ScanListenWindowsAsync(
             string address,
             string payloadMode,
             int manufacturerId,
@@ -688,11 +689,13 @@ namespace NetworkMonitor.Connection
             bool requireVictronInstantReadout,
             byte victronKeyFirstByte)
         {
-            var tcs = new TaskCompletionSource<BleCapture>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var captures = new List<BleCapture>();
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             var watcher = new BluetoothLEAdvertisementWatcher
             {
                 ScanningMode = BluetoothLEScanningMode.Active
             };
+            var gate = new object();
 
             void OnReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
             {
@@ -716,17 +719,34 @@ namespace NetworkMonitor.Connection
                     return;
                 }
 
-                tcs.TrySetResult(new BleCapture(mac, payloadType, payload));
+                bool shouldComplete = false;
+                lock (gate)
+                {
+                    if (captures.Count < DefaultMaxCaptures)
+                    {
+                        captures.Add(new BleCapture(mac, payloadType, payload));
+                        if (captures.Count >= DefaultMaxCaptures)
+                        {
+                            shouldComplete = true;
+                        }
+                    }
+                }
+
+                if (shouldComplete)
+                {
+                    tcs.TrySetResult("capture_limit");
+                }
             }
 
             watcher.Received += OnReceived;
             watcher.Start();
 
+            string endReason = "timeout";
             try
             {
-                using (cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken)))
+                using (cancellationToken.Register(() => tcs.TrySetResult("timeout")))
                 {
-                    return await tcs.Task;
+                    endReason = await tcs.Task;
                 }
             }
             finally
@@ -734,6 +754,8 @@ namespace NetworkMonitor.Connection
                 watcher.Stop();
                 watcher.Received -= OnReceived;
             }
+
+            return new BleListenScanResult(captures, endReason);
         }
 
         private static byte[] ExtractWindowsPayload(
@@ -955,34 +977,73 @@ namespace NetworkMonitor.Connection
         }
 #endif
 
-        private ResultObj BuildResult(string format, BleCapture capture, byte[] keyBytes)
+        private ResultObj BuildListenResult(string format, BleListenScanResult scanResult, byte[] keyBytes)
         {
-            if (keyBytes.Length == 0)
+            var message = BuildListenMessage(format, scanResult, keyBytes);
+            return new ResultObj { Success = true, Message = message };
+        }
+
+        private static string BuildListenMessage(string format, BleListenScanResult scanResult, byte[] keyBytes)
+        {
+            var captures = scanResult.Captures;
+            var sb = new StringBuilder();
+            sb.AppendLine($"BLE listen captured {captures.Count} advertisement(s).");
+            sb.AppendLine($"End reason: {DescribeListenEnd(scanResult.EndReason)}.");
+
+            if (captures.Count == 0)
             {
-                var message = BuildOutputMessage(capture, null, null);
-                message = $"{message}{Environment.NewLine}Note: no key provided; payload not decrypted.";
-                return new ResultObj { Success = true, Message = message };
+                return sb.ToString().Trim();
             }
 
-            if (format == "victron")
+            for (int i = 0; i < captures.Count; i++)
             {
-                if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
+                var capture = captures[i];
+                sb.AppendLine();
+                sb.AppendLine($"--- Capture {i + 1} ---");
+
+                if (format == "victron")
                 {
-                    var message = BuildOutputMessage(capture, null, victronError);
-                    return new ResultObj { Success = false, Message = message };
+                    if (keyBytes.Length == 0)
+                    {
+                        sb.AppendLine(BuildOutputMessage(capture, null, "No key provided; skipping Victron decode."));
+                    }
+                    else if (TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
+                    {
+                        sb.AppendLine(victronMessage);
+                    }
+                    else
+                    {
+                        sb.AppendLine(BuildOutputMessage(capture, null, victronError));
+                    }
                 }
-
-                return new ResultObj { Success = true, Message = victronMessage };
+                else
+                {
+                    if (keyBytes.Length == 0)
+                    {
+                        sb.AppendLine(BuildOutputMessage(capture, null, "No key provided; skipping decryption."));
+                    }
+                    else if (TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
+                    {
+                        sb.AppendLine(BuildOutputMessage(capture, plaintext, null));
+                    }
+                    else
+                    {
+                        sb.AppendLine(BuildOutputMessage(capture, null, decryptError));
+                    }
+                }
             }
 
-            if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
+            return sb.ToString().Trim();
+        }
+
+        private static string DescribeListenEnd(string endReason)
+        {
+            return endReason switch
             {
-                var message = BuildOutputMessage(capture, null, decryptError);
-                return new ResultObj { Success = false, Message = message };
-            }
-
-            var successMessage = BuildOutputMessage(capture, plaintext, null);
-            return new ResultObj { Success = true, Message = successMessage };
+                "capture_limit" => "capture limit reached",
+                "raw_payload" => "raw payload provided",
+                _ => "timeout"
+            };
         }
 
         private static bool TryParseKey(string input, out byte[] keyBytes, out string error)
