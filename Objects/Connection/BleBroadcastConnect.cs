@@ -38,12 +38,6 @@ namespace NetworkMonitor.Connection
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(MpiStatic.Password))
-            {
-                ProcessException("Missing BLE key (use Password field)", "Error");
-                return;
-            }
-
             PreConnect();
             var result = new ResultObj();
             ushort responseTime = 0;
@@ -51,9 +45,13 @@ namespace NetworkMonitor.Connection
             try
             {
                 string address = MpiStatic.Address.Trim();
-                string key = MpiStatic.Password.Trim();
+                string key = MpiStatic.Password?.Trim() ?? "";
 
-                string arguments = $"--address \"{address}\" --key \"{key}\"";
+                string arguments = $"--address \"{address}\"";
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    arguments += $" --key \"{key}\"";
+                }
                 string extraArgs = MpiStatic.Args?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(extraArgs))
                 {
