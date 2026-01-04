@@ -19,6 +19,10 @@ using Android.OS;
 using Android.Util;
 using Java.Util;
 #endif
+#if WINDOWS
+using Windows.Devices.Bluetooth.Advertisement;
+using Windows.Storage.Streams;
+#endif
 
 namespace NetworkMonitor.Connection
 {
@@ -156,9 +160,63 @@ namespace NetworkMonitor.Connection
             }
 
 #if ANDROID
+            return await RunAndroidAsync(
+                normalizedAddress,
+                keyBytes,
+                format,
+                payloadMode,
+                manufacturerId,
+                serviceUuid,
+                rawPayload,
+                cancellationToken);
+#elif WINDOWS
+            return await RunWindowsAsync(
+                normalizedAddress,
+                keyBytes,
+                format,
+                payloadMode,
+                manufacturerId,
+                serviceUuid,
+                rawPayload,
+                cancellationToken);
+#else
+            if (OperatingSystem.IsLinux())
+            {
+                return await RunLinuxAsync(
+                    normalizedAddress,
+                    keyBytes,
+                    format,
+                    payloadMode,
+                    manufacturerId,
+                    serviceUuid,
+                    rawPayload,
+                    cancellationToken);
+            }
+
+            await Task.CompletedTask;
+            return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows builds." };
+#endif
+        }
+
+        public override string GetCommandHelp()
+        {
+            return CliArgParser.BuildUsage(_cmdProcessorStates.CmdDisplayName, _schema);
+        }
+
+#if ANDROID
+        private async Task<ResultObj> RunAndroidAsync(
+            string normalizedAddress,
+            byte[] keyBytes,
+            string format,
+            string payloadMode,
+            int manufacturerId,
+            string serviceUuid,
+            string rawPayload,
+            CancellationToken cancellationToken)
+        {
             if (!OperatingSystem.IsAndroid())
             {
-                return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android." };
+                return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows." };
             }
 
             try
@@ -191,25 +249,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                if (format == "victron")
-                {
-                    if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
-                    {
-                        var message = BuildOutputMessage(capture, null, victronError);
-                        return new ResultObj { Success = false, Message = message };
-                    }
-
-                    return new ResultObj { Success = true, Message = victronMessage };
-                }
-
-                if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
-                {
-                    var message = BuildOutputMessage(capture, null, decryptError);
-                    return new ResultObj { Success = false, Message = message };
-                }
-
-                var successMessage = BuildOutputMessage(capture, plaintext, null);
-                return new ResultObj { Success = true, Message = successMessage };
+                return BuildResult(format, capture, keyBytes);
             }
             catch (System.OperationCanceledException)
             {
@@ -220,18 +260,8 @@ namespace NetworkMonitor.Connection
                 _logger.LogError(ex, "BLE scan failed");
                 return new ResultObj { Success = false, Message = $"BLE scan failed: {ex.Message}" };
             }
-#else
-            await Task.CompletedTask;
-            return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android builds." };
-#endif
         }
 
-        public override string GetCommandHelp()
-        {
-            return CliArgParser.BuildUsage(_cmdProcessorStates.CmdDisplayName, _schema);
-        }
-
-#if ANDROID
         private async Task<BleCapture> ScanOnceAsync(
             string address,
             string payloadMode,
@@ -497,6 +527,456 @@ namespace NetworkMonitor.Connection
             return Array.Empty<byte>();
         }
 #endif
+
+        private async Task<ResultObj> RunLinuxAsync(
+            string normalizedAddress,
+            byte[] keyBytes,
+            string format,
+            string payloadMode,
+            int manufacturerId,
+            string serviceUuid,
+            string rawPayload,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                format = format.Trim().ToLowerInvariant();
+                if (format == "victron" && manufacturerId == -1)
+                {
+                    manufacturerId = 0x02E1;
+                }
+
+                BleCapture capture;
+                if (!string.IsNullOrWhiteSpace(rawPayload))
+                {
+                    if (!TryParseHex(rawPayload, out var rawBytes, out var rawError))
+                    {
+                        return new ResultObj { Success = false, Message = rawError };
+                    }
+
+                    capture = new BleCapture(normalizedAddress, "raw_input", rawBytes);
+                }
+                else
+                {
+                    capture = await ScanOnceLinuxAsync(
+                        normalizedAddress,
+                        payloadMode,
+                        manufacturerId,
+                        serviceUuid,
+                        cancellationToken,
+                        format == "victron",
+                        keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
+                }
+
+                if (format == "victron")
+                {
+                    if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
+                    {
+                        var message = BuildOutputMessage(capture, null, victronError);
+                        return new ResultObj { Success = false, Message = message };
+                    }
+
+                    return new ResultObj { Success = true, Message = victronMessage };
+                }
+
+                if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
+                {
+                    var message = BuildOutputMessage(capture, null, decryptError);
+                    return new ResultObj { Success = false, Message = message };
+                }
+
+                var successMessage = BuildOutputMessage(capture, plaintext, null);
+                return new ResultObj { Success = true, Message = successMessage };
+            }
+            catch (System.OperationCanceledException)
+            {
+                return new ResultObj { Success = false, Message = "BLE scan canceled or timed out." };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "BLE scan failed");
+                return new ResultObj { Success = false, Message = $"BLE scan failed: {ex.Message}" };
+            }
+        }
+
+        private Task<BleCapture> ScanOnceLinuxAsync(
+            string address,
+            string payloadMode,
+            int manufacturerId,
+            string serviceUuid,
+            CancellationToken cancellationToken,
+            bool requireVictronInstantReadout,
+            byte victronKeyFirstByte)
+        {
+            _ = address;
+            _ = payloadMode;
+            _ = manufacturerId;
+            _ = serviceUuid;
+            _ = cancellationToken;
+            _ = requireVictronInstantReadout;
+            _ = victronKeyFirstByte;
+
+            throw new NotSupportedException(
+                "BLE scan on Linux requires BlueZ/D-Bus integration and privileged access to the host BLE adapter.");
+        }
+
+#if WINDOWS
+        private async Task<ResultObj> RunWindowsAsync(
+            string normalizedAddress,
+            byte[] keyBytes,
+            string format,
+            string payloadMode,
+            int manufacturerId,
+            string serviceUuid,
+            string rawPayload,
+            CancellationToken cancellationToken)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows." };
+            }
+
+            try
+            {
+                format = format.Trim().ToLowerInvariant();
+                if (format == "victron" && manufacturerId == -1)
+                {
+                    manufacturerId = 0x02E1; // Victron manufacturer ID
+                }
+
+                BleCapture capture;
+                if (!string.IsNullOrWhiteSpace(rawPayload))
+                {
+                    if (!TryParseHex(rawPayload, out var rawBytes, out var rawError))
+                    {
+                        return new ResultObj { Success = false, Message = rawError };
+                    }
+
+                    capture = new BleCapture(normalizedAddress, "raw_input", rawBytes);
+                }
+                else
+                {
+                    capture = await ScanOnceWindowsAsync(
+                        normalizedAddress,
+                        payloadMode,
+                        manufacturerId,
+                        serviceUuid,
+                        cancellationToken,
+                        format == "victron",
+                        keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
+                }
+
+                return BuildResult(format, capture, keyBytes);
+            }
+            catch (System.OperationCanceledException)
+            {
+                return new ResultObj { Success = false, Message = "BLE scan canceled or timed out." };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "BLE scan failed");
+                return new ResultObj { Success = false, Message = $"BLE scan failed: {ex.Message}" };
+            }
+        }
+
+        private async Task<BleCapture> ScanOnceWindowsAsync(
+            string address,
+            string payloadMode,
+            int manufacturerId,
+            string serviceUuid,
+            CancellationToken cancellationToken,
+            bool requireVictronInstantReadout,
+            byte victronKeyFirstByte)
+        {
+            var tcs = new TaskCompletionSource<BleCapture>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var watcher = new BluetoothLEAdvertisementWatcher
+            {
+                ScanningMode = BluetoothLEScanningMode.Active
+            };
+
+            void OnReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
+            {
+                var mac = FormatBluetoothAddress(args.BluetoothAddress);
+                if (!string.IsNullOrWhiteSpace(address) &&
+                    !string.Equals(mac, address, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                var payload = ExtractWindowsPayload(args.Advertisement, payloadMode, manufacturerId, serviceUuid, out var payloadType);
+                if (payload.Length == 0)
+                {
+                    _logger.LogDebug("BLE scan record had no usable payload.");
+                    return;
+                }
+
+                if (requireVictronInstantReadout && !IsVictronInstantReadout(payload, payloadType, victronKeyFirstByte))
+                {
+                    _logger.LogDebug("Ignoring non-Victron instant readout packet. {Details}", DescribeVictronPayload(payload, payloadType));
+                    return;
+                }
+
+                tcs.TrySetResult(new BleCapture(mac, payloadType, payload));
+            }
+
+            watcher.Received += OnReceived;
+            watcher.Start();
+
+            try
+            {
+                using (cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken)))
+                {
+                    return await tcs.Task;
+                }
+            }
+            finally
+            {
+                watcher.Stop();
+                watcher.Received -= OnReceived;
+            }
+        }
+
+        private static byte[] ExtractWindowsPayload(
+            BluetoothLEAdvertisement advertisement,
+            string payloadMode,
+            int manufacturerId,
+            string serviceUuid,
+            out string payloadType)
+        {
+            payloadType = payloadMode;
+
+            byte[] payload = payloadMode switch
+            {
+                "raw" => BuildRawAdvertisement(advertisement),
+                "service" => ExtractWindowsServiceData(advertisement, serviceUuid),
+                _ => ExtractWindowsManufacturerData(advertisement, manufacturerId)
+            };
+
+            if (payload.Length == 0 && payloadMode != "raw")
+            {
+                payload = BuildRawAdvertisement(advertisement);
+                payloadType = "raw";
+            }
+
+            return payload;
+        }
+
+        private static byte[] ExtractWindowsManufacturerData(BluetoothLEAdvertisement advertisement, int manufacturerId)
+        {
+            foreach (var md in advertisement.ManufacturerData)
+            {
+                if (manufacturerId >= 0 && md.CompanyId != manufacturerId)
+                {
+                    continue;
+                }
+
+                var data = BufferToBytes(md.Data);
+                var result = new byte[data.Length + 2];
+                result[0] = (byte)(md.CompanyId & 0xFF);
+                result[1] = (byte)((md.CompanyId >> 8) & 0xFF);
+                Buffer.BlockCopy(data, 0, result, 2, data.Length);
+                return result;
+            }
+
+            return Array.Empty<byte>();
+        }
+
+        private static byte[] ExtractWindowsServiceData(BluetoothLEAdvertisement advertisement, string serviceUuid)
+        {
+            var desired = TryNormalizeServiceUuid(serviceUuid, out var normalizedGuid) ? normalizedGuid : (Guid?)null;
+            if (desired.HasValue && !advertisement.ServiceUuids.Contains(desired.Value))
+            {
+                return Array.Empty<byte>();
+            }
+
+            foreach (var section in advertisement.DataSections)
+            {
+                if (section.DataType != 0x16 && section.DataType != 0x20 && section.DataType != 0x21)
+                {
+                    continue;
+                }
+
+                var data = BufferToBytes(section.Data);
+                if (data.Length == 0)
+                {
+                    continue;
+                }
+
+                if (desired.HasValue)
+                {
+                    if (section.DataType == 0x16 && data.Length >= 2)
+                    {
+                        ushort uuid16 = (ushort)(data[0] | (data[1] << 8));
+                        if (desired.Value == BluetoothUuidFrom16Bit(uuid16))
+                        {
+                            return data.AsSpan(2).ToArray();
+                        }
+                    }
+                    else if (section.DataType == 0x20 && data.Length >= 4)
+                    {
+                        uint uuid32 = (uint)(data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24));
+                        if (desired.Value == BluetoothUuidFrom32Bit(uuid32))
+                        {
+                            return data.AsSpan(4).ToArray();
+                        }
+                    }
+                    else if (section.DataType == 0x21 && data.Length >= 16)
+                    {
+                        var uuid = new Guid(data.AsSpan(0, 16).ToArray());
+                        if (desired.Value == uuid)
+                        {
+                            return data.AsSpan(16).ToArray();
+                        }
+                    }
+                }
+
+                return data;
+            }
+
+            return Array.Empty<byte>();
+        }
+
+        private static byte[] BuildRawAdvertisement(BluetoothLEAdvertisement advertisement)
+        {
+            var bytes = new List<byte>();
+
+            foreach (var md in advertisement.ManufacturerData)
+            {
+                var data = BufferToBytes(md.Data);
+                var payload = new byte[data.Length + 2];
+                payload[0] = (byte)(md.CompanyId & 0xFF);
+                payload[1] = (byte)((md.CompanyId >> 8) & 0xFF);
+                Buffer.BlockCopy(data, 0, payload, 2, data.Length);
+                AppendAdStructure(bytes, 0xFF, payload);
+            }
+
+            foreach (var section in advertisement.DataSections)
+            {
+                var data = BufferToBytes(section.Data);
+                if (data.Length == 0)
+                {
+                    continue;
+                }
+                AppendAdStructure(bytes, section.DataType, data);
+            }
+
+            return bytes.ToArray();
+        }
+
+        private static void AppendAdStructure(List<byte> bytes, byte type, ReadOnlySpan<byte> data)
+        {
+            int length = data.Length + 1;
+            if (length > 255)
+            {
+                return;
+            }
+            bytes.Add((byte)length);
+            bytes.Add(type);
+            for (int i = 0; i < data.Length; i++)
+            {
+                bytes.Add(data[i]);
+            }
+        }
+
+        private static byte[] BufferToBytes(IBuffer buffer)
+        {
+            if (buffer == null || buffer.Length == 0)
+            {
+                return Array.Empty<byte>();
+            }
+
+            var bytes = new byte[buffer.Length];
+            using var reader = DataReader.FromBuffer(buffer);
+            reader.ReadBytes(bytes);
+            return bytes;
+        }
+
+        private static string FormatBluetoothAddress(ulong address)
+        {
+            Span<char> chars = stackalloc char[17];
+            int pos = 0;
+            for (int i = 5; i >= 0; i--)
+            {
+                if (pos > 0)
+                {
+                    chars[pos++] = ':';
+                }
+                byte b = (byte)(address >> (i * 8));
+                chars[pos++] = ToHexChar((b >> 4) & 0xF);
+                chars[pos++] = ToHexChar(b & 0xF);
+            }
+            return new string(chars);
+        }
+
+        private static char ToHexChar(int value)
+        {
+            return (char)(value < 10 ? '0' + value : 'A' + (value - 10));
+        }
+
+        private static bool TryNormalizeServiceUuid(string serviceUuid, out Guid guid)
+        {
+            guid = Guid.Empty;
+            if (string.IsNullOrWhiteSpace(serviceUuid))
+            {
+                return false;
+            }
+
+            var trimmed = serviceUuid.Trim();
+            if (Guid.TryParse(trimmed, out guid))
+            {
+                return true;
+            }
+
+            if (IsHexString(trimmed))
+            {
+                if (trimmed.Length == 4 && ushort.TryParse(trimmed, System.Globalization.NumberStyles.HexNumber, null, out var shortUuid))
+                {
+                    guid = BluetoothUuidFrom16Bit(shortUuid);
+                    return true;
+                }
+                if (trimmed.Length == 8 && uint.TryParse(trimmed, System.Globalization.NumberStyles.HexNumber, null, out var longUuid))
+                {
+                    guid = BluetoothUuidFrom32Bit(longUuid);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Guid BluetoothUuidFrom16Bit(ushort shortUuid)
+        {
+            return BluetoothUuidFrom32Bit(shortUuid);
+        }
+
+        private static Guid BluetoothUuidFrom32Bit(uint shortUuid)
+        {
+            return new Guid($"0000{shortUuid:X4}-0000-1000-8000-00805F9B34FB");
+        }
+#endif
+
+        private ResultObj BuildResult(string format, BleCapture capture, byte[] keyBytes)
+        {
+            if (format == "victron")
+            {
+                if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
+                {
+                    var message = BuildOutputMessage(capture, null, victronError);
+                    return new ResultObj { Success = false, Message = message };
+                }
+
+                return new ResultObj { Success = true, Message = victronMessage };
+            }
+
+            if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
+            {
+                var message = BuildOutputMessage(capture, null, decryptError);
+                return new ResultObj { Success = false, Message = message };
+            }
+
+            var successMessage = BuildOutputMessage(capture, plaintext, null);
+            return new ResultObj { Success = true, Message = successMessage };
+        }
 
         private static bool TryParseKey(string input, out byte[] keyBytes, out string error)
         {
