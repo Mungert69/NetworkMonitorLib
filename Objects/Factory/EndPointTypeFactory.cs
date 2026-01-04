@@ -56,7 +56,7 @@ namespace NetworkMonitor.Objects.Factory
                 "blebroadcast",
                 "BluetoothIcon",
                 "BLE Broadcast (Android)",
-                "Listen for BLE broadcasts on Android and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current.",
+                "Listen for BLE broadcasts on Android and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
                 "BLE broadcast listener (Android only; Password=key, Args=cmd flags)"
             ),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),

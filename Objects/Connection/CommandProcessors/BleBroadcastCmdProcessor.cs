@@ -186,14 +186,17 @@ namespace NetworkMonitor.Connection
                         payloadMode,
                         manufacturerId,
                         serviceUuid,
-                        cancellationToken);
+                        cancellationToken,
+                        format == "victron",
+                        keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
                 if (format == "victron")
                 {
                     if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
                     {
-                        return new ResultObj { Success = false, Message = victronError };
+                        var message = BuildOutputMessage(capture, null, victronError);
+                        return new ResultObj { Success = false, Message = message };
                     }
 
                     return new ResultObj { Success = true, Message = victronMessage };
@@ -234,7 +237,9 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool requireVictronInstantReadout,
+            byte victronKeyFirstByte)
         {
             var context = Android.App.Application.Context;
             var manager = (BluetoothManager?)context.GetSystemService(Context.BluetoothService);
@@ -261,6 +266,8 @@ namespace NetworkMonitor.Connection
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
+                requireVictronInstantReadout,
+                victronKeyFirstByte,
                 tcs,
                 _logger);
 
@@ -317,6 +324,8 @@ namespace NetworkMonitor.Connection
             private readonly string _payloadMode;
             private readonly int _manufacturerId;
             private readonly string _serviceUuid;
+            private readonly bool _requireVictronInstantReadout;
+            private readonly byte _victronKeyFirstByte;
             private readonly TaskCompletionSource<BleCapture> _tcs;
             private readonly ILogger _logger;
 
@@ -325,6 +334,8 @@ namespace NetworkMonitor.Connection
                 string payloadMode,
                 int manufacturerId,
                 string serviceUuid,
+                bool requireVictronInstantReadout,
+                byte victronKeyFirstByte,
                 TaskCompletionSource<BleCapture> tcs,
                 ILogger logger)
             {
@@ -332,6 +343,8 @@ namespace NetworkMonitor.Connection
                 _payloadMode = (payloadMode ?? "manufacturer").Trim().ToLowerInvariant();
                 _manufacturerId = manufacturerId;
                 _serviceUuid = serviceUuid ?? "";
+                _requireVictronInstantReadout = requireVictronInstantReadout;
+                _victronKeyFirstByte = victronKeyFirstByte;
                 _tcs = tcs;
                 _logger = logger;
             }
@@ -353,6 +366,12 @@ namespace NetworkMonitor.Connection
                 if (payload.Length == 0)
                 {
                     _logger.LogDebug("BLE scan record had no usable payload.");
+                    return;
+                }
+
+                if (_requireVictronInstantReadout && !IsVictronInstantReadout(payload, payloadType, _victronKeyFirstByte))
+                {
+                    _logger.LogDebug("Ignoring non-Victron instant readout packet.");
                     return;
                 }
 
@@ -695,7 +714,7 @@ namespace NetworkMonitor.Connection
                 return false;
             }
 
-            if (!TryExtractVictronRecord(capture.Payload, out var record, out var extractError))
+            if (!TryExtractVictronRecord(capture.Payload, capture.PayloadType, out var record, out var extractError))
             {
                 error = extractError;
                 return false;
@@ -703,7 +722,7 @@ namespace NetworkMonitor.Connection
 
             if (record.KeyCheck != keyBytes[0])
             {
-                error = $"Victron key check mismatch (header=0x{record.KeyCheck:X2}, key[0]=0x{keyBytes[0]:X2}).";
+                error = $"Victron key check mismatch (recordType=0x{record.RecordType:X2}, nonce=0x{record.Nonce:X4}, header=0x{record.KeyCheck:X2}, key[0]=0x{keyBytes[0]:X2}).";
                 return false;
             }
 
@@ -770,30 +789,37 @@ namespace NetworkMonitor.Connection
             public byte[] Cipher;
         }
 
-        private static bool TryExtractVictronRecord(byte[] payload, out VictronRecord record, out string error)
+        private static bool TryExtractVictronRecord(byte[] payload, string payloadType, out VictronRecord record, out string error)
         {
             record = default;
             error = "";
 
-            if (payload.Length < 6)
+            if (payload.Length < 4)
             {
                 error = "Victron payload too short.";
                 return false;
             }
 
-            var span = payload.AsSpan();
+            ReadOnlySpan<byte> span = payload.AsSpan();
+
+            if (string.Equals(payloadType, "raw", StringComparison.OrdinalIgnoreCase)
+                && TryExtractManufacturerDataFromRawPayload(payload, out var manufacturerData))
+            {
+                span = manufacturerData;
+            }
+
             if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
             {
                 span = span.Slice(2);
             }
 
-            if (span.Length < 6)
+            if (span.Length < 4)
             {
                 error = "Victron payload too short after company ID.";
                 return false;
             }
 
-            int offset = 0;
+            int offset;
             if (span[0] == 0x10)
             {
                 // Product advertisement record; extra record starts at index 4.
@@ -803,6 +829,11 @@ namespace NetworkMonitor.Connection
                     return false;
                 }
                 offset = 4;
+            }
+            else
+            {
+                // Direct extra record starts at index 0.
+                offset = 0;
             }
 
             if (span.Length < offset + 4)
@@ -816,13 +847,101 @@ namespace NetworkMonitor.Connection
             record.KeyCheck = span[offset + 3];
             record.Cipher = span.Slice(offset + 4).ToArray();
 
-            if (span.Length > 24)
+            return true;
+        }
+
+        private static bool IsVictronInstantReadout(byte[] payload, string payloadType, byte keyFirstByte)
+        {
+            if (payload == null || payload.Length == 0)
             {
-                error = "Victron payload too long.";
                 return false;
             }
 
-            return true;
+            ReadOnlySpan<byte> span = payload.AsSpan();
+            if (string.Equals(payloadType, "raw", StringComparison.OrdinalIgnoreCase)
+                && TryExtractManufacturerDataFromRawPayload(payload, out var manufacturerData))
+            {
+                span = manufacturerData;
+            }
+
+            if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
+            {
+                span = span.Slice(2);
+            }
+
+            if (span.Length < 4)
+            {
+                return false;
+            }
+
+            if (span[0] == 0x10)
+            {
+                if (span.Length < 8)
+                {
+                    return false;
+                }
+
+                byte recordType = span[4];
+                if (recordType != 0x01)
+                {
+                    return false;
+                }
+
+                byte keyCheck = span[7];
+                return keyCheck == keyFirstByte;
+            }
+
+            if (span[0] == 0x01)
+            {
+                byte keyCheck = span[3];
+                return keyCheck == keyFirstByte;
+            }
+
+            return false;
+        }
+
+        private static bool TryExtractManufacturerDataFromRawPayload(byte[] payload, out ReadOnlySpan<byte> manufacturerData)
+        {
+            manufacturerData = ReadOnlySpan<byte>.Empty;
+            if (payload == null || payload.Length < 3)
+            {
+                return false;
+            }
+
+            int index = 0;
+            while (index < payload.Length)
+            {
+                int length = payload[index];
+                if (length == 0)
+                {
+                    break;
+                }
+
+                int typeIndex = index + 1;
+                if (typeIndex >= payload.Length)
+                {
+                    break;
+                }
+
+                byte type = payload[typeIndex];
+                int dataIndex = typeIndex + 1;
+                int dataLength = length - 1;
+
+                if (dataIndex + dataLength > payload.Length)
+                {
+                    break;
+                }
+
+                if (type == 0xFF && dataLength > 0)
+                {
+                    manufacturerData = payload.AsSpan(dataIndex, dataLength);
+                    return true;
+                }
+
+                index += length + 1;
+            }
+
+            return false;
         }
 
         private static byte[] DecryptVictronAesCtr(byte[] key, ushort nonce, ReadOnlySpan<byte> cipher)
