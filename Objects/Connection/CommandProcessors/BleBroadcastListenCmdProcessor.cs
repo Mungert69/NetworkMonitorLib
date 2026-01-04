@@ -81,7 +81,34 @@ namespace NetworkMonitor.Connection
                     IsFlag = false,
                     TypeHint = "value",
                     DefaultValue = "aesgcm",
-                    Help = "Payload format: aesgcm or victron."
+                    Help = "Payload format: raw, aesgcm, aesctr, or victron."
+                },
+                new ArgSpec
+                {
+                    Key = "nonce_len",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "12",
+                    Help = "Nonce length for AES-GCM/AES-CTR (default 12)."
+                },
+                new ArgSpec
+                {
+                    Key = "tag_len",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "16",
+                    Help = "Tag length for AES-GCM (default 16)."
+                },
+                new ArgSpec
+                {
+                    Key = "nonce_at",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    DefaultValue = "start",
+                    Help = "Nonce placement: start or end (default start)."
                 },
                 new ArgSpec
                 {
@@ -140,6 +167,9 @@ namespace NetworkMonitor.Connection
 
             string keyRaw = parsed.GetString("key");
             string format = parsed.GetString("format", "aesgcm");
+            int nonceLength = parsed.GetInt("nonce_len", 12);
+            int tagLength = parsed.GetInt("tag_len", 16);
+            string nonceAt = parsed.GetString("nonce_at", "start");
             string payloadMode = parsed.GetString("payload", "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
             string serviceUuid = parsed.GetString("service_uuid");
@@ -152,11 +182,17 @@ namespace NetworkMonitor.Connection
                 return new ResultObj { Success = false, Message = keyError };
             }
 
+            if (!TryParseNoncePlacement(nonceAt, out var noncePlacement))
+            {
+                return new ResultObj { Success = false, Message = "nonce_at must be start or end." };
+            }
+
 #if ANDROID
             return await RunAndroidAsync(
                 normalizedAddress,
                 keyBytes,
                 format,
+                new BleCryptoOptions(nonceLength, tagLength, noncePlacement),
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
@@ -167,6 +203,7 @@ namespace NetworkMonitor.Connection
                 normalizedAddress,
                 keyBytes,
                 format,
+                new BleCryptoOptions(nonceLength, tagLength, noncePlacement),
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
@@ -179,6 +216,7 @@ namespace NetworkMonitor.Connection
                     normalizedAddress,
                     keyBytes,
                     format,
+                    new BleCryptoOptions(nonceLength, tagLength, noncePlacement),
                     payloadMode,
                     manufacturerId,
                     serviceUuid,
@@ -201,6 +239,7 @@ namespace NetworkMonitor.Connection
             string normalizedAddress,
             byte[] keyBytes,
             string format,
+            BleCryptoOptions cryptoOptions,
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
@@ -245,7 +284,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildListenResult(format, scanResult, keyBytes);
+                return BuildListenResult(format, scanResult, keyBytes, cryptoOptions);
             }
             catch (Exception ex)
             {
@@ -553,6 +592,7 @@ namespace NetworkMonitor.Connection
             string normalizedAddress,
             byte[] keyBytes,
             string format,
+            BleCryptoOptions cryptoOptions,
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
@@ -592,7 +632,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildListenResult(format, scanResult, keyBytes);
+                return BuildListenResult(format, scanResult, keyBytes, cryptoOptions);
             }
             catch (Exception ex)
             {
@@ -627,6 +667,7 @@ namespace NetworkMonitor.Connection
             string normalizedAddress,
             byte[] keyBytes,
             string format,
+            BleCryptoOptions cryptoOptions,
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
@@ -671,7 +712,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildListenResult(format, scanResult, keyBytes);
+                return BuildListenResult(format, scanResult, keyBytes, cryptoOptions);
             }
             catch (Exception ex)
             {
@@ -977,13 +1018,13 @@ namespace NetworkMonitor.Connection
         }
 #endif
 
-        private ResultObj BuildListenResult(string format, BleListenScanResult scanResult, byte[] keyBytes)
+        private ResultObj BuildListenResult(string format, BleListenScanResult scanResult, byte[] keyBytes, BleCryptoOptions cryptoOptions)
         {
-            var message = BuildListenMessage(format, scanResult, keyBytes);
+            var message = BuildListenMessage(format, scanResult, keyBytes, cryptoOptions);
             return new ResultObj { Success = true, Message = message };
         }
 
-        private static string BuildListenMessage(string format, BleListenScanResult scanResult, byte[] keyBytes)
+        private static string BuildListenMessage(string format, BleListenScanResult scanResult, byte[] keyBytes, BleCryptoOptions cryptoOptions)
         {
             var captures = scanResult.Captures;
             var sb = new StringBuilder();
@@ -994,6 +1035,8 @@ namespace NetworkMonitor.Connection
             {
                 return sb.ToString().Trim();
             }
+
+            format = BleCryptoHelper.NormalizeFormat(format, keyBytes.Length > 0);
 
             for (int i = 0; i < captures.Count; i++)
             {
@@ -1018,17 +1061,13 @@ namespace NetworkMonitor.Connection
                 }
                 else
                 {
-                    if (keyBytes.Length == 0)
+                    if (!BleCryptoHelper.TryDecryptPayload(format, capture.Payload, keyBytes, cryptoOptions, out var plaintext, out var decryptError))
                     {
-                        sb.AppendLine(BuildOutputMessage(capture, null, "No key provided; skipping decryption."));
-                    }
-                    else if (TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
-                    {
-                        sb.AppendLine(BuildOutputMessage(capture, plaintext, null));
+                        sb.AppendLine(BuildOutputMessage(capture, capture.Payload, $"Decryption failed; showing raw payload. {decryptError}"));
                     }
                     else
                     {
-                        sb.AppendLine(BuildOutputMessage(capture, null, decryptError));
+                        sb.AppendLine(BuildOutputMessage(capture, plaintext, null));
                     }
                 }
             }
@@ -1092,124 +1131,6 @@ namespace NetworkMonitor.Connection
                 return false;
             }
 
-            return true;
-        }
-
-        private static bool TryDecryptPayload(byte[] payload, byte[] key, out byte[] plaintext, out string error)
-        {
-            plaintext = Array.Empty<byte>();
-            error = "";
-
-            if (payload.Length < 12 + 16 + 1)
-            {
-                error = "Payload is too short for AES-GCM (need nonce + tag + data).";
-                return false;
-            }
-
-            try
-            {
-                ReadOnlySpan<byte> nonce = payload.AsSpan(0, 12);
-                ReadOnlySpan<byte> tag = payload.AsSpan(payload.Length - 16, 16);
-                ReadOnlySpan<byte> ciphertext = payload.AsSpan(12, payload.Length - 12 - 16);
-
-                plaintext = new byte[ciphertext.Length];
-                using var aes = new AesGcm(key);
-                aes.Decrypt(nonce, ciphertext, tag, plaintext);
-                return true;
-            }
-            catch (CryptographicException ex)
-            {
-                error = $"Decryption failed: {ex.Message}";
-                return false;
-            }
-        }
-
-        private static bool TryNormalizeAddress(string input, out string normalized, out string error)
-        {
-            normalized = "";
-            error = "";
-
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                error = "Missing BLE address.";
-                return false;
-            }
-
-            var trimmed = input.Trim();
-            if (trimmed.Length == 12 && IsHexString(trimmed))
-            {
-                normalized = string.Create(17, trimmed, (span, hex) =>
-                {
-                    int di = 0;
-                    for (int i = 0; i < hex.Length; i += 2)
-                    {
-                        if (di > 0) span[di++] = ':';
-                        span[di++] = char.ToUpperInvariant(hex[i]);
-                        span[di++] = char.ToUpperInvariant(hex[i + 1]);
-                    }
-                });
-                return true;
-            }
-
-            if (IsColonMac(trimmed))
-            {
-                normalized = trimmed.ToUpperInvariant();
-                return true;
-            }
-
-            if (TryNormalizeDashedMac(trimmed, out var dashed))
-            {
-                normalized = dashed;
-                return true;
-            }
-
-            error = $"Invalid BLE address format: {input}. Expected 12 hex chars or AA:BB:CC:DD:EE:FF.";
-            return false;
-        }
-
-        private static bool IsColonMac(string value)
-        {
-            if (value.Length != 17) return false;
-            for (int i = 0; i < value.Length; i++)
-            {
-                if ((i + 1) % 3 == 0)
-                {
-                    if (value[i] != ':') return false;
-                }
-                else
-                {
-                    char c = value[i];
-                    bool isHex = (c >= '0' && c <= '9')
-                                 || (c >= 'a' && c <= 'f')
-                                 || (c >= 'A' && c <= 'F');
-                    if (!isHex) return false;
-                }
-            }
-            return true;
-        }
-
-        private static bool TryNormalizeDashedMac(string value, out string normalized)
-        {
-            normalized = "";
-            if (value.Length != 17) return false;
-
-            for (int i = 0; i < value.Length; i++)
-            {
-                if ((i + 1) % 3 == 0)
-                {
-                    if (value[i] != '-') return false;
-                }
-                else
-                {
-                    char c = value[i];
-                    bool isHex = (c >= '0' && c <= '9')
-                                 || (c >= 'a' && c <= 'f')
-                                 || (c >= 'A' && c <= 'F');
-                    if (!isHex) return false;
-                }
-            }
-
-            normalized = value.Replace('-', ':').ToUpperInvariant();
             return true;
         }
 
@@ -1582,6 +1503,24 @@ namespace NetworkMonitor.Connection
             }
 
             return printable >= text.Length * 0.7 ? text : ToHex(data);
+        }
+
+        private static bool TryParseNoncePlacement(string value, out BleNoncePlacement placement)
+        {
+            placement = BleNoncePlacement.Start;
+            var normalized = value?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(normalized) || normalized == "start")
+            {
+                placement = BleNoncePlacement.Start;
+                return true;
+            }
+            if (normalized == "end")
+            {
+                placement = BleNoncePlacement.End;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryParseHex(string value, out byte[] bytes, out string error)

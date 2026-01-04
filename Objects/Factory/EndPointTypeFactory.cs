@@ -56,14 +56,14 @@ namespace NetworkMonitor.Objects.Factory
                 "blebroadcast",
                 "BluetoothIcon",
                 "BLE Broadcast",
-                "Listen for BLE broadcasts from a specific address and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
+                "Listen for BLE broadcasts from a specific address and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format raw|aesgcm|aesctr|victron --nonce_len 12 --tag_len 16 --nonce_at start --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
                 "BLE broadcast (targeted). Password=key, Args=cmd flags"
             ),
             new EndpointType(
                 "blebroadcastlisten",
                 "BluetoothIcon",
                 "BLE Broadcast Listen",
-                "Listen for any BLE broadcasts within the timeout window and return a capped list of payloads. Password is optional (used as the key). Extra flags go in Args, e.g. --format aesgcm|victron --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid>.",
+                "Listen for any BLE broadcasts within the timeout window and return a capped list of payloads. Password is optional (used as the key). Extra flags go in Args, e.g. --format raw|aesgcm|aesctr|victron --nonce_len 12 --tag_len 16 --nonce_at start --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid>.",
                 "BLE broadcast (listen mode, no address required)"
             ),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),

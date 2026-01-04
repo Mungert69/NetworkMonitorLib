@@ -76,7 +76,34 @@ namespace NetworkMonitor.Connection
                     IsFlag = false,
                     TypeHint = "value",
                     DefaultValue = "aesgcm",
-                    Help = "Payload format: aesgcm or victron."
+                    Help = "Payload format: raw, aesgcm, aesctr, or victron."
+                },
+                new ArgSpec
+                {
+                    Key = "nonce_len",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "12",
+                    Help = "Nonce length for AES-GCM/AES-CTR (default 12)."
+                },
+                new ArgSpec
+                {
+                    Key = "tag_len",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "16",
+                    Help = "Tag length for AES-GCM (default 16)."
+                },
+                new ArgSpec
+                {
+                    Key = "nonce_at",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "value",
+                    DefaultValue = "start",
+                    Help = "Nonce placement: start or end (default start)."
                 },
                 new ArgSpec
                 {
@@ -144,6 +171,9 @@ namespace NetworkMonitor.Connection
                 string address = parsed.GetString("address");
                 string keyRaw = parsed.GetString("key");
             string format = parsed.GetString("format", "aesgcm");
+            int nonceLength = parsed.GetInt("nonce_len", 12);
+            int tagLength = parsed.GetInt("tag_len", 16);
+            string nonceAt = parsed.GetString("nonce_at", "start");
             string payloadMode = parsed.GetString("payload", "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
             string serviceUuid = parsed.GetString("service_uuid");
@@ -159,11 +189,17 @@ namespace NetworkMonitor.Connection
                 return new ResultObj { Success = false, Message = keyError };
             }
 
+            if (!TryParseNoncePlacement(nonceAt, out var noncePlacement))
+            {
+                return new ResultObj { Success = false, Message = "nonce_at must be start or end." };
+            }
+
 #if ANDROID
             return await RunAndroidAsync(
                 normalizedAddress,
                 keyBytes,
                 format,
+                new BleCryptoOptions(nonceLength, tagLength, noncePlacement),
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
@@ -174,6 +210,7 @@ namespace NetworkMonitor.Connection
                 normalizedAddress,
                 keyBytes,
                 format,
+                new BleCryptoOptions(nonceLength, tagLength, noncePlacement),
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
@@ -186,6 +223,7 @@ namespace NetworkMonitor.Connection
                     normalizedAddress,
                     keyBytes,
                     format,
+                    new BleCryptoOptions(nonceLength, tagLength, noncePlacement),
                     payloadMode,
                     manufacturerId,
                     serviceUuid,
@@ -208,6 +246,7 @@ namespace NetworkMonitor.Connection
             string normalizedAddress,
             byte[] keyBytes,
             string format,
+            BleCryptoOptions cryptoOptions,
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
@@ -249,7 +288,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildResult(format, capture, keyBytes);
+                return BuildResult(format, capture, keyBytes, cryptoOptions);
             }
             catch (System.OperationCanceledException)
             {
@@ -532,6 +571,7 @@ namespace NetworkMonitor.Connection
             string normalizedAddress,
             byte[] keyBytes,
             string format,
+            BleCryptoOptions cryptoOptions,
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
@@ -568,6 +608,8 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
+                format = BleCryptoHelper.NormalizeFormat(format, keyBytes.Length > 0);
+
                 if (format == "victron")
                 {
                     if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
@@ -579,10 +621,10 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = true, Message = victronMessage };
                 }
 
-                if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
+                if (!BleCryptoHelper.TryDecryptPayload(format, capture.Payload, keyBytes, cryptoOptions, out var plaintext, out var decryptError))
                 {
-                    var message = BuildOutputMessage(capture, null, decryptError);
-                    return new ResultObj { Success = false, Message = message };
+                    var message = BuildOutputMessage(capture, capture.Payload, $"Decryption failed; showing raw payload. {decryptError}");
+                    return new ResultObj { Success = true, Message = message };
                 }
 
                 var successMessage = BuildOutputMessage(capture, plaintext, null);
@@ -625,6 +667,7 @@ namespace NetworkMonitor.Connection
             string normalizedAddress,
             byte[] keyBytes,
             string format,
+            BleCryptoOptions cryptoOptions,
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
@@ -666,7 +709,7 @@ namespace NetworkMonitor.Connection
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
-                return BuildResult(format, capture, keyBytes);
+                return BuildResult(format, capture, keyBytes, cryptoOptions);
             }
             catch (System.OperationCanceledException)
             {
@@ -955,14 +998,9 @@ namespace NetworkMonitor.Connection
         }
 #endif
 
-        private ResultObj BuildResult(string format, BleCapture capture, byte[] keyBytes)
+        private ResultObj BuildResult(string format, BleCapture capture, byte[] keyBytes, BleCryptoOptions cryptoOptions)
         {
-            if (keyBytes.Length == 0)
-            {
-                var message = BuildOutputMessage(capture, null, null);
-                message = $"{message}{Environment.NewLine}Note: no key provided; payload not decrypted.";
-                return new ResultObj { Success = true, Message = message };
-            }
+            format = BleCryptoHelper.NormalizeFormat(format, keyBytes.Length > 0);
 
             if (format == "victron")
             {
@@ -975,10 +1013,10 @@ namespace NetworkMonitor.Connection
                 return new ResultObj { Success = true, Message = victronMessage };
             }
 
-            if (!TryDecryptPayload(capture.Payload, keyBytes, out var plaintext, out var decryptError))
+            if (!BleCryptoHelper.TryDecryptPayload(format, capture.Payload, keyBytes, cryptoOptions, out var plaintext, out var decryptError))
             {
-                var message = BuildOutputMessage(capture, null, decryptError);
-                return new ResultObj { Success = false, Message = message };
+                var message = BuildOutputMessage(capture, capture.Payload, $"Decryption failed; showing raw payload. {decryptError}");
+                return new ResultObj { Success = true, Message = message };
             }
 
             var successMessage = BuildOutputMessage(capture, plaintext, null);
@@ -1034,33 +1072,22 @@ namespace NetworkMonitor.Connection
             return true;
         }
 
-        private static bool TryDecryptPayload(byte[] payload, byte[] key, out byte[] plaintext, out string error)
+        private static bool TryParseNoncePlacement(string value, out BleNoncePlacement placement)
         {
-            plaintext = Array.Empty<byte>();
-            error = "";
-
-            if (payload.Length < 12 + 16 + 1)
+            placement = BleNoncePlacement.Start;
+            var normalized = value?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(normalized) || normalized == "start")
             {
-                error = "Payload is too short for AES-GCM (need nonce + tag + data).";
-                return false;
-            }
-
-            try
-            {
-                ReadOnlySpan<byte> nonce = payload.AsSpan(0, 12);
-                ReadOnlySpan<byte> tag = payload.AsSpan(payload.Length - 16, 16);
-                ReadOnlySpan<byte> ciphertext = payload.AsSpan(12, payload.Length - 12 - 16);
-
-                plaintext = new byte[ciphertext.Length];
-                using var aes = new AesGcm(key);
-                aes.Decrypt(nonce, ciphertext, tag, plaintext);
+                placement = BleNoncePlacement.Start;
                 return true;
             }
-            catch (CryptographicException ex)
+            if (normalized == "end")
             {
-                error = $"Decryption failed: {ex.Message}";
-                return false;
+                placement = BleNoncePlacement.End;
+                return true;
             }
+
+            return false;
         }
 
         private static bool TryNormalizeAddress(string input, out string normalized, out string error)

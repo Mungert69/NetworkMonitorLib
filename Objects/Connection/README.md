@@ -12,3 +12,8 @@ Two BLE modes are supported to keep CLI/LLM help simple:
   best-effort decoded list without treating the timeout as an error.
 
 Both endpoints live in this folder and are wired in `EndPointTypeFactory`.
+
+## Generic crypto layout
+For non-Victron payloads, command processors can attempt AES-GCM or AES-CTR when
+the caller provides a key. Optional layout flags let callers describe the nonce/tag
+layout so the decoder can work with different device formats.
