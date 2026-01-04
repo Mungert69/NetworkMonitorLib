@@ -371,7 +371,7 @@ namespace NetworkMonitor.Connection
 
                 if (_requireVictronInstantReadout && !IsVictronInstantReadout(payload, payloadType, _victronKeyFirstByte))
                 {
-                    _logger.LogDebug("Ignoring non-Victron instant readout packet.");
+                    _logger.LogDebug("Ignoring non-Victron instant readout packet. {Details}", DescribeVictronPayload(payload, payloadType));
                     return;
                 }
 
@@ -898,6 +898,43 @@ namespace NetworkMonitor.Connection
             }
 
             return false;
+        }
+
+        private static string DescribeVictronPayload(byte[] payload, string payloadType)
+        {
+            ReadOnlySpan<byte> span = payload.AsSpan();
+            if (string.Equals(payloadType, "raw", StringComparison.OrdinalIgnoreCase)
+                && TryExtractManufacturerDataFromRawPayload(payload, out var manufacturerData))
+            {
+                span = manufacturerData;
+            }
+
+            if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
+            {
+                span = span.Slice(2);
+            }
+
+            if (span.Length == 0)
+            {
+                return $"payloadType={payloadType}, bytes=0";
+            }
+
+            byte packetType = span[0];
+            string details = $"payloadType={payloadType}, packetType=0x{packetType:X2}, len={span.Length}";
+
+            if (packetType == 0x10 && span.Length >= 8)
+            {
+                byte recordType = span[4];
+                byte keyCheck = span[7];
+                details += $", recordType=0x{recordType:X2}, keyCheck=0x{keyCheck:X2}";
+            }
+            else if (packetType == 0x01 && span.Length >= 4)
+            {
+                byte keyCheck = span[3];
+                details += $", recordType=0x01, keyCheck=0x{keyCheck:X2}";
+            }
+
+            return details;
         }
 
         private static bool TryExtractManufacturerDataFromRawPayload(byte[] payload, out ReadOnlySpan<byte> manufacturerData)
