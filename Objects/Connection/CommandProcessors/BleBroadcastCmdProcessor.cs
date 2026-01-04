@@ -56,18 +56,18 @@ namespace NetworkMonitor.Connection
                 new ArgSpec
                 {
                     Key = "address",
-                    Required = true,
+                    Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    Help = "BLE device address (AA:BB:CC:DD:EE:FF)."
+                    Help = "BLE device address (AA:BB:CC:DD:EE:FF). Omit to accept the first advertisement."
                 },
                 new ArgSpec
                 {
                     Key = "key",
-                    Required = true,
+                    Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    Help = "Encryption key (hex, base64, or raw; 16/24/32 bytes)."
+                    Help = "Encryption key (hex, base64, or raw; 16/24/32 bytes). Omit to skip decryption."
                 },
                 new ArgSpec
                 {
@@ -141,17 +141,21 @@ namespace NetworkMonitor.Connection
                 return new ResultObj { Success = false, Message = err };
             }
 
-            string address = parsed.GetString("address");
-            string keyRaw = parsed.GetString("key");
+                string address = parsed.GetString("address");
+                string keyRaw = parsed.GetString("key");
             string format = parsed.GetString("format", "aesgcm");
             string payloadMode = parsed.GetString("payload", "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
             string serviceUuid = parsed.GetString("service_uuid");
             string rawPayload = parsed.GetString("raw_payload");
 
-            if (!TryNormalizeAddress(address, out var normalizedAddress, out var addressError))
+            var normalizedAddress = "";
+            if (!string.IsNullOrWhiteSpace(address))
             {
-                return new ResultObj { Success = false, Message = addressError };
+                if (!TryNormalizeAddress(address, out normalizedAddress, out var addressError))
+                {
+                    return new ResultObj { Success = false, Message = addressError };
+                }
             }
 
             if (!TryParseKey(keyRaw, out var keyBytes, out var keyError))
@@ -245,7 +249,7 @@ namespace NetworkMonitor.Connection
                         manufacturerId,
                         serviceUuid,
                         cancellationToken,
-                        format == "victron",
+                        format == "victron" && keyBytes.Length > 0,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
@@ -564,7 +568,7 @@ namespace NetworkMonitor.Connection
                         manufacturerId,
                         serviceUuid,
                         cancellationToken,
-                        format == "victron",
+                        format == "victron" && keyBytes.Length > 0,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
@@ -662,7 +666,7 @@ namespace NetworkMonitor.Connection
                         manufacturerId,
                         serviceUuid,
                         cancellationToken,
-                        format == "victron",
+                        format == "victron" && keyBytes.Length > 0,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
@@ -957,6 +961,13 @@ namespace NetworkMonitor.Connection
 
         private ResultObj BuildResult(string format, BleCapture capture, byte[] keyBytes)
         {
+            if (keyBytes.Length == 0)
+            {
+                var message = BuildOutputMessage(capture, null, null);
+                message = $"{message}{Environment.NewLine}Note: no key provided; payload not decrypted.";
+                return new ResultObj { Success = true, Message = message };
+            }
+
             if (format == "victron")
             {
                 if (!TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
@@ -985,8 +996,7 @@ namespace NetworkMonitor.Connection
 
             if (string.IsNullOrWhiteSpace(input))
             {
-                error = "Missing encryption key.";
-                return false;
+                return true;
             }
 
             string trimmed = input.Trim();
