@@ -138,6 +138,15 @@ namespace NetworkMonitor.Connection
                 },
                 new ArgSpec
                 {
+                    Key = "max_captures",
+                    Required = false,
+                    IsFlag = false,
+                    TypeHint = "int",
+                    DefaultValue = "10",
+                    Help = "Maximum number of BLE captures before stopping (default 10)."
+                },
+                new ArgSpec
+                {
                     Key = "raw_payload",
                     Required = false,
                     IsFlag = false,
@@ -173,6 +182,7 @@ namespace NetworkMonitor.Connection
             string payloadMode = parsed.GetString("payload", "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
             string serviceUuid = parsed.GetString("service_uuid");
+            int maxCaptures = parsed.GetInt("max_captures", DefaultMaxCaptures);
             string rawPayload = parsed.GetString("raw_payload");
 
             string normalizedAddress = "";
@@ -180,6 +190,11 @@ namespace NetworkMonitor.Connection
             if (!TryParseKey(keyRaw, out var keyBytes, out var keyError))
             {
                 return new ResultObj { Success = false, Message = keyError };
+            }
+
+            if (maxCaptures <= 0)
+            {
+                return new ResultObj { Success = false, Message = "max_captures must be greater than zero." };
             }
 
             if (!TryParseNoncePlacement(nonceAt, out var noncePlacement))
@@ -196,6 +211,7 @@ namespace NetworkMonitor.Connection
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
+                maxCaptures,
                 rawPayload,
                 cancellationToken);
 #elif WINDOWS
@@ -207,6 +223,7 @@ namespace NetworkMonitor.Connection
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
+                maxCaptures,
                 rawPayload,
                 cancellationToken);
 #else
@@ -220,12 +237,13 @@ namespace NetworkMonitor.Connection
                     payloadMode,
                     manufacturerId,
                     serviceUuid,
+                    maxCaptures,
                     rawPayload,
                     cancellationToken);
             }
 
             await Task.CompletedTask;
-            return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows builds." };
+            return new ResultObj { Success = false, Message = "BLE broadcast listen processor is only available on Android or Windows builds." };
 #endif
         }
 
@@ -243,12 +261,13 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
+            int maxCaptures,
             string rawPayload,
             CancellationToken cancellationToken)
         {
             if (!OperatingSystem.IsAndroid())
             {
-                return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows." };
+                return new ResultObj { Success = false, Message = "BLE broadcast listen processor is only available on Android or Windows." };
             }
 
             try
@@ -279,6 +298,7 @@ namespace NetworkMonitor.Connection
                         payloadMode,
                         manufacturerId,
                         serviceUuid,
+                        maxCaptures,
                         cancellationToken,
                         format == "victron" && keyBytes.Length > 0,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
@@ -298,6 +318,7 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
+            int maxCaptures,
             CancellationToken cancellationToken,
             bool requireVictronInstantReadout,
             byte victronKeyFirstByte)
@@ -330,7 +351,7 @@ namespace NetworkMonitor.Connection
                 serviceUuid,
                 requireVictronInstantReadout,
                 victronKeyFirstByte,
-                DefaultMaxCaptures,
+                maxCaptures,
                 captures,
                 tcs,
                 _logger);
@@ -596,6 +617,7 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
+            int maxCaptures,
             string rawPayload,
             CancellationToken cancellationToken)
         {
@@ -627,6 +649,7 @@ namespace NetworkMonitor.Connection
                         payloadMode,
                         manufacturerId,
                         serviceUuid,
+                        maxCaptures,
                         cancellationToken,
                         format == "victron" && keyBytes.Length > 0,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
@@ -646,6 +669,7 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
+            int maxCaptures,
             CancellationToken cancellationToken,
             bool requireVictronInstantReadout,
             byte victronKeyFirstByte)
@@ -654,6 +678,7 @@ namespace NetworkMonitor.Connection
             _ = payloadMode;
             _ = manufacturerId;
             _ = serviceUuid;
+            _ = maxCaptures;
             _ = cancellationToken;
             _ = requireVictronInstantReadout;
             _ = victronKeyFirstByte;
@@ -671,12 +696,13 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
+            int maxCaptures,
             string rawPayload,
             CancellationToken cancellationToken)
         {
             if (!OperatingSystem.IsWindows())
             {
-                return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows." };
+                return new ResultObj { Success = false, Message = "BLE broadcast listen processor is only available on Android or Windows." };
             }
 
             try
@@ -707,6 +733,7 @@ namespace NetworkMonitor.Connection
                         payloadMode,
                         manufacturerId,
                         serviceUuid,
+                        maxCaptures,
                         cancellationToken,
                         format == "victron" && keyBytes.Length > 0,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
@@ -726,6 +753,7 @@ namespace NetworkMonitor.Connection
             string payloadMode,
             int manufacturerId,
             string serviceUuid,
+            int maxCaptures,
             CancellationToken cancellationToken,
             bool requireVictronInstantReadout,
             byte victronKeyFirstByte)
@@ -763,10 +791,10 @@ namespace NetworkMonitor.Connection
                 bool shouldComplete = false;
                 lock (gate)
                 {
-                    if (captures.Count < DefaultMaxCaptures)
+                    if (captures.Count < maxCaptures)
                     {
                         captures.Add(new BleCapture(mac, payloadType, payload));
-                        if (captures.Count >= DefaultMaxCaptures)
+                        if (captures.Count >= maxCaptures)
                         {
                             shouldComplete = true;
                         }

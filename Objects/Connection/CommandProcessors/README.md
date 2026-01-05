@@ -18,6 +18,7 @@ non-Victron mode:
 - `--nonce_len <int>` (default 12)
 - `--tag_len <int>` (default 16, AES-GCM only)
 - `--nonce_at start|end` (default start)
+- `--max_captures <int>` (listen mode only, default 10)
 
 If no key is provided, the processors return raw/plaintext output without error.
 
