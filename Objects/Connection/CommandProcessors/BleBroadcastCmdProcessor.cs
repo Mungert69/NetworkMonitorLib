@@ -817,7 +817,7 @@ namespace NetworkMonitor.Connection
                 var result = new byte[data.Length + 2];
                 result[0] = (byte)(md.CompanyId & 0xFF);
                 result[1] = (byte)((md.CompanyId >> 8) & 0xFF);
-                Buffer.BlockCopy(data, 0, result, 2, data.Length);
+                System.Buffer.BlockCopy(data, 0, result, 2, data.Length);
                 return result;
             }
 
@@ -889,7 +889,7 @@ namespace NetworkMonitor.Connection
                 var payload = new byte[data.Length + 2];
                 payload[0] = (byte)(md.CompanyId & 0xFF);
                 payload[1] = (byte)((md.CompanyId >> 8) & 0xFF);
-                Buffer.BlockCopy(data, 0, payload, 2, data.Length);
+                System.Buffer.BlockCopy(data, 0, payload, 2, data.Length);
                 AppendAdStructure(bytes, 0xFF, payload);
             }
 
@@ -1570,7 +1570,7 @@ namespace NetworkMonitor.Connection
             {
                 bytes = Convert.FromHexString(trimmed);
                 return true;
-            }
+            }               
             catch (Exception ex)
             {
                 error = $"Invalid raw payload hex: {ex.Message}";
