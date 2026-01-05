@@ -7,6 +7,7 @@ namespace NetworkMonitor.Objects
 {
     public class StatusObj
     {
+        public const int MessageMaxLength = 4096;
         public StatusObj(){}
         public StatusObj(StatusObj copy){
                 ID=copy.ID;
@@ -91,7 +92,7 @@ namespace NetworkMonitor.Objects
         /// <summary>
         /// The status message for the last reponse event for the data set.
         /// </summary>
-        [MaxLength(255)]
+        [MaxLength(MessageMaxLength)]
 #pragma warning restore IL2026
         public string? Message
         {
@@ -99,7 +100,7 @@ namespace NetworkMonitor.Objects
             set
             {
                 if (value != null)
-                    _message = StringUtils.Truncate(value, 255);
+                    _message = StringUtils.Truncate(value, MessageMaxLength);
                 else _message = "";
             }
         }

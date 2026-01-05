@@ -195,7 +195,7 @@ namespace NetworkMonitor.Objects
         /// The current or last status of the host. Taken from monitorStatus.Message.
         /// </summary>
 
-        [MaxLength(255)]
+        [MaxLength(StatusObj.MessageMaxLength)]
         public string? Status { get => _monitorStatus.Message; set => _monitorStatus.Message = value; }
         //public int DestinationUnreachable { get; set; }
 

@@ -97,7 +97,7 @@ namespace NetworkMonitor.Connection
         protected void ProcessException(string message, string shortMessage)
         {
             message = Regex.Replace(message, @"\(.*\)", "");
-            message = StringUtils.Truncate(message, 255);
+            message = StringUtils.Truncate(message, StatusObj.MessageMaxLength);
             _mpiConnect.Message = _mpiStatic.EndPointType.ToUpper() + ": Failed to connect: " + message;
             _mpiConnect.IsUp = false;
             _mpiConnect.PingInfo.Status = shortMessage;
