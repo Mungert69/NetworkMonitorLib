@@ -160,7 +160,7 @@ namespace NetworkMonitor.Objects
             Enabled = copy.Enabled;
             PingInfos = new List<PingInfo>();
             Username = copy.Username;
-            Password= copy.Password;
+            Password = copy.Password;
             Args = copy.Args;
             AddUserEmail = copy.AddUserEmail;
             IsEmailVerified = copy.IsEmailVerified;
@@ -195,7 +195,6 @@ namespace NetworkMonitor.Objects
         /// The current or last status of the host. Taken from monitorStatus.Message.
         /// </summary>
 
-        [MaxLength(StatusObj.MessageMaxLength)]
         public string? Status { get => _monitorStatus.Message; set => _monitorStatus.Message = value; }
         //public int DestinationUnreachable { get; set; }
 

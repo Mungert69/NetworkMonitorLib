@@ -7,6 +7,8 @@ namespace NetworkMonitor.Objects;
 
 public class PredictStatus
 {
+
+    public const int MessageMaxLength = 4096;
     public PredictStatus() { }
 
     public PredictStatus(PredictStatus copy, bool zeroIds = false) {
@@ -62,7 +64,7 @@ public class PredictStatus
     /// <summary>
     /// The status message for the last reponse event for the data set.
     /// </summary>
-    [MaxLength(255)]
+    [MaxLength(MessageMaxLength)]
 #pragma warning restore IL2026
     public string? Message
     {
@@ -70,7 +72,7 @@ public class PredictStatus
         set
         {
             if (value != null)
-                _message = StringUtils.Truncate(value, 255);
+                _message = StringUtils.Truncate(value, MessageMaxLength);
             else _message = "";
         }
     }
