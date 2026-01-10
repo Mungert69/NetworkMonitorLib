@@ -7,7 +7,6 @@
     <NoWarn>CS8618</NoWarn>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <SelfContained>false</SelfContained>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Release-Dev'">
     <DefineConstants>DEV</DefineConstants>
