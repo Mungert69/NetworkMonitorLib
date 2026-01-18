@@ -15,6 +15,11 @@ LLM services, and UI clients.
 - `Objects/Connection/` connection types, command processors, and factories.
 - `Utils/` and `Helpers/` cross-cutting utilities.
 
+## Recent message fields
+- `LLMServiceObj.HistoryServiceId`: optional override for which service's history display names to fetch. When omitted, the backend defaults to `UserFacingServiceId`.
+- `LLMServiceObj.ChatAgentLocation`: current agent location used by the primary LLM to guide expert calls.
+- `SystemParams.UserFacingServiceId`: identifies the user-facing LLM service (defaults to `monitor`).
+
 ## Build
 This library is referenced by components like `NetworkMonitorLLM`,
 `NetworkMonitorBlazor`, and the processor agent. Build it before those projects
@@ -29,5 +34,4 @@ dotnet build -c Release
 - Follow existing architectural patterns.
 - Maintain interface compatibility.
 - Document configuration changes when adding new processors or message types.
-
 
