@@ -88,6 +88,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
             ToolsDefinitionId = other.ToolsDefinitionId;
             JsonToolsBuilderSpec = other.JsonToolsBuilderSpec;
             Timeout = other.Timeout;
+            HistoryServiceId = other.HistoryServiceId;
 
         }
         private string messageID = "";
@@ -125,6 +126,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private UserInfo userInfo;
         private bool isFuncAck;
         private bool isSystemLlm = false;
+        private string? historyServiceId = null;
 
         public string SessionId { get => sessionId; set => sessionId = value; }
         public string JsonFunction { get => jsonFunction; set => jsonFunction = value; }
@@ -289,6 +291,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string? JsonToolsBuilderSpec { get => jsonToolsBuilderSpec; set => jsonToolsBuilderSpec = value; }
         public string SwapFunctionName { get => swapFunctionName; set => swapFunctionName = value; }
         public int? Timeout { get => timeout; set => timeout = value; }
+        public string? HistoryServiceId { get => historyServiceId; set => historyServiceId = value; }
 
         public void PopMessageID()
         {
