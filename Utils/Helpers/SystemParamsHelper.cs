@@ -132,6 +132,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.SendTrustPilot = _config.GetValue<bool?>("SendTrustPilot") ?? true;
             systemParams.SendReportsTimeSpan = _config.GetValue<int?>("SendReportsTimeSpan") ?? 48;
             systemParams.ServiceID = _config.GetValue<string?>("ServiceID") ?? "Service";
+            systemParams.UserFacingServiceId = _config.GetValue<string?>("UserFacingServiceId") ?? "monitor";
             systemParams.AudioServiceUrl = _config.GetValue<string?>("AudioServiceUrl") ?? $"https://transcribe.{AppConstants.AppDomain}";
             systemParams.AudioServiceOutputDir = _config.GetValue<string?>("AudioServiceOutputDir") ?? "/home/audioservice/code/securefiles/mail/output_audio";
             systemParams.GivenAgentPort = _config.GetValue<ushort?>("GivenAgentPort") ?? 55671;

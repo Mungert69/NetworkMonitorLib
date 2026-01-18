@@ -38,6 +38,7 @@ namespace NetworkMonitor.Objects
         private string? _openAIPluginServiceKey;
         private List<string> _rapidApiKeys;
         private string? _serviceID ="Service";
+        private string? _userFacingServiceId;
         private string? _serviceAuthKey;
         private int _expireMonths;
         private string _frontEndUrl;
@@ -69,6 +70,7 @@ namespace NetworkMonitor.Objects
         public string? OpenAIPluginServiceKey { get => _openAIPluginServiceKey; set => _openAIPluginServiceKey = value; }
         public string? EmailSendServerName { get => _emailSendServerName; set => _emailSendServerName = value; }
         public string? ServiceID { get => _serviceID; set => _serviceID = value; }
+        public string? UserFacingServiceId { get => _userFacingServiceId; set => _userFacingServiceId = value; }
         public string? ServiceAuthKey { get => _serviceAuthKey; set => _serviceAuthKey = value; }
         public int ExpireMonths { get => _expireMonths; set => _expireMonths = value; }
         public List<string> EnabledRegions { get => _enabledRegions; set => _enabledRegions = value; }
