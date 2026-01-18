@@ -20,7 +20,7 @@ namespace NetworkMonitor.Connection
 
 
         public MetaCmdProcessor(ILogger logger, ILocalCmdProcessorStates cmdProcessorStates, IRabbitRepo rabbitRepo, NetConnectConfig netConfig)
-     : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
+     : base(logger, cmdProcessorStates, rabbitRepo, netConfig, 2)
         {
 
         }
