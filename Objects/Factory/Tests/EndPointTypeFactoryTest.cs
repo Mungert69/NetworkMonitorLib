@@ -25,6 +25,7 @@ public class EndPointTypeFactoryTest
         Assert.Equal("One day (daily only runs once a day)", EndPointTypeFactory.GetProcessingTimeEstimate("dailycrawl"));
         Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("smtp"));
         Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("quantum"));
+        Assert.Equal("5-10 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("quantumcert"));
         Assert.Equal("2-5 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("http"));
         Assert.Equal("2-5 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("https"));
         Assert.Equal("1-2 minutes", EndPointTypeFactory.GetProcessingTimeEstimate("ping"));
@@ -47,6 +48,7 @@ public class EndPointTypeFactoryTest
         Assert.Contains(types, t => t.InternalType == "dailycrawl");
         Assert.Contains(types, t => t.InternalType == "sitehash");
         Assert.Contains(types, t => t.InternalType == "dailyhugkeepalive");
+        Assert.Contains(types, t => t.InternalType == "quantumcert");
         Assert.Contains(types, t => t.InternalType == "blebroadcast");
         Assert.Contains(types, t => t.InternalType == "blebroadcastlisten");
     }
@@ -122,6 +124,7 @@ public class EndPointTypeFactoryTest
         Assert.IsType<DNSConnect>(EndPointTypeFactory.CreateNetConnect("dns", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<SMTPConnect>(EndPointTypeFactory.CreateNetConnect("smtp", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<QuantumConnect>(EndPointTypeFactory.CreateNetConnect("quantum", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
+        Assert.IsType<QuantumCertConnect>(EndPointTypeFactory.CreateNetConnect("quantumcert", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<SocketConnect>(EndPointTypeFactory.CreateNetConnect("rawconnect", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<NmapCmdConnect>(EndPointTypeFactory.CreateNetConnect("nmap", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
         Assert.IsType<NmapCmdConnect>(EndPointTypeFactory.CreateNetConnect("nmapvuln", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));

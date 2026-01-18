@@ -10,6 +10,7 @@ namespace NetworkMonitor.Api.Services
     public interface IApiService
     {
         Task<TResultObj<QuantumDataObj>> CheckQuantum(QuantumHostObject host);
+        Task<TResultObj<DataObj>> CheckQuantumCert(HostObject host);
         Task<TResultObj<DataObj>> CheckSmtp(HostObject host);
         Task<TResultObj<DataObj>> CheckHttp(HostObject host);
         Task<TResultObj<DataObj>> CheckHttps(HostObject host);
@@ -160,6 +161,9 @@ namespace NetworkMonitor.Api.Services
                         case "dailyhugkeepalive":
                             result = await CheckDailyHugKeepAlive(hostObj);
                             break;
+                        case "quantumcert":
+                            result = await CheckQuantumCert(hostObj);
+                            break;
                         default:
                             if (endPointType.Contains("http"))
                             {
@@ -257,6 +261,12 @@ namespace NetworkMonitor.Api.Services
         public async Task<TResultObj<DataObj>> CheckHttp(HostObject hostObj)
         {
             return await PerformCheck(hostObj, "CheckHttp", "Http Connection");
+        }
+
+        public async Task<TResultObj<DataObj>> CheckQuantumCert(HostObject hostObj)
+        {
+            hostObj.EndPointType = "quantumcert";
+            return await PerformCheck(hostObj, "CheckQuantumCert", "Quantum Certificate Check", defaultPort: 443, defaultTimeout: 59000);
         }
 
         public async Task<TResultObj<DataObj>> CheckHttps(HostObject hostObj)

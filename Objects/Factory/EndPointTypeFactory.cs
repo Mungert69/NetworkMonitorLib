@@ -51,6 +51,7 @@ namespace NetworkMonitor.Objects.Factory
             new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups", "DNS lookup"),
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP", "email server HELO message confirmation"),
             new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test"),
+            new EndpointType("quantumcert", "QuantumIcon", "Quantum Cert (Certificate PQC Check)", "Quantum certificate checks", "a quantum-safe certificate test"),
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections", "low-level raw socket connection"),
             new EndpointType(
                 "blebroadcast",
@@ -123,6 +124,7 @@ namespace NetworkMonitor.Objects.Factory
     
     // Quantum - TLS handshake with OQSProvider may have slight latency, but existing values are reasonable
     { "quantum", new ResponseTimeThreshold(new ThresholdValues(800, 1500, 3000), new ThresholdValues(800, 1500, 3000)) },
+    { "quantumcert", new ResponseTimeThreshold(new ThresholdValues(800, 1500, 3000), new ThresholdValues(800, 1500, 3000)) },
     
     // RawConnect - Raw socket connection is fast, so keeping low thresholds
     { "rawconnect", new ResponseTimeThreshold(new ThresholdValues(100, 200, 400), new ThresholdValues(100, 200, 400)) },
@@ -207,6 +209,7 @@ namespace NetworkMonitor.Objects.Factory
                 "dns" => new DNSConnect(),
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),
+                "quantumcert" => new QuantumCertConnect(oqsProviderPath, commandPath, nativeLibDir, logger),
                 "rawconnect" => new SocketConnect(),
                 "blebroadcast" => new BleBroadcastConnect(cmdProcessorProvider),
                 "blebroadcastlisten" => new BleBroadcastListenConnect(cmdProcessorProvider),
@@ -276,6 +279,15 @@ namespace NetworkMonitor.Objects.Factory
                         ResponseTime = -1
                     }
                 };
+            }
+            else if (type.Contains("quantumcert"))
+            {
+                return await apiService.CheckQuantumCert(new HostObject
+                {
+                    Address = address,
+                    Port = port,
+                    EndPointType = "quantumcert"
+                });
             }
             else if (type.Contains("quantum"))
             {

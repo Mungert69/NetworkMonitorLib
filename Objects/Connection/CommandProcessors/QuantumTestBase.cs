@@ -51,13 +51,16 @@ public abstract class QuantumTestBase : CmdProcessor
             .ToList();
 
         // Single batch OpenSSL run
-	_quantumConnect.MpiStatic.Timeout=config.Timeout;
-        var result = await _quantumConnect.ProcessBatchAlgorithms(algoInfos, config.Target, config.Port);
+        _quantumConnect.MpiStatic.Timeout = config.Timeout;
+        var result = await _quantumConnect.ProcessBatchAlgorithms(
+            algoInfos,
+            config.Target,
+            config.Port);
 
         var results = new List<AlgorithmResult>();
         if (result.Success)
         {
-            results.Add(AlgorithmResult.CreateSuccessful(result.Data as string ?? "unknown", result.Message));
+            results.Add(AlgorithmResult.CreateSuccessful(result.Data as string ?? "unknown", GetResultMessage(result)));
         }
         else
         {
@@ -97,7 +100,12 @@ public abstract class QuantumTestBase : CmdProcessor
                     var algorithm = _algorithmInfoList.First(a =>
                         a.AlgorithmName.Equals(algorithmName, StringComparison.OrdinalIgnoreCase));
 
-                    return await TestAlgorithm(algorithm, config.Target, config.Port, config.Timeout, ct);
+                    return await TestAlgorithm(
+                        algorithm,
+                        config.Target,
+                        config.Port,
+                        config.Timeout,
+                        ct);
                 }
                 finally
                 {
@@ -113,15 +121,18 @@ public abstract class QuantumTestBase : CmdProcessor
         AlgorithmInfo algorithm,
         string address,
         int port,
-	int timeout,
+        int timeout,
         CancellationToken ct)
     {
         try
         {
-	    _quantumConnect.MpiStatic.Timeout=timeout;
-            var result = await _quantumConnect.ProcessAlgorithm(algorithm, address, port);
+            _quantumConnect.MpiStatic.Timeout = timeout;
+            var result = await _quantumConnect.ProcessAlgorithm(
+                algorithm,
+                address,
+                port);
             return result.Success
-                ? AlgorithmResult.CreateSuccessful(algorithm.AlgorithmName, result.Data as string ?? "No additional data")
+                ? AlgorithmResult.CreateSuccessful(algorithm.AlgorithmName, GetResultMessage(result))
                 : AlgorithmResult.CreateFailed(algorithm.AlgorithmName, result.Message);
         }
         catch (Exception ex)
@@ -264,6 +275,21 @@ Examples:
         List<string> Algorithms,
         int Timeout);
 
+    protected static string GetResultMessage(ResultObj result)
+    {
+        if (!string.IsNullOrWhiteSpace(result.Message))
+        {
+            return result.Message;
+        }
+
+        if (result.Data is string data && !string.IsNullOrWhiteSpace(data))
+        {
+            return data;
+        }
+
+        return "No additional data";
+    }
+
     protected class AlgorithmResult
     {
         public string AlgorithmName { get; }
@@ -287,4 +313,3 @@ Examples:
             => new(algorithmName, false, null, error);
     }
 }
-
