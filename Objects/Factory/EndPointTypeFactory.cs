@@ -209,7 +209,7 @@ namespace NetworkMonitor.Objects.Factory
                 "dns" => new DNSConnect(),
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),
-                "quantumcert" => new QuantumCertConnect(oqsProviderPath, commandPath, nativeLibDir, logger),
+                "quantumcert" => new QuantumCertConnect(oqsProviderPath, commandPath, nativeLibDir, logger, algorithmInfoList),
                 "rawconnect" => new SocketConnect(),
                 "blebroadcast" => new BleBroadcastConnect(cmdProcessorProvider),
                 "blebroadcastlisten" => new BleBroadcastListenConnect(cmdProcessorProvider),

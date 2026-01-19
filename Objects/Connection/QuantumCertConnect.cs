@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using NetworkMonitor.Objects;
 
 namespace NetworkMonitor.Connection
 {
@@ -9,9 +11,9 @@ namespace NetworkMonitor.Connection
         private readonly QuantumCertificateProbe _probe;
         private readonly ILogger _logger;
 
-        public QuantumCertConnect(string oqsProviderPath, string commandPath, string nativeLibDir, ILogger logger)
+        public QuantumCertConnect(string oqsProviderPath, string commandPath, string nativeLibDir, ILogger logger, List<AlgorithmInfo> algorithms)
         {
-            _probe = new QuantumCertificateProbe(oqsProviderPath, commandPath, nativeLibDir, logger);
+            _probe = new QuantumCertificateProbe(oqsProviderPath, commandPath, nativeLibDir, logger, algorithms);
             _logger = logger;
             IsLongRunning = true;
         }
