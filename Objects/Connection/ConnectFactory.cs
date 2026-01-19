@@ -32,6 +32,7 @@ namespace NetworkMonitor.Connection
     public class ConnectFactory : IConnectFactory
     {
         private static ICmdProcessorProvider? _cmdProcessorProvider;
+        private readonly IConnectProvider? _connectProvider;
         private HttpClient _httpClient;
         private HttpClient _httpsClient;
         private List<AlgorithmInfo> _algorithmInfoList = new List<AlgorithmInfo>();
@@ -39,12 +40,13 @@ namespace NetworkMonitor.Connection
         private ILogger _logger;
         private IBrowserHost? _browserHost;
 
-        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null)
+        public ConnectFactory(ILogger logger, NetConnectConfig? netConfig = null, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null, IConnectProvider? connectProvider = null)
         {
             _logger = logger;
             _netConfig = netConfig;
             _cmdProcessorProvider = cmdProcessorProvider;
             _browserHost = browserHost;
+            _connectProvider = connectProvider;
 
             var sockerHttpHandler = new SocketsHttpHandler()
             {
@@ -203,7 +205,8 @@ namespace NetworkMonitor.Connection
             {
                 type = "icmp";
             }
-            INetConnect netConnect = EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, _netConfig.NativeLibDir!);
+            INetConnect netConnect = _connectProvider?.CreateConnect(type)
+                ?? EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, _netConfig.NativeLibDir!);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }

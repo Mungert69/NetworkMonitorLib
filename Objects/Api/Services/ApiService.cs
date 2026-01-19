@@ -71,7 +71,8 @@ namespace NetworkMonitor.Api.Services
                 loggerFactory.CreateLogger<ConnectFactory>(),
                 netConfig: netConnectConfig,
                 cmdProcessorProvider: cmdProcessorProvider,
-                browserHost: browserHost);
+                browserHost: browserHost,
+                connectProvider: null);
 
             _ = connectFactory.SetupChromium(netConnectConfig);
             _logger.LogInformation("ConnectFactory created.");

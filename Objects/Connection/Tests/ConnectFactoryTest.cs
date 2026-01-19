@@ -37,7 +37,7 @@ public class ConnectFactoryTest
     {
         var logger = new DummyLogger();
         var config = GetConfig();
-        var factory = new ConnectFactory(logger, config, null, null);
+        var factory = new ConnectFactory(logger, config, null, null, null);
 
         var mpi = new MonitorPingInfo
         {
@@ -69,7 +69,7 @@ public class ConnectFactoryTest
     {
         var logger = new DummyLogger();
         var config = GetConfig();
-        var factory = new ConnectFactory(logger, config, null, null);
+        var factory = new ConnectFactory(logger, config, null, null, null);
 
         var mpi = new MonitorPingInfo
         {
