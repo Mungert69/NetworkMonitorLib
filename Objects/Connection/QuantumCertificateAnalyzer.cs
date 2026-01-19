@@ -61,6 +61,14 @@ namespace NetworkMonitor.Connection
 
         public static bool TryBuildSummary(string opensslOutput, out QuantumCertificateSummary summary)
         {
+            return TryBuildSummary(opensslOutput, null, out summary);
+        }
+
+        public static bool TryBuildSummary(
+            string opensslOutput,
+            IReadOnlyCollection<string>? allowedOids,
+            out QuantumCertificateSummary summary)
+        {
             summary = null!;
             if (string.IsNullOrWhiteSpace(opensslOutput)) return false;
 
@@ -82,8 +90,8 @@ namespace NetworkMonitor.Connection
                 var keyAlgName = leaf.PublicKey?.Oid?.FriendlyName ?? leaf.PublicKey?.Oid?.Value ?? "unknown";
                 var keyAlgOid = leaf.PublicKey?.Oid?.Value ?? "";
 
-                var sigPqc = IsQuantumSafeAlgorithm(sigAlgName, sigAlgOid);
-                var keyPqc = IsQuantumSafeAlgorithm(keyAlgName, keyAlgOid);
+                var sigPqc = IsQuantumSafeAlgorithm(sigAlgName, sigAlgOid, allowedOids);
+                var keyPqc = IsQuantumSafeAlgorithm(keyAlgName, keyAlgOid, allowedOids);
 
                 summary = new QuantumCertificateSummary
                 {
@@ -138,7 +146,10 @@ namespace NetworkMonitor.Connection
             return certs;
         }
 
-        private static bool IsQuantumSafeAlgorithm(string? name, string? oid)
+        private static bool IsQuantumSafeAlgorithm(
+            string? name,
+            string? oid,
+            IReadOnlyCollection<string>? allowedOids)
         {
             var value = name ?? "";
             if (!string.IsNullOrWhiteSpace(value))
@@ -151,6 +162,11 @@ namespace NetworkMonitor.Connection
             }
 
             var oidValue = oid ?? "";
+            if (allowedOids != null && allowedOids.Count > 0)
+            {
+                if (allowedOids.Contains(oidValue))
+                    return true;
+            }
             foreach (var prefix in PqcOidPrefixes)
             {
                 if (oidValue.StartsWith(prefix, StringComparison.Ordinal))

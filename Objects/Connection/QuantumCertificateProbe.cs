@@ -17,6 +17,7 @@ namespace NetworkMonitor.Connection
         private readonly ILogger _logger;
         private readonly IPlatformProcessRunner _runner;
         private readonly List<AlgorithmInfo> _algorithms;
+        private readonly List<string> _allowedCertOids;
 
         public QuantumCertificateProbe(NetConnectConfig netConfig, ILogger logger)
         {
@@ -25,6 +26,7 @@ namespace NetworkMonitor.Connection
             _nativeLibDir = netConfig.NativeLibDir;
             _logger = logger;
             _algorithms = ConnectHelper.GetAlgorithmInfoList(netConfig);
+            _allowedCertOids = ConnectHelper.GetCertificateOidAllowList(netConfig);
 
 #if ANDROID
             _runner = new AndroidProcWrapperRunner(logger);
@@ -33,13 +35,20 @@ namespace NetworkMonitor.Connection
 #endif
         }
 
-        public QuantumCertificateProbe(string oqsProviderPath, string commandPath, string nativeLibDir, ILogger logger, List<AlgorithmInfo> algorithms)
+        public QuantumCertificateProbe(
+            string oqsProviderPath,
+            string commandPath,
+            string nativeLibDir,
+            ILogger logger,
+            List<AlgorithmInfo> algorithms,
+            List<string>? allowedCertOids = null)
         {
             _oqsProviderPath = oqsProviderPath;
             _commandPath = commandPath;
             _nativeLibDir = nativeLibDir;
             _logger = logger;
             _algorithms = algorithms ?? new List<AlgorithmInfo>();
+            _allowedCertOids = allowedCertOids ?? new List<string>();
 
 #if ANDROID
             _runner = new AndroidProcWrapperRunner(logger);
@@ -143,9 +152,9 @@ namespace NetworkMonitor.Connection
             return !IPAddress.TryParse(address, out _);
         }
 
-        private static bool TryBuildResult(string output, out ResultObj result)
+        private bool TryBuildResult(string output, out ResultObj result)
         {
-            if (QuantumCertificateAnalyzer.TryBuildSummary(output, out var summary))
+            if (QuantumCertificateAnalyzer.TryBuildSummary(output, _allowedCertOids, out var summary))
             {
                 result = new ResultObj
                 {

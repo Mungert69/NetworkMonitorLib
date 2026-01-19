@@ -50,5 +50,26 @@ namespace NetworkMonitor.Connection
 
             return algorithmInfoList;
         }
+
+        /// <summary>
+        /// Loads quantum-safe certificate signature OIDs from a file (one OID per line).
+        /// </summary>
+        /// <param name="netConfig">The network configuration containing the OQS provider path.</param>
+        /// <returns>A list of OIDs. Returns empty list if file is missing.</returns>
+        public static List<string> GetCertificateOidAllowList(NetConnectConfig netConfig)
+        {
+            return GetCertificateOidAllowList(netConfig.OqsProviderPath);
+        }
+
+        public static List<string> GetCertificateOidAllowList(string oqsProviderPath)
+        {
+            var filePath = Path.Combine(oqsProviderPath, "cert_oids");
+            if (!File.Exists(filePath)) return new List<string>();
+
+            return File.ReadAllLines(filePath)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("#", StringComparison.Ordinal))
+                .ToList();
+        }
     }
 }
