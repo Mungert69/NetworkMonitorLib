@@ -15,6 +15,14 @@ LLM services, and UI clients.
 - `Objects/Connection/` connection types, command processors, and factories.
 - `Utils/` and `Helpers/` cross-cutting utilities.
 
+## Dynamic connect types
+Connects are periodic checks used by monitored hosts. Dynamic connects can be added at runtime via the connect provider:
+- Class naming: `{ConnectType}Connect`
+- Namespace: `NetworkMonitor.Connection`
+- Used by hosts when `EndPointType` matches `connect_type` (case-insensitive)
+
+This mirrors dynamic cmd processors but targets long-running monitoring instead of one-off commands.
+
 ## Recent message fields
 - `LLMServiceObj.HistoryServiceId`: optional override for which service's history display names to fetch. When omitted, the backend defaults to `UserFacingServiceId`.
 - `LLMServiceObj.ChatAgentLocation`: current agent location used by the primary LLM to guide expert calls.
@@ -34,4 +42,3 @@ dotnet build -c Release
 - Follow existing architectural patterns.
 - Maintain interface compatibility.
 - Document configuration changes when adding new processors or message types.
-
