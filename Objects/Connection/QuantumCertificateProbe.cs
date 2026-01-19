@@ -86,7 +86,8 @@ namespace NetworkMonitor.Connection
 
             var envVars = new Dictionary<string, string>
             {
-                ["LD_LIBRARY_PATH"] = workingDirectory
+                ["LD_LIBRARY_PATH"] = workingDirectory,
+                ["NM_CLOSE_STDIN"] = "true"
             };
 
             if (ShouldIncludeSni(address))

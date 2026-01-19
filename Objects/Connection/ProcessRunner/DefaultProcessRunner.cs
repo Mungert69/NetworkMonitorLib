@@ -23,12 +23,17 @@ public class DefaultProcessRunner : IPlatformProcessRunner
         var output = new StringBuilder();
         var error = new StringBuilder();
 
+        bool closeStdin = envVars != null &&
+                          envVars.TryGetValue("NM_CLOSE_STDIN", out var closeStdinRaw) &&
+                          closeStdinRaw.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
+
         var psi = new ProcessStartInfo
         {
             FileName = executablePath,
             Arguments = arguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = closeStdin,
             UseShellExecute = false,
             CreateNoWindow = true,
             WorkingDirectory = workingDirectory
@@ -44,6 +49,10 @@ public class DefaultProcessRunner : IPlatformProcessRunner
         token.Register(() => { try { if (!proc.HasExited) proc.Kill(); } catch { } });
 
         proc.Start();
+        if (closeStdin)
+        {
+            proc.StandardInput.Close(); // Ensure EOF so openssl s_client exits after handshake.
+        }
 
         await Task.WhenAll(
             ReadStreamAsync(proc.StandardOutput, output, token),

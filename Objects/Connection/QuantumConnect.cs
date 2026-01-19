@@ -73,6 +73,7 @@ namespace NetworkMonitor.Connection
             }
 
             envVars["LD_LIBRARY_PATH"] = workingDirectory;
+            envVars["NM_CLOSE_STDIN"] = "true";
 
             _logger.LogDebug("Preparing to run openssl: {Cmd} {Args}", opensslPath, arguments);
 
