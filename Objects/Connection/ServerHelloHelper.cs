@@ -72,7 +72,7 @@ class ServerHelloHelper
         }
     }
 
-    private bool TryGetAlgoById(int id, out AlgorithmInfo algo) =>
+    private bool TryGetAlgoById(int id, out AlgorithmInfo? algo) =>
         _algosById.TryGetValue(id, out algo);
 
     private bool TryGetAlgoByName(string? name, [NotNullWhen(true)] out AlgorithmInfo? algo)
