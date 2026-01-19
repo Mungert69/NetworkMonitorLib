@@ -67,6 +67,7 @@ class ServerHelloHelper
                 kv => new AlgorithmInfo { AlgorithmName = kv.Value, DefaultID = kv.Key, Enabled = true });
 
             _algosByNameLower = _algosById.Values
+                .Where(a => !string.IsNullOrWhiteSpace(a.AlgorithmName))
                 .ToDictionary(a => a.AlgorithmName.ToLowerInvariant(), a => a);
         }
     }

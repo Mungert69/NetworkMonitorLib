@@ -205,8 +205,9 @@ namespace NetworkMonitor.Connection
             {
                 type = "icmp";
             }
+            var netConfig = _netConfig ?? throw new InvalidOperationException("NetConnectConfig was not initialized.");
             INetConnect netConnect = _connectProvider?.CreateConnect(type)
-                ?? EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, _netConfig.OqsProviderPath!, _netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, _netConfig.NativeLibDir!);
+                ?? EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, netConfig.OqsProviderPath!, netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, netConfig.NativeLibDir!);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
             return netConnect;
         }
