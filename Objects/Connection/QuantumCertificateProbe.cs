@@ -17,7 +17,7 @@ namespace NetworkMonitor.Connection
         private readonly ILogger _logger;
         private readonly IPlatformProcessRunner _runner;
         private readonly List<AlgorithmInfo> _algorithms;
-        private readonly List<string> _allowedCertOids;
+        private List<string> _allowedCertOids;
 
         public QuantumCertificateProbe(NetConnectConfig netConfig, ILogger logger)
         {
@@ -59,6 +59,7 @@ namespace NetworkMonitor.Connection
 
         public async Task<ResultObj> CheckAsync(string address, int port, CancellationToken token)
         {
+            RefreshAllowedCertOidsIfNeeded();
             var enabled = _algorithms.Where(a => a.Enabled).ToList();
             var modern = enabled.Where(a => !a.AddEnv).ToList();
             var legacy = enabled.Where(a => a.AddEnv).ToList();
@@ -171,6 +172,20 @@ namespace NetworkMonitor.Connection
                 Message = "Certificate summary not found in handshake output."
             };
             return false;
+        }
+
+        private void RefreshAllowedCertOidsIfNeeded()
+        {
+            if (_allowedCertOids.Count > 0)
+            {
+                return;
+            }
+
+            var refreshed = ConnectHelper.GetCertificateOidAllowList(_oqsProviderPath);
+            if (refreshed.Count > 0)
+            {
+                _allowedCertOids = refreshed;
+            }
         }
     }
 }
