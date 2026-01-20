@@ -66,7 +66,7 @@ namespace NetworkMonitor.Connection
 
         public static bool TryBuildSummary(
             string opensslOutput,
-            IReadOnlyCollection<string>? allowedOids,
+            IReadOnlyDictionary<string, string>? allowedOids,
             out QuantumCertificateSummary summary)
         {
             summary = null!;
@@ -85,10 +85,13 @@ namespace NetworkMonitor.Connection
                 var issuer = leaf.GetNameInfo(X509NameType.DnsName, true);
                 if (string.IsNullOrWhiteSpace(issuer)) issuer = leaf.Issuer ?? "";
 
-                var sigAlgName = leaf.SignatureAlgorithm?.FriendlyName ?? leaf.SignatureAlgorithm?.Value ?? "unknown";
+                var sigAlgName = leaf.SignatureAlgorithm?.FriendlyName ?? "";
                 var sigAlgOid = leaf.SignatureAlgorithm?.Value ?? "";
-                var keyAlgName = leaf.PublicKey?.Oid?.FriendlyName ?? leaf.PublicKey?.Oid?.Value ?? "unknown";
+                var keyAlgName = leaf.PublicKey?.Oid?.FriendlyName ?? "";
                 var keyAlgOid = leaf.PublicKey?.Oid?.Value ?? "";
+
+                sigAlgName = ResolveAlgorithmName(sigAlgName, sigAlgOid, allowedOids);
+                keyAlgName = ResolveAlgorithmName(keyAlgName, keyAlgOid, allowedOids);
 
                 var sigPqc = IsQuantumSafeAlgorithm(sigAlgName, sigAlgOid, allowedOids);
                 var keyPqc = IsQuantumSafeAlgorithm(keyAlgName, keyAlgOid, allowedOids);
@@ -149,7 +152,7 @@ namespace NetworkMonitor.Connection
         private static bool IsQuantumSafeAlgorithm(
             string? name,
             string? oid,
-            IReadOnlyCollection<string>? allowedOids)
+            IReadOnlyDictionary<string, string>? allowedOids)
         {
             var value = name ?? "";
             if (!string.IsNullOrWhiteSpace(value))
@@ -164,7 +167,7 @@ namespace NetworkMonitor.Connection
             var oidValue = oid ?? "";
             if (allowedOids != null && allowedOids.Count > 0)
             {
-                if (allowedOids.Contains(oidValue))
+                if (allowedOids.ContainsKey(oidValue))
                     return true;
             }
             foreach (var prefix in PqcOidPrefixes)
@@ -174,6 +177,29 @@ namespace NetworkMonitor.Connection
             }
 
             return false;
+        }
+
+        private static string ResolveAlgorithmName(
+            string? friendlyName,
+            string? oid,
+            IReadOnlyDictionary<string, string>? allowedOids)
+        {
+            var name = friendlyName ?? "";
+            var oidValue = oid ?? "";
+            var needsOverride = string.IsNullOrWhiteSpace(name) ||
+                                string.Equals(name, oidValue, StringComparison.Ordinal) ||
+                                string.Equals(name, "unknown", StringComparison.OrdinalIgnoreCase);
+
+            if (needsOverride && allowedOids != null && allowedOids.TryGetValue(oidValue, out var mapped) &&
+                !string.IsNullOrWhiteSpace(mapped))
+            {
+                return mapped;
+            }
+
+            if (string.IsNullOrWhiteSpace(name))
+                return string.IsNullOrWhiteSpace(oidValue) ? "unknown" : oidValue;
+
+            return name;
         }
     }
 }

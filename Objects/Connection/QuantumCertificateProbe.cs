@@ -17,7 +17,7 @@ namespace NetworkMonitor.Connection
         private readonly ILogger _logger;
         private readonly IPlatformProcessRunner _runner;
         private readonly List<AlgorithmInfo> _algorithms;
-        private readonly List<string> _allowedCertOids;
+        private readonly Dictionary<string, string> _certOidNames;
 
         public QuantumCertificateProbe(NetConnectConfig netConfig, ILogger logger)
         {
@@ -26,7 +26,7 @@ namespace NetworkMonitor.Connection
             _nativeLibDir = netConfig.NativeLibDir;
             _logger = logger;
             _algorithms = ConnectHelper.GetAlgorithmInfoList(netConfig);
-            _allowedCertOids = ConnectHelper.GetCertificateOidAllowList(netConfig);
+            _certOidNames = ConnectHelper.GetCertificateOidNameMap(netConfig.OqsProviderPath);
 
 #if ANDROID
             _runner = new AndroidProcWrapperRunner(logger);
@@ -41,14 +41,14 @@ namespace NetworkMonitor.Connection
             string nativeLibDir,
             ILogger logger,
             List<AlgorithmInfo> algorithms,
-            List<string>? allowedCertOids = null)
+            Dictionary<string, string>? certOidNames = null)
         {
             _oqsProviderPath = oqsProviderPath;
             _commandPath = commandPath;
             _nativeLibDir = nativeLibDir;
             _logger = logger;
             _algorithms = algorithms ?? new List<AlgorithmInfo>();
-            _allowedCertOids = allowedCertOids ?? new List<string>();
+            _certOidNames = certOidNames ?? new Dictionary<string, string>(StringComparer.Ordinal);
 
 #if ANDROID
             _runner = new AndroidProcWrapperRunner(logger);
@@ -154,7 +154,7 @@ namespace NetworkMonitor.Connection
 
         private bool TryBuildResult(string output, out ResultObj result)
         {
-            if (QuantumCertificateAnalyzer.TryBuildSummary(output, _allowedCertOids, out var summary))
+            if (QuantumCertificateAnalyzer.TryBuildSummary(output, _certOidNames, out var summary))
             {
                 result = new ResultObj
                 {

@@ -13,8 +13,8 @@ namespace NetworkMonitor.Connection
 
         public QuantumCertConnect(string oqsProviderPath, string commandPath, string nativeLibDir, ILogger logger, List<AlgorithmInfo> algorithms)
         {
-            var allowedOids = ConnectHelper.GetCertificateOidAllowList(oqsProviderPath);
-            _probe = new QuantumCertificateProbe(oqsProviderPath, commandPath, nativeLibDir, logger, algorithms, allowedOids);
+            var certOidNames = ConnectHelper.GetCertificateOidNameMap(oqsProviderPath);
+            _probe = new QuantumCertificateProbe(oqsProviderPath, commandPath, nativeLibDir, logger, algorithms, certOidNames);
             _logger = logger;
             IsLongRunning = true;
         }

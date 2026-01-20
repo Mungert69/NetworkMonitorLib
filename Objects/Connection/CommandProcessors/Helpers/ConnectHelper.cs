@@ -52,7 +52,7 @@ namespace NetworkMonitor.Connection
         }
 
         /// <summary>
-        /// Loads quantum-safe certificate signature OIDs from a file (one OID per line).
+        /// Loads quantum-safe certificate signature OIDs from a file.
         /// </summary>
         /// <param name="netConfig">The network configuration containing the OQS provider path.</param>
         /// <returns>A list of OIDs. Returns empty list if file is missing.</returns>
@@ -63,13 +63,48 @@ namespace NetworkMonitor.Connection
 
         public static List<string> GetCertificateOidAllowList(string oqsProviderPath)
         {
-            var filePath = Path.Combine(oqsProviderPath, "cert_oids");
-            if (!File.Exists(filePath)) return new List<string>();
+            return GetCertificateOidNameMap(oqsProviderPath).Keys.ToList();
+        }
 
-            return File.ReadAllLines(filePath)
-                .Select(line => line.Trim())
-                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("#", StringComparison.Ordinal))
-                .ToList();
+        /// <summary>
+        /// Loads quantum-safe certificate signature OIDs and their algorithm names from a file.
+        /// </summary>
+        /// <param name="oqsProviderPath">The path to the OQS provider assets.</param>
+        /// <returns>A mapping from OID to algorithm name. Returns empty map if file is missing.</returns>
+        public static Dictionary<string, string> GetCertificateOidNameMap(string oqsProviderPath)
+        {
+            var filePath = Path.Combine(oqsProviderPath, "cert_oids");
+            if (!File.Exists(filePath)) return new Dictionary<string, string>(StringComparer.Ordinal);
+
+            var map = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var rawLine in File.ReadAllLines(filePath))
+            {
+                var line = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#", StringComparison.Ordinal)) continue;
+
+                string oid;
+                string name;
+
+                var pipeIndex = line.IndexOf('|');
+                if (pipeIndex >= 0)
+                {
+                    oid = line.Substring(0, pipeIndex).Trim();
+                    name = line.Substring(pipeIndex + 1).Trim();
+                }
+                else
+                {
+                    var parts = line.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
+                    oid = parts.Length > 0 ? parts[0].Trim() : "";
+                    name = parts.Length > 1 ? parts[1].Trim() : "";
+                }
+
+                if (string.IsNullOrWhiteSpace(oid)) continue;
+                if (string.IsNullOrWhiteSpace(name)) name = oid;
+
+                map[oid] = name;
+            }
+
+            return map;
         }
     }
 }
