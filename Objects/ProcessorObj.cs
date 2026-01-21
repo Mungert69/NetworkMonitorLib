@@ -34,6 +34,7 @@ namespace NetworkMonitor.Objects
             RabbitPort=other.RabbitPort;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
+            CustomConnects = new List<string>(other.CustomConnects);
             IsReady = other.IsReady;
             IsReportSent = other.IsReportSent;
             // Set AuthKey based on the showAuthKey parameter
@@ -57,6 +58,7 @@ public void SetAllFields(ProcessorObj other)
     RabbitPort=other.RabbitPort;
     DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
    DisabledCommands = new List<string>(other.DisabledCommands);
+    CustomConnects = new List<string>(other.CustomConnects);
     AuthKey =  other.AuthKey;
     IsReady = other.IsReady;
     IsReportSent = other.IsReportSent;
@@ -131,6 +133,41 @@ public void SetAllFields(ProcessorObj other)
         {
             get => EndPointTypeFactory.GetEnabledEndPoints(_disabledEndPointTypes);
         }
+
+        /// <summary>
+        /// A json object containing the custom connect types registered for this agent.
+        /// </summary>
+        public string CustomConnectsJson
+        {
+            get => JsonUtils.WriteJsonObjectToString<List<string>>(_customConnects);
+            set
+            {
+                if (value == null)
+                {
+                    _customConnects = new List<string>();
+                }
+                else
+                {
+                    try
+                    {
+                        var types = JsonUtils.GetJsonObjectFromString<List<string>>(value);
+                        _customConnects = types ?? new List<string>();
+                    }
+                    catch
+                    {
+                        _customConnects = new List<string>();
+                    }
+                }
+            }
+        }
+
+        [NotMapped]
+        public List<string> CustomConnects
+        {
+            get => _customConnects;
+            set => _customConnects = value ?? new List<string>();
+        }
+        private List<string> _customConnects = new List<string>();
      
         /// <summary>
         /// A json object the contains the commands that are disabled on this agent.

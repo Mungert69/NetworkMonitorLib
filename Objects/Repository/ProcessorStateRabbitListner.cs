@@ -249,6 +249,7 @@ namespace NetworkMonitor.Objects.Repository
                         updateProcessor.MaxLoad = processorObj.MaxLoad;
                         updateProcessor.IsEnabled = processorObj.IsEnabled;
                         updateProcessor.AuthKey = processorObj.AuthKey;
+                        updateProcessor.CustomConnects = processorObj.CustomConnects;
                         var resultStateChange = _processorState.AddAppIDStateChange(processorObj.AppID);
                         if (resultStateChange.Success) result.Message += $" {resultStateChange.Message} : Success : Updated ProcessorObj {processorObj.AppID}";
                         result.Success = resultStateChange.Success;
