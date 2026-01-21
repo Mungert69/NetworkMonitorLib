@@ -11,6 +11,8 @@ namespace NetworkMonitor.Objects.Repository
 
         List<ProcessorObj> EnabledProcessorList(bool showAuthKey);
         ProcessorObj? GetProcessorFromID(string appID, bool showAuthKey);
+        ProcessorObj? GetProcessorFromLocation(string agentLocation, bool showAuthKey);
+        List<ProcessorObj> GetProcessorsByLocations(IEnumerable<string> agentLocations, bool showAuthKey);
         bool IsProcessorWithID(string appID);
         bool IsFilteredSystemProcessorWithID(string appID);
         bool IsFilteredUserAndSystemProcessorWithID(string userId, string appID);
@@ -54,6 +56,31 @@ namespace NetworkMonitor.Objects.Repository
         public List<ProcessorObj> EnabledProcessorList(bool showAuthKey) { return _processorList.Where(w => w.IsEnabled).Select(processor => new ProcessorObj(processor, showAuthKey)).ToList(); }
 
         public ProcessorObj? GetProcessorFromID(string appID, bool showAuthKey) { return _processorList.Where(w => w.AppID == appID).Select(processor => new ProcessorObj(processor, showAuthKey)).FirstOrDefault(); }
+        public ProcessorObj? GetProcessorFromLocation(string agentLocation, bool showAuthKey)
+        {
+            if (string.IsNullOrWhiteSpace(agentLocation))
+            {
+                return null;
+            }
+            return _processorList
+                .Where(w => string.Equals(w.Location, agentLocation, StringComparison.OrdinalIgnoreCase))
+                .Select(processor => new ProcessorObj(processor, showAuthKey))
+                .FirstOrDefault();
+        }
+        public List<ProcessorObj> GetProcessorsByLocations(IEnumerable<string> agentLocations, bool showAuthKey)
+        {
+            var locationSet = new HashSet<string>(
+                agentLocations?.Where(location => !string.IsNullOrWhiteSpace(location)) ?? Enumerable.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
+            if (locationSet.Count == 0)
+            {
+                return new List<ProcessorObj>();
+            }
+            return _processorList
+                .Where(w => !string.IsNullOrWhiteSpace(w.Location) && locationSet.Contains(w.Location))
+                .Select(processor => new ProcessorObj(processor, showAuthKey))
+                .ToList();
+        }
         public bool IsProcessorWithID(string appID) { return _processorList.Any(w => w.AppID == appID); }
 
         public List<ProcessorObj> GetProcessorListAll(bool showAuthKey) { return _processorList.Select(processor => new ProcessorObj(processor, showAuthKey)).ToList(); }
