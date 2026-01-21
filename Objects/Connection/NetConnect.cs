@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using NetworkMonitor.Utils;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 namespace NetworkMonitor.Connection
 {
     public interface INetConnect
@@ -43,6 +44,10 @@ namespace NetworkMonitor.Connection
         private ushort _roundTrip;
         private bool _isLongRunning = false;
         protected Stopwatch Timer = new Stopwatch();
+        protected ILogger? Logger { get; private set; }
+        protected NetConnectConfig? NetConfig { get; private set; }
+        protected ICmdProcessorProvider? CmdProcessorProvider { get; private set; }
+        protected IBrowserHost? BrowserHost { get; private set; }
         public ushort RoundTrip { get => _roundTrip; set => _roundTrip = value; }
         //public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
         public uint PiID { get => _piID; set => _piID = value; }
@@ -58,6 +63,17 @@ namespace NetworkMonitor.Connection
         protected int ExtendTimeoutMultiplier { get => _extendTimeoutMultiplier; set => _extendTimeoutMultiplier = value; }
 
         public abstract Task Connect();
+        public virtual void Init(
+            ILogger logger,
+            NetConnectConfig cfg,
+            ICmdProcessorProvider? cmdProcessorProvider = null,
+            IBrowserHost? browserHost = null)
+        {
+            Logger = logger;
+            NetConfig = cfg;
+            CmdProcessorProvider = cmdProcessorProvider;
+            BrowserHost = browserHost;
+        }
         //public TimeSpan RunningTime()
         //{
         //   return DateTime.UtcNow.Subtract(_dateSent);

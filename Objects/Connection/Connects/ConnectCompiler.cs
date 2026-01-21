@@ -134,8 +134,24 @@ namespace NetworkMonitor.Connection
                 return (INetConnect)ctor1.Invoke(new object?[] { _netConfig })!;
             }
 
+            var ctor0 = type.GetConstructor(Type.EmptyTypes);
+            if (ctor0 != null)
+            {
+                var instance = (INetConnect)ctor0.Invoke(null)!;
+                InitIfSupported(instance, logger);
+                return instance;
+            }
+
             throw new MissingMethodException(
                 $"{type.FullName} must expose a compatible Create(...) factory or constructor.");
+        }
+
+        private void InitIfSupported(INetConnect instance, ILogger logger)
+        {
+            if (instance is NetConnect netConnect)
+            {
+                netConnect.Init(logger, _netConfig, _cmdProcessorProvider, _browserHost);
+            }
         }
 
         private List<MetadataReference> GetMetadataReferences()
