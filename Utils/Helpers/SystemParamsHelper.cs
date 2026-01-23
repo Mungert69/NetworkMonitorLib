@@ -305,11 +305,14 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmHFModelID = _config.GetValue<string>("LlmHFModelID") ?? "";
             mlParams.LlmSpaceModelID = _config.GetValue<string>("LlmSpaceModelID") ?? "";
             mlParams.LlmProvider = _config.GetValue<string>("LlmProvider") ?? "OpenAI";
+            mlParams.LlmToolCallIdLength = int.TryParse(_config["LlmToolCallIdLength"], out int toolCallIdLength) ? toolCallIdLength : 26;
+            mlParams.LlmToolCallIdPrefix = _config.GetValue<string>("LlmToolCallIdPrefix") ?? "call_";
             mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmHFKey");
             mlParams.DataRepoId = _config.GetValue<string>("DataRepoId") ?? "";
             mlParams.HFToken = GetConfigHelper.GetConfigValue("HF_TOKEN");
             mlParams.OpenAIApiKey = GetConfigHelper.GetConfigValue("OpenAIApiKey");
             mlParams.LlmHFUrl = _config.GetValue<string>("LlmHFUrl") ?? "";
+            mlParams.LlmOpenAIUrl = _config.GetValue<string>("LlmOpenAIUrl") ?? "";
             mlParams.LlmSystemPrompt = _config.GetValue<string>("LlmSystemPrompt") ?? "";
             mlParams.LlmThreads = int.TryParse(_config["LlmThreads"], out int llmThreads) ? llmThreads : 2;
             mlParams.LlmSystemPromptTimeout = int.TryParse(_config["LlmSystemPromptTimeout"], out int llmSystemPromptTimeout) ? llmSystemPromptTimeout : 10;

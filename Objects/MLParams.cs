@@ -42,6 +42,7 @@ public class MLParams
     private string _llmHFModelID = "";
     private string _llmHFKey = "";
     private string _llmHFUrl = "";
+    private string _llmOpenAIUrl = "";
     private bool _llmUseHF;
     private bool _isStream;
     private bool _llmHfSupportsFunctionCalling = false;
@@ -67,6 +68,8 @@ public class MLParams
     private int _minTokenLengthCap;
     private string _embeddingProvider;
     private string _llmProvider = "OpenAI";
+    private int _llmToolCallIdLength = 26;
+    private string _llmToolCallIdPrefix = "call_";
 
     private string _embeddingApiModel;
     private string _embeddingApiUrl;
@@ -114,6 +117,7 @@ public class MLParams
     public string LlmHFModelID { get => _llmHFModelID; set => _llmHFModelID = value; }
     public string LlmHFKey { get => _llmHFKey; set => _llmHFKey = value; }
     public string LlmHFUrl { get => _llmHFUrl; set => _llmHFUrl = value; }
+    public string LlmOpenAIUrl { get => _llmOpenAIUrl; set => _llmOpenAIUrl = value; }
     public bool LlmUseHF { get => _llmUseHF; set => _llmUseHF = value; }
     public bool LlmHfSupportsFunctionCalling { get => _llmHfSupportsFunctionCalling; set => _llmHfSupportsFunctionCalling = value; }
     public string LlmHFModelVersion { get => _llmHFModelVersion; set => _llmHFModelVersion = value; }
@@ -160,6 +164,8 @@ public class MLParams
         set => _vectorSearchMode = value;
     }
     public string LlmProvider { get => _llmProvider; set => _llmProvider = value; }
+    public int LlmToolCallIdLength { get => _llmToolCallIdLength; set => _llmToolCallIdLength = value; }
+    public string LlmToolCallIdPrefix { get => _llmToolCallIdPrefix; set => _llmToolCallIdPrefix = value; }
     public global::System.Single LlmTemperature { get => _llmTemperature; set => _llmTemperature = value; }
     public global::System.Single LlmTopP { get => _llmTopP; set => _llmTopP = value; }
     public string LlmSpaceModelID { get => _llmSpaceModelID; set => _llmSpaceModelID = value; }

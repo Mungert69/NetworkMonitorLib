@@ -20,14 +20,23 @@ public static class StringUtils
         return Nanoid.Generate(size: 12);
     }
 
-     private const string Base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    private const string Base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    private static int _toolCallIdLength = 26;
+    private static string _toolCallIdPrefix = "call_";
 
     // Default to 26; keep overload for custom sizes if you want
     private static string GetNanoidSized(int size = 26) =>
         Nanoid.Generate(Base62, size);
 
+    public static void ConfigureToolCallId(string? prefix, int length)
+    {
+        if (!string.IsNullOrWhiteSpace(prefix)) _toolCallIdPrefix = prefix;
+        else _toolCallIdPrefix = "";
+        if (length > 0) _toolCallIdLength = length;
+    }
+
     // Uniform tool_call_id creator
-    public static string NewToolCallId() => "call_" + GetNanoidSized();
+    public static string NewToolCallId() => _toolCallIdPrefix + GetNanoidSized(_toolCallIdLength);
 
     public static string Base36Encode(long value)
     {
