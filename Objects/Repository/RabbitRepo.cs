@@ -274,7 +274,7 @@ namespace NetworkMonitor.Objects.Repository
             {
                 if (_isReconnecting)
                 {
-                    _logger.LogInformation("Reconnection is already in progress. Skipping duplicate attempt.");
+                    _logger.LogWarning("Reconnection is already in progress. Skipping duplicate attempt.");
                     return;
                 }
                 _isReconnecting = true;
@@ -288,7 +288,7 @@ namespace NetworkMonitor.Objects.Repository
                 // If automatic recovery hasn't restored the connection, trigger manual reconnection
                 if (_connection == null || !_connection.IsOpen)
                 {
-                    _logger.LogInformation("Automatic recovery failed. Attempting manual reconnection...");
+                    _logger.LogWarning("Automatic recovery failed. Attempting manual reconnection...");
                     await ConnectAndSetUp();
                 }
             }
@@ -361,7 +361,7 @@ namespace NetworkMonitor.Objects.Repository
                     timerDelayMs = (int)(timerDelayMs * randomMultiplier);
                 }
 
-                _logger.LogInformation(
+                _logger.LogWarning(
                     $"Waiting for connection to be ready for {exchangeName}... " +
                     $"(Timeout: {finalTimeoutMs} ms, Current Delay: {timerDelayMs} ms)");
 

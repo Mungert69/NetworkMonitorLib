@@ -101,7 +101,7 @@ namespace NetworkMonitor.Connection
         }
         public async Task WaitAllTasks()
         {
-            _logger.LogInformation(" NETCONNECT : Starting WaitAllTasks ");
+            _logger.LogDebug(" NETCONNECT : Starting WaitAllTasks ");
             // Check that all tasks have been cancelled*/
             bool isRunning = true;
             int waitingTasksCount;
@@ -112,11 +112,11 @@ namespace NetworkMonitor.Connection
                 // Count running tasks
                 waitingTasksCount = _netConnects.ToArray().Count(nc => nc.IsRunning);
                 // Wait one second and log this message again
-                _logger.LogInformation(" NETCONNECT : Tasks Waiting.. " + (DateTime.UtcNow - startTime).TotalSeconds + " seconds. IsRunning Count = " + waitingTasksCount + ". _tasksWaitingCounter = " + _waitingTasksCounter + " . ");
+                _logger.LogDebug(" NETCONNECT : Tasks Waiting.. " + (DateTime.UtcNow - startTime).TotalSeconds + " seconds. IsRunning Count = " + waitingTasksCount + ". _tasksWaitingCounter = " + _waitingTasksCounter + " . ");
                 await Task.Delay(1000);
             }
             _waitingTasksCounter = 0;
-            _logger.LogInformation(" NETCONNECT : Finished WaitAllTasks ");
+            _logger.LogDebug(" NETCONNECT : Finished WaitAllTasks ");
         }
 
         public void SetPingParams(PingParams pingParams)
