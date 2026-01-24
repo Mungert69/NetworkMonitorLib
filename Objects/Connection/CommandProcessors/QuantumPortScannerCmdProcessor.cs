@@ -64,7 +64,7 @@ namespace NetworkMonitor.Connection
                     IsFlag = false,
                     TypeHint = "int",
                     DefaultValue = _defaultTimeout.ToString(),
-                    Help = "Per-port scan timeout in ms."
+                    Help = "Per-port scan timeout in ms. Also used for nmap discovery timeout; overall scan timeout is derived from per-port timeout and parallelism."
                 },
                 new()
                 {
@@ -72,7 +72,7 @@ namespace NetworkMonitor.Connection
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    DefaultValue = "-T4 --open",
+                    DefaultValue = "-T4 --open --max-retries 2 --host-timeout 30s --initial-rtt-timeout 200ms --max-rtt-timeout 1s",
                     Help = "Custom nmap options (used when --ports not provided)."
                 }
             };
@@ -140,7 +140,7 @@ namespace NetworkMonitor.Connection
                     Ports: ports,
                     Algorithms: algosToUse,
                     Timeout: parsed.GetInt("timeout", _defaultTimeout),
-                    NmapOptions: parsed.GetString("nmap_options", "-T4 --open"),
+                    NmapOptions: parsed.GetString("nmap_options", "-T4 --open --max-retries 2 --host-timeout 30s --initial-rtt-timeout 200ms --max-rtt-timeout 1s"),
                     batch: batch
                 );
 
@@ -169,9 +169,9 @@ namespace NetworkMonitor.Connection
                 }
                 else
                 {
-                    // Use nmap (with its own timeout)
+                    // Use nmap (use requested timeout)
                     using var nmapCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    nmapCts.CancelAfter(_defaultTimeout);
+                    nmapCts.CancelAfter(config.Timeout);
                     try
                     {
                         ports = await RunNmapScan(config.Target, config.NmapOptions, nmapCts.Token);
@@ -181,7 +181,7 @@ namespace NetworkMonitor.Connection
                         return new ResultObj
                         {
                             Success = false,
-                            Message = $"Nmap scan exceeded timeout of {_defaultTimeout / 1000} seconds. Please specify a smaller port list (e.g., with --ports 443,8443)."
+                            Message = $"Nmap scan exceeded timeout of {config.Timeout / 1000} seconds. Please specify a smaller port list (e.g., with --ports 443,8443)."
                         };
                     }
                 }
@@ -199,14 +199,19 @@ namespace NetworkMonitor.Connection
                     };
                 }
 
-                // 2) Per-port scans (parallel with cap)
+                // 2) Per-port scans (parallel with cap + computed overall timeout)
+                var batchCount = Math.Ceiling(ports.Count / (double)_maxParallelTests);
+                var overallTimeoutMs = (int)Math.Max(1, batchCount) * config.Timeout;
+                using var overallCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                overallCts.CancelAfter(TimeSpan.FromMilliseconds(overallTimeoutMs));
+
                 var results = new List<PortResult>();
                 var semaphore = new SemaphoreSlim(_maxParallelTests);
                 var tasks = new List<Task<PortResult>>();
 
                 foreach (var port in ports)
                 {
-                    await semaphore.WaitAsync(ct);
+                    await semaphore.WaitAsync(overallCts.Token);
 
                     tasks.Add(Task.Run(async () =>
                     {
@@ -250,11 +255,22 @@ namespace NetworkMonitor.Connection
                         {
                             semaphore.Release();
                         }
-                    }, ct));
+                    }, overallCts.Token));
                 }
 
-                var completed = await Task.WhenAll(tasks);
-                return ProcessScanResults(completed.ToList());
+                try
+                {
+                    var completed = await Task.WhenAll(tasks);
+                    return ProcessScanResults(completed.ToList());
+                }
+                catch (OperationCanceledException) when (overallCts.IsCancellationRequested)
+                {
+                    return new ResultObj
+                    {
+                        Success = false,
+                        Message = $"Quantum port scan exceeded overall timeout of {overallTimeoutMs / 1000} seconds."
+                    };
+                }
             }
             catch (Exception e)
             {
@@ -349,8 +365,10 @@ Arguments:
                       --algorithms ""frodo640aes:frodo640shake; p256_frodo640aes x25519_frodo640shake""
   --ports           Explicit ports (same separators). Example: ""443,8443""
                     If omitted, nmap is used to discover open ports.
-  --timeout         Per-port scan timeout in ms (default from config).
-  --nmap_options    Options passed to nmap when --ports is omitted (default: ""-T4 --open"").
+  --timeout         Per-port scan timeout in ms (default from config). Also used for nmap discovery timeout.
+                   Overall scan timeout is derived from per-port timeout and parallelism:
+                   ceil(port_count / parallelism) * timeout.
+  --nmap_options    Options passed to nmap when --ports is omitted (default: ""-T4 --open --max-retries 2 --host-timeout 30s --initial-rtt-timeout 200ms --max-rtt-timeout 1s"").
 
 Required:
  only --target is required.
