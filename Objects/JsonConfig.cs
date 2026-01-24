@@ -181,6 +181,8 @@ namespace NetworkMonitor.Objects
   [JsonSerializable(typeof(TResultObj<HostResponseObj, SentUserData>))]
   [JsonSerializable(typeof(TResultObj<ProcessorDataObj>))]
   [JsonSerializable(typeof(ProcessorCustomConnectUpdateObj))]
+  [JsonSerializable(typeof(AgentFlowFileRequest))]
+  [JsonSerializable(typeof(AgentFlowFileResponse))]
   [JsonSerializable(typeof(TResultObj<LoadServer>))]
   [JsonSerializable(typeof(TResultObj<RabbitLoadServer>))]
   [JsonSerializable(typeof(JsonElement))]
