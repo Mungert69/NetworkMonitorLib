@@ -181,6 +181,9 @@ public class MLParams
     public global::System.Int32 HfRetryDelaySeconds { get => _hfRetryDelaySeconds; set => _hfRetryDelaySeconds = value; }
     public global::System.Int32 HfRequestTimeoutSeconds { get => _hfRequestTimeoutSeconds; set => _hfRequestTimeoutSeconds = value; }
 
+    // Remote Cache Configuration
+    public RemoteCacheConfig RemoteCache { get; set; } = new();
+
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)
     {

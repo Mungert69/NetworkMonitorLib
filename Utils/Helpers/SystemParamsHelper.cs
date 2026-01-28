@@ -370,6 +370,17 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.EmbeddingApiModel = _config.GetValue<string>("EmbeddingApiModel") ?? "baai/bge-m3";
             mlParams.EmbeddingApiUrl = _config.GetValue<string>("EmbeddingApiUrl") ?? "https://api.novita.ai/v3/openai/embeddings";
 
+            // Load Remote Cache Configuration
+            var remoteCacheSection = _config.GetSection("RemoteCache");
+            if (remoteCacheSection.Exists())
+            {
+                mlParams.RemoteCache.Enabled = remoteCacheSection.GetValue<bool>("Enabled");
+                mlParams.RemoteCache.Type = remoteCacheSection.GetValue<string>("Type") ?? "Http";
+                mlParams.RemoteCache.BaseUrl = remoteCacheSection.GetValue<string>("BaseUrl") ?? "";
+                mlParams.RemoteCache.ApiKey = GetConfigHelper.GetConfigValue("RemoteCache:ApiKey", "");
+                mlParams.RemoteCache.TimeoutSeconds = remoteCacheSection.GetValue<int>("TimeoutSeconds", 30);
+                mlParams.RemoteCache.RetryAttempts = remoteCacheSection.GetValue<int>("RetryAttempts", 3);
+            }
 
 	#pragma warning restore IL2026
             return mlParams;
