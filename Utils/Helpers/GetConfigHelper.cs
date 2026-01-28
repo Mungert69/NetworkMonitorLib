@@ -159,6 +159,7 @@ namespace NetworkMonitor.Utils.Helpers
                             logger?.LogError($"Environment variable '{child.Key}' is not set; leaving empty.");
                             continue;
                         }
+                        logger?.LogInformation($"Environment variable '{child.Key}' found; overriding section child from ENV.");
                         flattened.Add(new KeyValuePair<string, string?>($"{key}:{child.Key}", envVal.Trim()));
                     }
                     else
