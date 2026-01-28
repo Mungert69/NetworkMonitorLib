@@ -28,6 +28,9 @@ public class MLParams
     private string _llmPromptMode = "-if -sp";
     private bool _noNShot = false;
     private string _llmTemp = "0.0";
+    private int _hfRetryMaxAttempts = 3;
+    private int _hfRetryDelaySeconds = 10;
+    private int _hfRequestTimeoutSeconds = 120;
     private int _llmCtxSize = 12000;
     private int _llmOpenAICtxSize = 32000;
     private int _llmResponseTokens = 4000;
@@ -174,6 +177,9 @@ public class MLParams
     public global::System.Int32 MaxFunctionCallsInARow { get => _maxFunctionCallsInARow; set => _maxFunctionCallsInARow = value; }
     public global::System.Boolean NoNShot { get => _noNShot; set => _noNShot = value; }
     public string GptModelVersion { get => _gptModelVersion; set => _gptModelVersion = value; }
+    public global::System.Int32 HfRetryMaxAttempts { get => _hfRetryMaxAttempts; set => _hfRetryMaxAttempts = value; }
+    public global::System.Int32 HfRetryDelaySeconds { get => _hfRetryDelaySeconds; set => _hfRetryDelaySeconds = value; }
+    public global::System.Int32 HfRequestTimeoutSeconds { get => _hfRequestTimeoutSeconds; set => _hfRequestTimeoutSeconds = value; }
 
     // Set from string using helper
     public void SetVectorSearchModeFromString(string value)
