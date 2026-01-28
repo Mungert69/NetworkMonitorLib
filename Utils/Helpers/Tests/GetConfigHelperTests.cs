@@ -71,4 +71,23 @@ public class GetConfigHelperTests
 
         Environment.SetEnvironmentVariable("Endpoints", null);
     }
+
+    [Fact]
+    public void GetSection_ChildValueEnv_Supported()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { { "RemoteCache:ApiKey", ".env" } })
+            .Build();
+
+        Environment.SetEnvironmentVariable("ApiKey", "from-env");
+        TestUtilities.ResetGetConfigHelper();
+        GetConfigHelper.Initialize(config);
+
+        var section = GetConfigHelper.GetSection("RemoteCache");
+        var apiKey = section.GetValue<string>("ApiKey", "");
+
+        Assert.Equal("from-env", apiKey);
+
+        Environment.SetEnvironmentVariable("ApiKey", null);
+    }
 }
