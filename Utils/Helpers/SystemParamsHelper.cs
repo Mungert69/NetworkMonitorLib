@@ -325,6 +325,11 @@ namespace NetworkMonitor.Utils.Helpers
                     { "HugLLM",   "execute.api" },
                     { "TestLLM",  "execute.local" }
                 };
+            var simpleMonitorPromptByRunner = _config.GetSection("SimpleMonitorPromptByRunner")
+                .Get<Dictionary<string, bool>>();
+            mlParams.SimpleMonitorPromptByRunner = simpleMonitorPromptByRunner == null
+                ? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, bool>(simpleMonitorPromptByRunner, StringComparer.OrdinalIgnoreCase);
             mlParams.PromptCacheDiscountFraction = decimal.TryParse(_config["PromptCacheDiscountFraction"], out var d) ? d : 0.90m;
             mlParams.MaxFunctionCallsInARow = int.TryParse(_config["MaxFunctionCallsInARow"], out int maxFuncCalls) ? maxFuncCalls : 10;
             mlParams.CompletionCostMultiplier = decimal.TryParse(_config["CompletionCostMultiplier"], out var k) ? k : 8.00m;
