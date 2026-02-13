@@ -20,6 +20,15 @@ if [ $? -ne 0 ]; then
 fi
 log "Successfully published NetworkMonitor for linux-x64"
 
+# Publish NetworkMonitor for linux-arm64
+log "Publishing NetworkMonitor for linux-arm64"
+dotnet publish NetworkMonitor.csproj -c Release -r linux-arm64 --self-contained true >> $LOG_FILE 2>&1
+if [ $? -ne 0 ]; then
+    log "Failed to publish NetworkMonitor for linux-arm64"
+    exit 1
+fi
+log "Successfully published NetworkMonitor for linux-arm64"
+
 # Publish NetworkMonitor-Maui-Android for android
 log "Publishing NetworkMonitor-Maui-Android for android"
 dotnet publish NetworkMonitor-Maui-Android.csproj -c Release -r android --self-contained true >> $LOG_FILE 2>&1
@@ -29,48 +38,69 @@ if [ $? -ne 0 ]; then
 fi
 log "Successfully published NetworkMonitor-Maui-Android for android"
 
+LINUX_X64_PUBLISH=~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish
+LINUX_ARM64_PUBLISH=~/code/NetworkMonitorLib/bin/Release/net10.0/linux-arm64/publish
+ANDROID_PUBLISH=~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish
+X64_DLL_STAGE=~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish-x64-dlls
+ARM64_DLL_STAGE=~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish-arm64-dlls
+
+copy_linux_publish_dependencies() {
+    local SRC_PUBLISH="$1"
+    local DST_PUBLISH="$2"
+    cp "$SRC_PUBLISH"/System* "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/PuppeteerSharp.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/RestSharp.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+
+    # Allow missing Nito* safely
+    shopt -s nullglob
+    cp "$SRC_PUBLISH"/Nito* "$DST_PUBLISH" >> $LOG_FILE 2>&1 || true
+    shopt -u nullglob
+
+    cp "$SRC_PUBLISH"/Nanoid.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/mscorlib.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/netstandard.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/HtmlAgilityPack.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/FluentFTP.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/Betalgo.Ranul.OpenAI.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/BouncyCastle.Cryptography.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/Microsoft.Extensions* "$DST_PUBLISH" >> $LOG_FILE 2>&1 || true
+    cp "$SRC_PUBLISH"/Microsoft.IdentityModel* "$DST_PUBLISH" >> $LOG_FILE 2>&1 || true
+    cp "$SRC_PUBLISH"/Microsoft.Bcl.AsyncInterfaces.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/Microsoft.CodeAnalysis.CSharp.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/Microsoft.CodeAnalysis.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/Microsoft.CSharp.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$SRC_PUBLISH"/Markdig.dll "$DST_PUBLISH" >> $LOG_FILE 2>&1
+}
+
 # Copy files from linux-x64 to android publish directory
 log "Copying files from linux-x64 to android publish directory"
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/System* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/PuppeteerSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/RestSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-
-# Allow missing Nito* safely
-shopt -s nullglob
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Nito* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1 || true
-shopt -u nullglob
-
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Nanoid.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/mscorlib.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/netstandard.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/HtmlAgilityPack.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/FluentFTP.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Betalgo.Ranul.OpenAI.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/BouncyCastle.Cryptography.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.Extensions* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1 || true
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.IdentityModel* ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1 || true
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.Bcl.AsyncInterfaces.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.CodeAnalysis.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.CodeAnalysis.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Microsoft.CSharp.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/Markdig.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+copy_linux_publish_dependencies "$LINUX_X64_PUBLISH" "$ANDROID_PUBLISH"
 # difference here use the android NetworkMonitor.dll later overwritten for linux kept for andoid.
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/NetworkMonitor.dll ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish >> $LOG_FILE 2>&1
+cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/NetworkMonitor.dll "$ANDROID_PUBLISH" >> $LOG_FILE 2>&1
 
-rm -f ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/_Microsoft.Android.Resource.Designer.dll
+rm -f "$ANDROID_PUBLISH"/_Microsoft.Android.Resource.Designer.dll
 log "Successfully copied files to android publish directory"
 
-log "Copying files to NetworkMonitorProcessorAgent"
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish/* ~/code/NetworkMonitorProcessorAgent/openssl/bin/dlls >> $LOG_FILE 2>&1
-# use the linux-x64 NetworkMonitor.dll
-cp ~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish/NetworkMonitor.dll  ~/code/NetworkMonitorProcessorAgent/openssl/bin/dlls >> $LOG_FILE 2>&1
-log "Successfully copied files to android publish directory"
+log "Copying files to NetworkMonitorProcessorAgent openssl bundles"
+rm -rf "$X64_DLL_STAGE" "$ARM64_DLL_STAGE"
+mkdir -p "$X64_DLL_STAGE" "$ARM64_DLL_STAGE"
+cp "$ANDROID_PUBLISH"/* "$X64_DLL_STAGE" >> $LOG_FILE 2>&1
+cp "$ANDROID_PUBLISH"/* "$ARM64_DLL_STAGE" >> $LOG_FILE 2>&1
 
-if [ $? -ne 0 ]; then
-    log "Failed to copy files to NetworkMonitorProcessorAgent"
-    exit 1
-fi
-log "Successfully copied files to NetworkMonitorProcessorAgent"
+# Keep x64 and arm64 bundle payloads architecture-matched.
+copy_linux_publish_dependencies "$LINUX_X64_PUBLISH" "$X64_DLL_STAGE"
+copy_linux_publish_dependencies "$LINUX_ARM64_PUBLISH" "$ARM64_DLL_STAGE"
+cp "$LINUX_X64_PUBLISH"/NetworkMonitor.dll "$X64_DLL_STAGE" >> $LOG_FILE 2>&1
+cp "$LINUX_ARM64_PUBLISH"/NetworkMonitor.dll "$ARM64_DLL_STAGE" >> $LOG_FILE 2>&1
+
+mkdir -p ~/code/NetworkMonitorProcessorAgent/openssl/bin/dlls
+mkdir -p ~/code/NetworkMonitorProcessorAgent/openssl-amd64/bin/dlls
+mkdir -p ~/code/NetworkMonitorProcessorAgent/openssl-arm64/bin/dlls
+cp "$X64_DLL_STAGE"/* ~/code/NetworkMonitorProcessorAgent/openssl/bin/dlls >> $LOG_FILE 2>&1
+cp "$X64_DLL_STAGE"/* ~/code/NetworkMonitorProcessorAgent/openssl-amd64/bin/dlls >> $LOG_FILE 2>&1
+cp "$ARM64_DLL_STAGE"/* ~/code/NetworkMonitorProcessorAgent/openssl-arm64/bin/dlls >> $LOG_FILE 2>&1
+
+log "Successfully copied files to NetworkMonitorProcessorAgent openssl bundles"
 
 # Copy files to QuantumSecure
 log "Copying files to QuantumSecure"
@@ -115,4 +145,3 @@ log "Successfully ran create-manifest for NetworkMonitorAgent"
 log "Script completed successfully"
 echo "Script completed successfully. Check $LOG_FILE for details."
 exit 0
-
