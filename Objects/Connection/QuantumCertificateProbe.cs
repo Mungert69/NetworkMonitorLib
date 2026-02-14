@@ -127,7 +127,8 @@ namespace NetworkMonitor.Connection
 
             var envVars = new Dictionary<string, string>
             {
-                ["LD_LIBRARY_PATH"] = workingDirectory,
+                // Provider modules depend on liboqs/libcrypto in providerPath; include both for safety.
+                ["LD_LIBRARY_PATH"] = $"{providerPath}:{workingDirectory}",
                 ["NM_CLOSE_STDIN"] = "true"
             };
             if (extraEnv != null)

@@ -72,7 +72,8 @@ namespace NetworkMonitor.Connection
                 envVars[kv[0]] = kv[1];
             }
 
-            envVars["LD_LIBRARY_PATH"] = workingDirectory;
+            // Provider modules depend on liboqs/libcrypto in providerPath; include both for safety.
+            envVars["LD_LIBRARY_PATH"] = $"{providerPath}:{workingDirectory}";
             envVars["NM_CLOSE_STDIN"] = "true";
 
             _logger.LogDebug("Preparing to run openssl: {Cmd} {Args}", opensslPath, arguments);
