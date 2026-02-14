@@ -372,6 +372,9 @@ namespace NetworkMonitor.Utils.Helpers
             // Embedding provider config
             mlParams.EmbeddingProvider = _config.GetValue<string>("EmbeddingProvider") ?? "local";
             mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmHFKey");
+            if (string.IsNullOrEmpty(mlParams.LlmHFKey)){
+                mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmORkey");
+            }
             mlParams.EmbeddingApiModel = _config.GetValue<string>("EmbeddingApiModel") ?? "baai/bge-m3";
             mlParams.EmbeddingApiUrl = _config.GetValue<string>("EmbeddingApiUrl") ?? "https://api.novita.ai/v3/openai/embeddings";
 
