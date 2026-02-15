@@ -33,21 +33,30 @@ namespace NetworkMonitor.Connection
 
         public async Task<IBrowser> GetBrowserAsync(CancellationToken ct = default)
         {
-            // Lazy launch and relaunch-after-crash
-            if (_browser == null || _browser.IsClosed)
+            try
             {
-                bool headless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless);
-                _browser = await Puppeteer.LaunchAsync(lo);
-                _logger.LogInformation("Shared Chromium launched.");
-                _browser.Disconnected += (_, __) =>
+                // Lazy launch and relaunch-after-crash
+                if (_browser == null || _browser.IsClosed)
                 {
-                    _logger.LogWarning("Shared Chromium disconnected; will relaunch on next request.");
-                    try { _browser?.Dispose(); } catch { }
-                    _browser = null;
-                };
+                    bool headless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
+                    var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless);
+                    _browser = await Puppeteer.LaunchAsync(lo);
+                    _logger.LogInformation("Shared Chromium launched.");
+                    _browser.Disconnected += (_, __) =>
+                    {
+                        _logger.LogWarning("Shared Chromium disconnected; will relaunch on next request.");
+                        try { _browser?.Dispose(); } catch { }
+                        _browser = null;
+                    };
+                }
+                return _browser!;
             }
-            return _browser;
+            catch (Exception ex)
+            {
+                try { _logger.LogError(ex, "GetBrowserAsync failed: {Message}", ex.Message); } catch { }
+       
+            }
+            return null!;
         }
 
         public async Task<T> RunWithPage<T>(Func<IPage, Task<T>> work, CancellationToken ct = default)

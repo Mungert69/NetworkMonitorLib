@@ -126,10 +126,32 @@ namespace NetworkMonitor.Connection
 
             bool executableMissingOrInvalid = string.IsNullOrEmpty(chromeExecutable) || !File.Exists(chromeExecutable);
 
+            // If an executable exists, validate it by running `--version` to detect corrupted or incompatible installs.
+            if (!executableMissingOrInvalid)
+            {
+                try
+                {
+                    if (!ValidateChromeExecutable(chromeExecutable!))
+                    {
+                        logger?.LogWarning("Found existing Chrome executable but validation failed. Will redownload Chromium.");
+                        // Remove success marker so we force a re-download
+                        try { if (File.Exists(successMarker)) File.Delete(successMarker); } catch { }
+                        executableMissingOrInvalid = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogWarning(ex, "Error while validating existing Chrome executable; will attempt redownload.");
+                    try { if (File.Exists(successMarker)) File.Delete(successMarker); } catch { }
+                    executableMissingOrInvalid = true;
+                }
+            }
+
             if (!File.Exists(successMarker) || executableMissingOrInvalid)
             {
                 logger?.LogWarning("Chromium not found or corrupted. Downloading...");
-                await SafeDownloadChromiumAsync(browserFetcher, logger);
+                await SafeDownloadChromiumAsync(browserFetcher, downloadPath, logger);
+
                 File.WriteAllText(successMarker, DateTime.UtcNow.ToString("o"));
                 chromeExecutable = FindChromeExecutable(chromiumPath);
             }
@@ -181,22 +203,48 @@ namespace NetworkMonitor.Connection
             }
         }
 
-        private  async Task SafeDownloadChromiumAsync(
+        private async Task SafeDownloadChromiumAsync(
         BrowserFetcher browserFetcher,
+        string downloadPath,
         ILogger? logger = null,
         int timeoutSeconds = 120,
         int maxRetries = 3)
         {
-            // Try to enter semaphore immediately
             if (!await _downloadSemaphore.WaitAsync(0))
             {
                 logger?.LogError("Another thread is already downloading Chromium.");
-                throw new InvalidOperationException("Chromium download already in progress.");
+                return;
             }
 
             try
             {
-                // Perform download with retry logic
+                // --- HARD CLEAN OF DOWNLOAD DIRECTORY ---
+                if (Directory.Exists(downloadPath))
+                {
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        try
+                        {
+                            Directory.Delete(downloadPath, recursive: true);
+                            break;
+                        }
+                        catch (IOException)
+                        {
+                            if (i == 3) throw;
+                            await Task.Delay(1000);
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            if (i == 3) throw;
+                            await Task.Delay(1000);
+                        }
+                    }
+                }
+
+                Directory.CreateDirectory(downloadPath);
+                logger?.LogInformation("Chromium directory cleaned. Starting download...");
+
+                // --- DOWNLOAD WITH RETRIES ---
                 for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
                     try
@@ -206,17 +254,13 @@ namespace NetworkMonitor.Connection
                         logger?.LogInformation("Chromium downloaded successfully.");
                         return;
                     }
-                    catch (OperationCanceledException)
-                    {
-                        logger?.LogWarning($"Attempt {attempt}: download timed out.");
-                    }
                     catch (Exception ex)
                     {
-                        logger?.LogError($"Attempt {attempt} failed: {ex.GetType().Name} - {ex.Message}");
-                    }
+                        logger?.LogWarning($"Attempt {attempt} failed: {ex.GetType().Name} - {ex.Message}");
 
-                    if (attempt < maxRetries)
-                        await Task.Delay(3000);
+                        if (attempt < maxRetries)
+                            await Task.Delay(3000);
+                    }
                 }
 
                 throw new TimeoutException("Chromium download failed after multiple attempts.");
@@ -227,5 +271,27 @@ namespace NetworkMonitor.Connection
             }
         }
 
+        bool ValidateChromeExecutable(string exe)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo(exe)
+                {
+                    Arguments = "--version",
+                    WorkingDirectory = Path.GetDirectoryName(exe),
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                using var p = Process.Start(psi);
+                if (p == null) return false;
+                if (!p.WaitForExit(10000)) { try { p.Kill(); } catch { } return false; }
+                if (p.ExitCode != 0) return false;
+                var outText = p.StandardOutput.ReadToEnd();
+                return !string.IsNullOrWhiteSpace(outText);
+            }
+            catch { return false; }
+        }
     }
 }

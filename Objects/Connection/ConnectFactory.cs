@@ -128,19 +128,35 @@ namespace NetworkMonitor.Connection
         {
             return GetNetConnectObj(pingInfo, pingParams).Connect();
         }*/
-        public async Task<ResultObj> SetupChromium(NetConnectConfig? netConfig)
+        public Task<ResultObj> SetupChromium(NetConnectConfig? netConfig)
         {
             var result = new ResultObj();
+
             try
             {
                 if (netConfig?.LoadChromium == true && _browserHost != null)
                 {
-                    // Prewarm: triggers download/launch if needed
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-                    await _browserHost.GetBrowserAsync(cts.Token);
+                    // Schedule prewarm in background and ensure all exceptions are observed here
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                            await _browserHost.GetBrowserAsync(cts.Token).ConfigureAwait(false);
+                            _logger.LogInformation("Chromium prewarm completed (background).");
+                        }
+                        catch (System.ComponentModel.Win32Exception wex)
+                        {
+                            _logger.LogError(wex, "Chromium native start failed (SxS/VC++ redist).");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Chromium prewarm failed (background).");
+                        }
+                    });
 
                     result.Success = true;
-                    result.Message = " Success : Chromium prewarmed via BrowserHost.";
+                    result.Message = "Chromium prewarm scheduled (background).";
                 }
                 else if (netConfig?.LoadChromium == true && _browserHost == null)
                 {
@@ -149,7 +165,6 @@ namespace NetworkMonitor.Connection
                 }
                 else
                 {
-                    // Not an error; just not requested
                     result.Success = true;
                     result.Message = "Chromium preload skipped (LoadChromium = false).";
                 }
@@ -157,12 +172,14 @@ namespace NetworkMonitor.Connection
             catch (Exception e)
             {
                 result.Success = false;
-                result.Message = $" Error : Failed to prewarm Chromium. Error was : {e.Message}";
+                result.Message = $"Error : Failed to schedule Chromium prewarm. Error was : {e.Message}";
+                _logger.LogError(e, "Failed to schedule Chromium prewarm.");
             }
 
             if (result.Success) _logger.LogInformation(result.Message);
             else _logger.LogError(result.Message);
-            return result;
+
+            return Task.FromResult(result);
         }
 
 
