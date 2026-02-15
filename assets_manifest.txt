@@ -89,6 +89,7 @@
 ./bin/Debug/net10.0-windows10.0.19041.0/System.Threading.RateLimiting.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/testhost.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/testhost.exe
+./bin/Debug/net10.0-windows10.0.19041.0/WebDriverBiDi.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/WinRT.Runtime.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/xunit.abstractions.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/xunit.assert.dll
@@ -853,6 +854,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.Xml.XPath.XDocument.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/testhost.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/testhost.exe
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/WebDriverBiDi.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/WindowsBase.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/WinRT.Runtime.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/xunit.abstractions.dll
@@ -1198,6 +1200,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/testhost.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/testhost.exe
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/ThirdPartyNotices.txt
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/WebDriverBiDi.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/WindowsBase.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/WinRT.Runtime.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/xunit.abstractions.dll
@@ -1401,6 +1404,7 @@
 ./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.AssemblyInfoInputs.cache
 ./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.assets.cache
 ./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.csproj.AssemblyReference.cache
+./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.csproj.BuildWithSkipAnalyzers
 ./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.csproj.CoreCompileInputs.cache
 ./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.csproj.FileListAbsolute.txt
 ./obj/Debug/net10.0-windows10.0.19041.0/NetworkMonitor-Maui.GeneratedMSBuildEditorConfig.editorconfig
@@ -1449,6 +1453,8 @@
 ./obj/Release/net10.0-windows10.0.19041.0/win-x64/PublishOutputs.7d5f9614df.txt
 ./obj/Release/net10.0-windows10.0.19041.0/win-x64/ref/NetworkMonitor.dll
 ./obj/Release/net10.0-windows10.0.19041.0/win-x64/refint/NetworkMonitor.dll
+./Objects/AgentFlowFileRequest.cs
+./Objects/AgentFlowFileResponse.cs
 ./Objects/AgentUserFlow.cs
 ./Objects/AlertFlagObj.cs
 ./Objects/AlertMessage.cs
@@ -1507,6 +1513,7 @@
 ./Objects/README.md
 ./Objects/ReadyState.cs
 ./Objects/RegisteredUser.cs
+./Objects/RemoteCacheConfig.cs
 ./Objects/RemovePingInfo.cs
 ./Objects/ResultObj.cs
 ./Objects/RootObject.cs
@@ -1596,6 +1603,7 @@
 ./Objects/Connection/CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/BleBroadcastListenCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/CmdProcessorTest.cs
+./Objects/Connection/CommandProcessors/Tests/QuantumPortScannerCmdProcessorTests.cs
 ./Objects/Connection/Connects/ConnectCompiler.cs
 ./Objects/Connection/Connects/ConnectProvider.cs
 ./Objects/Connection/FilterStrategy/CompositeFilterStrategy.cs
@@ -1614,6 +1622,7 @@
 ./Objects/Connection/Tests/BleBroadcastConnectTest.cs
 ./Objects/Connection/Tests/BleBroadcastListenConnectTest.cs
 ./Objects/Connection/Tests/ConnectFactoryTest.cs
+./Objects/Connection/Tests/ConnectHelperTests.cs
 ./Objects/Connection/Tests/CrawlSiteCmdConnectTest.cs
 ./Objects/Connection/Tests/CSVParserTest.cs
 ./Objects/Connection/Tests/DNSConnectTest.cs
@@ -1656,6 +1665,7 @@
 ./Objects/Repository/Helpers/LegacyAndroidSslHelper.cs
 ./Objects/Repository/Helpers/LocalSystemParamsHelper.cs
 ./Objects/Repository/Helpers/RabbitConnectHelper.cs
+./Objects/Repository/Tests/ProcessorStateTests.cs
 ./Objects/Security/EnvFileStore.cs
 ./Objects/Security/IEnvironmentStore.cs
 ./Objects/Security/IProtectedConfigManager.cs
@@ -1678,6 +1688,7 @@
 ./Objects/ServiceMessage/PaymentServiceInitObj.cs
 ./Objects/ServiceMessage/PaymentTransaction.cs
 ./Objects/ServiceMessage/ProcessorConnectObj.cs
+./Objects/ServiceMessage/ProcessorCustomConnectUpdateObj.cs
 ./Objects/ServiceMessage/ProcessorDataBuilder.cs
 ./Objects/ServiceMessage/ProcessorDataObj.cs
 ./Objects/ServiceMessage/ProcessorInitObj.cs
