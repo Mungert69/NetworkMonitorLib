@@ -30,6 +30,7 @@
     <PackageReference Include="Markdig" Version="0.42.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="10.0.3" />
+    <PackageReference Include="Microting.EntityFrameworkCore.MySql" Version="10.0.3" />
     <PackageReference Include="Nanoid" Version="3.1.0" />
     <PackageReference Include="PuppeteerSharp" Version="20.2.6" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
@@ -42,9 +43,8 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
     <PackageReference Include="RestSharp" Version="112.1.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.13" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.13" />
-    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.3" />
     <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
   </ItemGroup>
    <ItemGroup>
