@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Security;
 using System.Collections.Concurrent;
+using System.Threading;
 using NetworkMonitor.Objects.Repository.Helpers;
 namespace NetworkMonitor.Objects.Repository
 {
@@ -29,6 +30,7 @@ namespace NetworkMonitor.Objects.Repository
         protected bool _isTls = false;
 
         protected IRabbitListenerState _state;
+        private readonly AsyncLocal<string?> _currentPublisherUserId = new AsyncLocal<string?>();
 
         public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null)
         {
@@ -391,6 +393,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     return null;
                 }
+                _currentPublisherUserId.Value = @event.BasicProperties?.UserId;
 
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
@@ -427,6 +430,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     return null;
                 }
+                _currentPublisherUserId.Value = @event.BasicProperties?.UserId;
 
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
@@ -449,6 +453,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     return null;
                 }
+                _currentPublisherUserId.Value = @event.BasicProperties?.UserId;
 
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
@@ -470,6 +475,11 @@ namespace NetworkMonitor.Objects.Repository
 
         private bool HasValidatedPublisherUserId(BasicDeliverEventArgs @event)
         {
+            if (!_systemUrl.RequirePublisherUserId)
+            {
+                return true;
+            }
+
             string? publisherUserId = @event.BasicProperties?.UserId;
             if (!string.IsNullOrWhiteSpace(publisherUserId))
             {
@@ -482,6 +492,17 @@ namespace NetworkMonitor.Objects.Repository
                 @event.RoutingKey,
                 @event.DeliveryTag);
             return false;
+        }
+
+        protected string GetPublisherUserId(BasicDeliverEventArgs @event)
+        {
+            // ConvertToObject/ConvertToString/ConvertToList already enforce presence of UserId.
+            return @event.BasicProperties?.UserId ?? string.Empty;
+        }
+
+        protected string CurrentPublisherUserId
+        {
+            get { return _currentPublisherUserId.Value ?? string.Empty; }
         }
     }
 }
