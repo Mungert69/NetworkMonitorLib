@@ -71,6 +71,16 @@ namespace NetworkMonitor.Objects.Repository
 
         private ConcurrentDictionary<string, bool> _exchangeCache = new ConcurrentDictionary<string, bool>();
 
+        private BasicProperties CreatePublishProperties()
+        {
+            var props = new BasicProperties
+            {
+                // Bind message to authenticated RabbitMQ username.
+                UserId = _systemUrl.RabbitUserName
+            };
+            return props;
+        }
+
         public SystemUrl SystemUrl { get => _systemUrl; set => _systemUrl = value; }
         private readonly SemaphoreSlim _publishSemaphore = new SemaphoreSlim(1, 1);
 
@@ -420,9 +430,14 @@ namespace NetworkMonitor.Objects.Repository
 
                 var body = Encoding.UTF8.GetBytes(message);
                 if (_publishChannel != null)
+                {
+                    var props = CreatePublishProperties();
                     await _publishChannel.BasicPublishAsync(exchange: exchangeName,
                                          routingKey: routingKey,
+                                         mandatory: false,
+                                         basicProperties: props,
                                          body: body);
+                }
             }
             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException ex)
             {
@@ -471,9 +486,15 @@ namespace NetworkMonitor.Objects.Repository
                   cloudEvent, typeof(CloudEvent), SourceGenerationContext.Default);
 
                 var body = Encoding.UTF8.GetBytes(message);
-                if (_publishChannel != null) await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                    routingKey: routingKey,
-                                    body: body);
+                if (_publishChannel != null)
+                {
+                    var props = CreatePublishProperties();
+                    await _publishChannel.BasicPublishAsync(exchange: exchangeName,
+                                        routingKey: routingKey,
+                                        mandatory: false,
+                                        basicProperties: props,
+                                        body: body);
+                }
 
             }
             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException ex)
@@ -554,10 +575,16 @@ namespace NetworkMonitor.Objects.Repository
             string message = JsonSerializer.Serialize(
                cloudEvent, typeof(CloudEvent), SourceGenerationContext.Default);
             var body = Encoding.UTF8.GetBytes(message);
-            if (_publishChannel != null) await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                routingKey: routingKey,
-                                // body: formatter.EncodeBinaryModeEventData(cloudEvent));
-                                body: body);
+            if (_publishChannel != null)
+            {
+                var props = CreatePublishProperties();
+                await _publishChannel.BasicPublishAsync(exchange: exchangeName,
+                                    routingKey: routingKey,
+                                    mandatory: false,
+                                    basicProperties: props,
+                                    // body: formatter.EncodeBinaryModeEventData(cloudEvent));
+                                    body: body);
+            }
             return datajsonZ;
         }
 
@@ -618,9 +645,15 @@ namespace NetworkMonitor.Objects.Repository
             string message = JsonSerializer.Serialize(
                cloudEvent, typeof(CloudEvent), SourceGenerationContext.Default);
             var body = Encoding.UTF8.GetBytes(message);
-            if (_publishChannel != null) await _publishChannel.BasicPublishAsync(exchange: exchangeName,
-                                routingKey: routingKey,
-                                body: body);
+            if (_publishChannel != null)
+            {
+                var props = CreatePublishProperties();
+                await _publishChannel.BasicPublishAsync(exchange: exchangeName,
+                                    routingKey: routingKey,
+                                    mandatory: false,
+                                    basicProperties: props,
+                                    body: body);
+            }
             return datajsonZ;
         }
 
