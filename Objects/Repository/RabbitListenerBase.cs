@@ -387,6 +387,11 @@ namespace NetworkMonitor.Objects.Repository
             T? result = null;
             try
             {
+                if (!HasValidatedPublisherUserId(@event))
+                {
+                    return null;
+                }
+
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
                     json, typeof(CloudEvent), SourceGenerationContext.Default)
@@ -418,6 +423,11 @@ namespace NetworkMonitor.Objects.Repository
             string? result = null;
             try
             {
+                if (!HasValidatedPublisherUserId(@event))
+                {
+                    return null;
+                }
+
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
                     json, typeof(CloudEvent), SourceGenerationContext.Default)
@@ -435,6 +445,11 @@ namespace NetworkMonitor.Objects.Repository
             T? result = null;
             try
             {
+                if (!HasValidatedPublisherUserId(@event))
+                {
+                    return null;
+                }
+
                 string json = Encoding.UTF8.GetString(@event.Body.ToArray());
                 var cloudEvent = JsonSerializer.Deserialize(
                  json, typeof(CloudEvent), SourceGenerationContext.Default)
@@ -451,6 +466,22 @@ namespace NetworkMonitor.Objects.Repository
                 _logger.LogError("Error: Unable to convert Object. Error was: " + e.ToString());
             }
             return result;
+        }
+
+        private bool HasValidatedPublisherUserId(BasicDeliverEventArgs @event)
+        {
+            string? publisherUserId = @event.BasicProperties?.UserId;
+            if (!string.IsNullOrWhiteSpace(publisherUserId))
+            {
+                return true;
+            }
+
+            _logger.LogWarning(
+                "Rabbit listener rejected message without validated user-id. Exchange={Exchange}, RoutingKey={RoutingKey}, DeliveryTag={DeliveryTag}",
+                @event.Exchange,
+                @event.RoutingKey,
+                @event.DeliveryTag);
+            return false;
         }
     }
 }
