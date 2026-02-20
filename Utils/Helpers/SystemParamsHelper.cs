@@ -198,6 +198,19 @@ namespace NetworkMonitor.Utils.Helpers
                 }
             }
 
+            // Backward compatibility: when keyring is enabled, also keep the legacy key
+            // available for decryption of old non-v3 ciphertext.
+            if (!string.IsNullOrWhiteSpace(legacyKey) &&
+                !string.Equals(legacyKey, "Missing", StringComparison.Ordinal) &&
+                !resolvedKeys.Values.Contains(legacyKey, StringComparer.Ordinal))
+            {
+                const string legacyFallbackKid = "_legacy_fallback";
+                if (!resolvedKeys.ContainsKey(legacyFallbackKid))
+                {
+                    resolvedKeys[legacyFallbackKid] = legacyKey;
+                }
+            }
+
             if (!resolvedKeys.ContainsKey(activeKid))
             {
                 _logger.LogWarning("Crypto key ring section '{Section}' is missing active key '{ActiveKid}'. Falling back to '{LegacyKey}'.",
