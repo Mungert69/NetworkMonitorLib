@@ -12,6 +12,7 @@ using NetworkMonitor.Utils.Helpers;
 using NetworkMonitor.Objects.Factory;
 using DotNetEnv;
 using System.IO;
+using System.Text.Json;
 
 
 namespace NetworkMonitor.Utils.Helpers
@@ -142,8 +143,8 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.DataDir = _config.GetValue<string?>("DataDir") ?? "data";
             systemParams.ExchangeTypes = _config.GetSection("RabbitMQ:ExchangeTypes").Get<Dictionary<string, string>>() ?? new();
             systemParams.SystemPassword = GetConfigHelper.GetConfigValue("SystemPassword", "Missing");
-            systemParams.EmailEncryptKey = GetConfigHelper.GetConfigValue("EmailEncryptKey", "Missing");
-            systemParams.LLMEncryptKey = GetConfigHelper.GetConfigValue("LLMEncryptKey", "Missing");
+            systemParams.EmailEncryptKey = ResolveEncryptionKey("EmailEncryptKey", "Crypto:Email");
+            systemParams.LLMEncryptKey = ResolveEncryptionKey("LLMEncryptKey", "Crypto:LLM");
             systemParams.OpenAIPluginServiceKey = GetConfigHelper.GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.RapidApiKeys = GetConfigHelper.GetSection("RapidApiKeys").Get<List<string>>() ?? new List<string>();
             systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue("ServiceAuthKey") ;
@@ -167,6 +168,89 @@ namespace NetworkMonitor.Utils.Helpers
             _logger.LogInformation(" Info : Config ExtermalUrl = " + systemParams.ThisSystemUrl.ExternalUrl + " Config IP address = " + systemParams.ThisSystemUrl.IPAddress + " Found public IP address " + systemParams.PublicIPAddress);
 
             return systemParams;
+        }
+
+        private string ResolveEncryptionKey(string legacyConfigKey, string keyRingSectionPath)
+        {
+            // Keep existing behavior when no key ring is configured.
+            var legacyKey = GetConfigHelper.GetConfigValue(legacyConfigKey, "Missing");
+            var keyRingSection = _config.GetSection(keyRingSectionPath);
+            var activeKid = keyRingSection.GetValue<string>("ActiveKid");
+            var rawKeys = keyRingSection.GetSection("Keys").Get<Dictionary<string, string?>>();
+
+            if (string.IsNullOrWhiteSpace(activeKid) || rawKeys == null || rawKeys.Count == 0)
+            {
+                return legacyKey;
+            }
+
+            var resolvedKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var kvp in rawKeys)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key) || string.IsNullOrWhiteSpace(kvp.Value))
+                {
+                    continue;
+                }
+
+                var resolved = ResolveKeyValue(keyRingSectionPath, kvp.Key, kvp.Value!);
+                if (!string.IsNullOrWhiteSpace(resolved))
+                {
+                    resolvedKeys[kvp.Key] = resolved;
+                }
+            }
+
+            if (!resolvedKeys.ContainsKey(activeKid))
+            {
+                _logger.LogWarning("Crypto key ring section '{Section}' is missing active key '{ActiveKid}'. Falling back to '{LegacyKey}'.",
+                    keyRingSectionPath, activeKid, legacyConfigKey);
+                return legacyKey;
+            }
+
+            var keyRingPayload = JsonSerializer.Serialize(new KeyRingPayload
+            {
+                ActiveKid = activeKid,
+                Keys = resolvedKeys
+            });
+            return $"keyring:{keyRingPayload}";
+        }
+
+        private string ResolveKeyValue(string keyRingSectionPath, string kid, string configuredValue)
+        {
+            if (configuredValue.StartsWith("env:", StringComparison.OrdinalIgnoreCase))
+            {
+                var envName = configuredValue.Substring("env:".Length).Trim();
+                if (string.IsNullOrWhiteSpace(envName))
+                {
+                    return string.Empty;
+                }
+
+                var envValue = Environment.GetEnvironmentVariable(envName);
+                if (string.IsNullOrWhiteSpace(envValue))
+                {
+                    _logger.LogWarning("Crypto key '{Kid}' references env var '{EnvName}' but it is not set.", kid, envName);
+                    return string.Empty;
+                }
+                return envValue;
+            }
+
+            if (string.Equals(configuredValue, ".env", StringComparison.Ordinal))
+            {
+                var envName = $"{keyRingSectionPath}:Keys:{kid}".Replace(':', '_');
+                var envValue = Environment.GetEnvironmentVariable(envName);
+                if (string.IsNullOrWhiteSpace(envValue))
+                {
+                    _logger.LogWarning("Crypto key '{Kid}' configured as .env but '{EnvName}' is not set.", kid, envName);
+                    return string.Empty;
+                }
+                return envValue;
+            }
+
+            return configuredValue;
+        }
+
+        private sealed class KeyRingPayload
+        {
+            public string ActiveKid { get; set; } = string.Empty;
+            public Dictionary<string, string> Keys { get; set; } = new();
         }
 
 

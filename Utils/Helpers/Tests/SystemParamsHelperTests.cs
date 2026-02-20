@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetworkMonitor.Objects;
@@ -178,5 +179,97 @@ public class SystemParamsHelperTests
             Environment.SetEnvironmentVariable("RabbitPassword", null);
             File.Delete(envPath);
         }
+    }
+
+    [Fact]
+    public void GetSystemParams_UsesCryptoKeyRing_WhenConfigured()
+    {
+        var helper = CreateHelper(new Dictionary<string, string?>
+        {
+            { "EmailEncryptKey", "legacy-email" },
+            { "LLMEncryptKey", "legacy-llm" },
+            { "Crypto:Email:ActiveKid", "2026-02" },
+            { "Crypto:Email:Keys:2025-11", "old-email-key" },
+            { "Crypto:Email:Keys:2026-02", "new-email-key" },
+            { "Crypto:LLM:ActiveKid", "2026-02" },
+            { "Crypto:LLM:Keys:2025-11", "old-llm-key" },
+            { "Crypto:LLM:Keys:2026-02", "new-llm-key" }
+        }, out var envPath);
+
+        try
+        {
+            var systemParams = helper.GetSystemParams();
+            Assert.StartsWith("keyring:", systemParams.EmailEncryptKey);
+            Assert.StartsWith("keyring:", systemParams.LLMEncryptKey);
+
+            var emailPayload = JsonSerializer.Deserialize<KeyRingPayloadTest>(
+                systemParams.EmailEncryptKey.Substring("keyring:".Length));
+            var llmPayload = JsonSerializer.Deserialize<KeyRingPayloadTest>(
+                systemParams.LLMEncryptKey.Substring("keyring:".Length));
+
+            Assert.Equal("2026-02", emailPayload!.ActiveKid);
+            Assert.Equal("new-email-key", emailPayload.Keys["2026-02"]);
+            Assert.Equal("old-email-key", emailPayload.Keys["2025-11"]);
+
+            Assert.Equal("2026-02", llmPayload!.ActiveKid);
+            Assert.Equal("new-llm-key", llmPayload.Keys["2026-02"]);
+            Assert.Equal("old-llm-key", llmPayload.Keys["2025-11"]);
+        }
+        finally
+        {
+            File.Delete(envPath);
+        }
+    }
+
+    [Fact]
+    public void GetSystemParams_FallsBackToLegacyKey_WhenCryptoSectionInvalid()
+    {
+        var helper = CreateHelper(new Dictionary<string, string?>
+        {
+            { "EmailEncryptKey", "legacy-email" },
+            { "Crypto:Email:ActiveKid", "2026-02" },
+            { "Crypto:Email:Keys:2025-11", "old-email-key" }
+        }, out var envPath);
+
+        try
+        {
+            var systemParams = helper.GetSystemParams();
+            Assert.Equal("legacy-email", systemParams.EmailEncryptKey);
+        }
+        finally
+        {
+            File.Delete(envPath);
+        }
+    }
+
+    [Fact]
+    public void GetSystemParams_UsesEnvReference_ForCryptoKeys()
+    {
+        Environment.SetEnvironmentVariable("EMAIL_KEY_2026_02", "env-email-key");
+        var helper = CreateHelper(new Dictionary<string, string?>
+        {
+            { "EmailEncryptKey", "legacy-email" },
+            { "Crypto:Email:ActiveKid", "2026-02" },
+            { "Crypto:Email:Keys:2026-02", "env:EMAIL_KEY_2026_02" }
+        }, out var envPath);
+
+        try
+        {
+            var systemParams = helper.GetSystemParams();
+            var emailPayload = JsonSerializer.Deserialize<KeyRingPayloadTest>(
+                systemParams.EmailEncryptKey.Substring("keyring:".Length));
+            Assert.Equal("env-email-key", emailPayload!.Keys["2026-02"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("EMAIL_KEY_2026_02", null);
+            File.Delete(envPath);
+        }
+    }
+
+    private sealed class KeyRingPayloadTest
+    {
+        public string ActiveKid { get; set; } = string.Empty;
+        public Dictionary<string, string> Keys { get; set; } = new();
     }
 }
