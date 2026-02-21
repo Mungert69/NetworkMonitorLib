@@ -119,6 +119,7 @@ namespace NetworkMonitor.Objects
   [JsonSerializable(typeof(List<ProductObj>))]
   [JsonSerializable(typeof(ProductObj))]
   [JsonSerializable(typeof(ProcessorInitObj))]
+  [JsonSerializable(typeof(RefreshAuthKeyObj))]
   [JsonSerializable(typeof(ProcessorDataBuilder))]
   [JsonSerializable(typeof(ProcessorUserEventObj))]
   [JsonSerializable(typeof(ProcessorConnectObj))]
