@@ -100,7 +100,7 @@ public class PredictStatus
     [NotMapped] // This property is computed, so we tell EF Core to ignore it
     public int DownCount
     {
-        get { return (ChangeDetectionResult.IsIssueDetected || SpikeDetectionResult.IsIssueDetected) ? 1 : 0; }
+        get { return _downCountDb; }
         set { _downCountDb = value; }
     }
 
@@ -112,5 +112,4 @@ public class PredictStatus
     }
 
 }
-
 
