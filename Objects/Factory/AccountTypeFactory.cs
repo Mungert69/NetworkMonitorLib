@@ -137,6 +137,7 @@ public class AccountTypeFactory
                     { "call_cmd_processor_expert", "cmdprocessor" },
                     { "call_connect_expert", "connect" },
                     { "call_quantum_expert", "quantum" },
+                    { "call_camera_expert", "camera" },
                     { "run_busybox_command", "busybox" }
                 };
     }
@@ -150,6 +151,7 @@ public class AccountTypeFactory
                     { "call_cmd_processor_expert", "cmdprocessor" },
                     { "call_connect_expert", "connect" },
                     { "call_quantum_expert", "quantum" },
+                    { "call_camera_expert", "camera" },
                     { "run_busybox_command", "busybox" }
                 };
     }
@@ -168,6 +170,7 @@ public class AccountTypeFactory
                     {"run_metasploit", "meta" },
                     {"call_cmd_processor_expert", "cmdprocessor" },
                     {"call_connect_expert", "connect" },
+                    {"call_camera_expert", "camera" },
                     {"run_busybox_command", "busybox" }
                 };
     }
@@ -192,11 +195,13 @@ public class AccountTypeFactory
             "call_cmd_processor_expert",
             "call_connect_expert",
             "call_quantum_expert",
+            "call_camera_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
             "run_nmap",
             "run_openssl",
+            "run_camera_capture",
             "run_cmd_processor",
             "add_cmd_processor",
             "update_cmd_processor",
@@ -242,11 +247,13 @@ public class AccountTypeFactory
             "call_cmd_processor_expert",
             "call_connect_expert",
             "call_quantum_expert",
+            "call_camera_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
             "run_nmap",
             "run_openssl",
+            "run_camera_capture",
             "run_cmd_processor",
             "add_cmd_processor",
             "update_cmd_processor",
@@ -293,11 +300,13 @@ public class AccountTypeFactory
             "call_monitor_sys",
             "call_search_expert",
             "call_quantum_expert",
+            "call_camera_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
             "run_nmap",
             "run_openssl",
+            "run_camera_capture",
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",
@@ -346,6 +355,7 @@ public class AccountTypeFactory
             "call_connect_expert",
             "call_monitor_sys",
             "call_quantum_expert",
+            "call_camera_expert",
             "run_busybox",
             "call_search_expert",
             "run_search_web",
@@ -353,6 +363,7 @@ public class AccountTypeFactory
             "run_crawl_site",
             "run_nmap",
             "run_openssl",
+            "run_camera_capture",
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",
@@ -403,6 +414,7 @@ public class AccountTypeFactory
             "call_connect_expert",
             "call_monitor_sys",
             "call_quantum_expert",
+            "call_camera_expert",
             "run_busybox",
             "call_search_expert",
             "run_search_web",
@@ -410,6 +422,7 @@ public class AccountTypeFactory
             "run_crawl_site",
             "run_nmap",
             "run_openssl",
+            "run_camera_capture",
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",

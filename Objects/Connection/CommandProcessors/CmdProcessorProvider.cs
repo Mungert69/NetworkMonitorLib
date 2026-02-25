@@ -40,7 +40,7 @@ namespace NetworkMonitor.Connection
         {
             "Nmap", "Meta", "Openssl", "Busybox", "SearchWeb", "SearchEngage", "CrawlPage", "CrawlSite",
             "HugSpaceWake", "HugSpaceKeepAlive", "Ping", "QuantumConnect", "QuantumPortScanner", "QuantumInfo",
-            "QuantumCert", "BleBroadcast", "BleBroadcastListen"
+            "QuantumCert", "BleBroadcast", "BleBroadcastListen", "CameraCapture"
         };
         private readonly List<string> _requiresWebAutomation = new()
         {

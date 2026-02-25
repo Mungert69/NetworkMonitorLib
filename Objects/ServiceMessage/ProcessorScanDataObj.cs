@@ -23,6 +23,11 @@ namespace NetworkMonitor.Objects.ServiceMessage;
     private string _type="";
     private bool _isAck=false;
     private bool _scanCommandSuccess;
+    private byte[] _rawData = Array.Empty<byte>();
+    private string _rawDataMimeType = "";
+    private string _rawDataEncoding = "";
+    private int _rawDataLength;
+    private string _rawDataSha256 = "";
 
     public bool UseDefaultEndpoint { get => _useDefaultEndpoint; set => _useDefaultEndpoint = value; }
     public string  DefaultEndpoint { get => _defaultEndpoint; set => _defaultEndpoint = value; }
@@ -46,6 +51,11 @@ namespace NetworkMonitor.Objects.ServiceMessage;
     public bool IsAck { get => _isAck; set => _isAck = value; }
     public bool ArgsEscaped { get => _argsEscaped; set => _argsEscaped = value; }
     public bool ScanCommandSuccess { get => _scanCommandSuccess; set => _scanCommandSuccess = value; }
+    public byte[] RawData { get => _rawData; set => _rawData = value ?? Array.Empty<byte>(); }
+    public string RawDataMimeType { get => _rawDataMimeType; set => _rawDataMimeType = value ?? ""; }
+    public string RawDataEncoding { get => _rawDataEncoding; set => _rawDataEncoding = value ?? ""; }
+    public int RawDataLength { get => _rawDataLength; set => _rawDataLength = value; }
+    public string RawDataSha256 { get => _rawDataSha256; set => _rawDataSha256 = value ?? ""; }
 
     public ProcessorScanDataObj()
         {
