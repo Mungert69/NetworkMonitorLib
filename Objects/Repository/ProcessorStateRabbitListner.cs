@@ -40,7 +40,6 @@ namespace NetworkMonitor.Objects.Repository
 
             _processorState = processorState;
             _fileRepo = fileRepo;
-            _ = Setup();
         }
         private static SystemUrl DeriveSystemUrl(ISystemParamsHelper systemParamsHelper)
         {

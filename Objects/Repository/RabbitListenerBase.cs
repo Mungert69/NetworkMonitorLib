@@ -96,6 +96,11 @@ namespace NetworkMonitor.Objects.Repository
         // Inside RabbitListenerBase class
         public async Task<ResultObj> Setup()
         {
+            if (_rabbitMQObjs.Count > 0 || _connection != null)
+            {
+                await Shutdown();
+                _rabbitMQObjs.Clear();
+            }
             _instanceName = _systemUrl.RabbitInstanceName;
             _factory = new ConnectionFactory
             {
