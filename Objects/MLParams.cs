@@ -86,6 +86,8 @@ public class MLParams
     private Dictionary<string, bool> _simpleMonitorPromptByRunner = new(StringComparer.OrdinalIgnoreCase);
     private string _primaryMonitorRole = "";
     private Dictionary<string, string> _primaryMonitorRoleByRunner = new(StringComparer.OrdinalIgnoreCase);
+    private string _expertPromptProfile = "";
+    private Dictionary<string, string> _expertPromptProfileByToolsId = new(StringComparer.OrdinalIgnoreCase);
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
     private Dictionary<string, string> _llmAgentDic = new Dictionary<string, string>();
@@ -147,6 +149,8 @@ public class MLParams
     public Dictionary<string, bool> SimpleMonitorPromptByRunner { get => _simpleMonitorPromptByRunner; set => _simpleMonitorPromptByRunner = value ?? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase); }
     public string PrimaryMonitorRole { get => _primaryMonitorRole; set => _primaryMonitorRole = value ?? ""; }
     public Dictionary<string, string> PrimaryMonitorRoleByRunner { get => _primaryMonitorRoleByRunner; set => _primaryMonitorRoleByRunner = value ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
+    public string ExpertPromptProfile { get => _expertPromptProfile; set => _expertPromptProfile = value ?? ""; }
+    public Dictionary<string, string> ExpertPromptProfileByToolsId { get => _expertPromptProfileByToolsId; set => _expertPromptProfileByToolsId = value ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
     public string DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
     public Dictionary<string, string> LlmAgentDic { get => _llmAgentDic; set => _llmAgentDic = value; }
     public bool EnableAgentFlow { get => _enableAgentFlow; set => _enableAgentFlow = value; }

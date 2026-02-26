@@ -13,108 +13,6 @@ public class AccountTypeFactory
     private static readonly Dictionary<string, (int hostLimit, int tokenLimit, int dailyTokens, int contextSize)>
         _accountTypeConfigurations = PlanCatalog.BuildAccountTypeConfigurations();
 
-    public static List<T> GetFunctionsForAccountType<T>(string accountType,
-                                                                      T fn_function_status_with_message_id,
-                                                                      T fn_cancel_functions,
-                                                                      T fn_add_host,
-                                                                      T fn_edit_host,
-                                                                      T fn_get_host_data,
-                                                                      T fn_get_host_list,
-                                                                      T fn_get_user_info,
-                                                                      T fn_get_agents,
-                                                                      T fn_call_security_expert,
-                                                                      T fn_call_penetration_expert,
-                                                                      T fn_call_search_expert,
-                                                                      T fn_call_cmd_processor_expert,
-                                                                      T fn_call_quantum_expert,
-                                                                      T fn_run_busybox
-                                                                      )
-    {
-        return new List<T>
-            {
-                fn_function_status_with_message_id,
-                fn_cancel_functions,
-                fn_add_host,
-                fn_edit_host,
-                fn_get_host_data,
-                fn_get_host_list,
-                fn_get_user_info,
-                fn_get_agents,
-                fn_call_security_expert,
-                fn_call_penetration_expert,
-                fn_call_search_expert,
-                fn_call_cmd_processor_expert,
-                fn_call_quantum_expert,
-                fn_run_busybox,
-            };
-    }
-    /*  return accountType switch
-    {
-        "Free" => new List<T>
-        {
-            fn_function_status_with_message_id,
-            fn_add_host,
-            fn_edit_host,
-            fn_get_host_data,
-            fn_get_host_list,
-            fn_get_user_info,
-            fn_get_agents
-        },
-        "Standard" => new List<T>
-        {
-            fn_function_status_with_message_id,
-            fn_add_host,
-            fn_edit_host,
-            fn_get_host_data,
-            fn_get_host_list,
-            fn_get_user_info,
-            fn_get_agents,
-            fn_call_security_expert,
-            fn_call_search_expert,
-        },
-        "Professional" => new List<T>
-        {
-            fn_function_status_with_message_id,
-            fn_add_host,
-            fn_edit_host,
-            fn_get_host_data,
-            fn_get_host_list,
-            fn_get_user_info,
-            fn_get_agents,
-            fn_call_security_expert,
-            fn_call_penetration_expert,
-            fn_call_search_expert,
-        },
-        "Enterprise" => new List<T>
-        {
-            fn_function_status_with_message_id,
-            fn_add_host,
-            fn_edit_host,
-            fn_get_host_data,
-            fn_get_host_list,
-            fn_get_user_info,
-            fn_get_agents,
-            fn_call_security_expert,
-            fn_call_penetration_expert,
-            fn_run_busybox,
-            fn_call_search_expert,
-        },
-        "God" => new List<T>
-        {
-            fn_function_status_with_message_id,
-            fn_add_host,
-            fn_edit_host,
-            fn_get_host_data,
-            fn_get_host_list,
-            fn_get_user_info,
-            fn_get_agents,
-            fn_call_security_expert,
-            fn_call_penetration_expert,
-            fn_run_busybox,
-            fn_call_search_expert,
-        },
-        _ => throw new ArgumentException("Invalid or unsupported account type.")
-    };*/
 
     public static Dictionary<string, string> GetFunctionCommandMap(string llmRunnerType)
     {
@@ -138,6 +36,7 @@ public class AccountTypeFactory
                     { "call_connect_expert", "connect" },
                     { "call_quantum_expert", "quantum" },
                     { "call_camera_expert", "camera" },
+		    { "call_monitor_expert", "monitorsys"},
                     { "run_busybox_command", "busybox" }
                 };
     }
@@ -152,6 +51,7 @@ public class AccountTypeFactory
                     { "call_connect_expert", "connect" },
                     { "call_quantum_expert", "quantum" },
                     { "call_camera_expert", "camera" },
+		    { "call_monitor_expert", "monitorsys"},
                     { "run_busybox_command", "busybox" }
                 };
     }
@@ -171,6 +71,7 @@ public class AccountTypeFactory
                     {"call_cmd_processor_expert", "cmdprocessor" },
                     {"call_connect_expert", "connect" },
                     {"call_camera_expert", "camera" },
+		    {"call_monitor_expert", "monitorsys" },
                     {"run_busybox_command", "busybox" }
                 };
     }
@@ -196,6 +97,7 @@ public class AccountTypeFactory
             "call_connect_expert",
             "call_quantum_expert",
             "call_camera_expert",
+	    "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -248,6 +150,7 @@ public class AccountTypeFactory
             "call_connect_expert",
             "call_quantum_expert",
             "call_camera_expert",
+	    "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -301,6 +204,7 @@ public class AccountTypeFactory
             "call_search_expert",
             "call_quantum_expert",
             "call_camera_expert",
+	    "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -356,6 +260,7 @@ public class AccountTypeFactory
             "call_monitor_sys",
             "call_quantum_expert",
             "call_camera_expert",
+	    "call_monitor_expert",
             "run_busybox",
             "call_search_expert",
             "run_search_web",
@@ -415,6 +320,7 @@ public class AccountTypeFactory
             "call_monitor_sys",
             "call_quantum_expert",
             "call_camera_expert",
+	    "call_monitor_expert",
             "run_busybox",
             "call_search_expert",
             "run_search_web",
@@ -480,6 +386,7 @@ public class AccountTypeFactory
             "validate_quantum_config",
             "test_quantum_certificate",
             "call_quantum_expert",
+	    "call_monitor_expert",
             "call_monitor_sys",
             "call_security_basic_flow",
             "call_penetration_flow",

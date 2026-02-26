@@ -434,6 +434,12 @@ namespace NetworkMonitor.Utils.Helpers
                 ? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, bool>(simpleMonitorPromptByRunner, StringComparer.OrdinalIgnoreCase);
             mlParams.PrimaryMonitorRole = _config.GetValue<string>("PrimaryMonitorRole") ?? "";
+            mlParams.ExpertPromptProfile = _config.GetValue<string>("ExpertPromptProfile") ?? "";
+            var expertPromptProfileByToolsId = _config.GetSection("ExpertPromptProfileByToolsId")
+                .Get<Dictionary<string, string>>();
+            mlParams.ExpertPromptProfileByToolsId = expertPromptProfileByToolsId == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(expertPromptProfileByToolsId, StringComparer.OrdinalIgnoreCase);
             var primaryMonitorRoleByRunner = _config.GetSection("PrimaryMonitorRoleByRunner")
                 .Get<Dictionary<string, string>>();
             mlParams.PrimaryMonitorRoleByRunner = primaryMonitorRoleByRunner == null
