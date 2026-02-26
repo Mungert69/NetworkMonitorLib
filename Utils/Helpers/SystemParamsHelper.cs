@@ -433,6 +433,12 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.SimpleMonitorPromptByRunner = simpleMonitorPromptByRunner == null
                 ? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, bool>(simpleMonitorPromptByRunner, StringComparer.OrdinalIgnoreCase);
+            mlParams.PrimaryMonitorRole = _config.GetValue<string>("PrimaryMonitorRole") ?? "";
+            var primaryMonitorRoleByRunner = _config.GetSection("PrimaryMonitorRoleByRunner")
+                .Get<Dictionary<string, string>>();
+            mlParams.PrimaryMonitorRoleByRunner = primaryMonitorRoleByRunner == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(primaryMonitorRoleByRunner, StringComparer.OrdinalIgnoreCase);
             mlParams.PromptCacheDiscountFraction = decimal.TryParse(_config["PromptCacheDiscountFraction"], out var d) ? d : 0.90m;
             mlParams.MaxFunctionCallsInARow = int.TryParse(_config["MaxFunctionCallsInARow"], out int maxFuncCalls) ? maxFuncCalls : 10;
             mlParams.CompletionCostMultiplier = decimal.TryParse(_config["CompletionCostMultiplier"], out var k) ? k : 8.00m;
