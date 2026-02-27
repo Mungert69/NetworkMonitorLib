@@ -164,6 +164,6 @@ public class PrintPropertiesAsJsonTests
     {
         var json = PrintPropertiesAsJson.PrintAgentLocation("Scanner - EU");
 
-        Assert.Equal("{\"agent_location\" : \"Scanner - EU\", }", json);
+        Assert.Equal("{\"agent_location\" : \"Scanner - EU\"}", json);
     }
 }

@@ -5,19 +5,29 @@ using System.Text;
 namespace NetworkMonitor.Utils.Helpers;
 public class PrintPropertiesAsJson
 {
+    private static string NormalizeJsonFragment(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return string.Empty;
+        var fragment = json.Trim();
+        if (fragment.StartsWith("{")) fragment = fragment.Substring(1);
+        if (fragment.EndsWith("}")) fragment = fragment.Substring(0, fragment.Length - 1);
+        return fragment.Trim().Trim(',').Trim();
+    }
+
     public static string MergeJsonStrings(string? jsonString1, string? jsonString2)
     {
         if (String.IsNullOrEmpty(jsonString1) && String.IsNullOrEmpty(jsonString2)) return "";
         if (String.IsNullOrEmpty(jsonString1)) return jsonString2 ?? "";
         if (String.IsNullOrEmpty(jsonString2)) return jsonString1 ?? "";
-        // Remove the opening "{" from jsonString2 and the closing "}" from jsonString1
-        string modifiedJsonString2 = jsonString2.TrimStart('{').TrimEnd('}');
-        string modifiedJsonString1 = jsonString1.TrimStart('{').TrimEnd('}');
 
-        // Concatenate the two strings with a comma
-        string mergedJson = "{" + modifiedJsonString2 + ", " + modifiedJsonString1 + "}";
+        var part1 = NormalizeJsonFragment(jsonString1);
+        var part2 = NormalizeJsonFragment(jsonString2);
 
-        return mergedJson;
+        if (string.IsNullOrEmpty(part1) && string.IsNullOrEmpty(part2)) return "{}";
+        if (string.IsNullOrEmpty(part1)) return "{" + part2 + "}";
+        if (string.IsNullOrEmpty(part2)) return "{" + part1 + "}";
+        // Preserve legacy ordering semantics: second JSON fragment first, then first fragment.
+        return "{" + part2 + ", " + part1 + "}";
     }
 
      public static string MergeJsonStrings(string? jsonString1, string? jsonString2, string? jsonString3)
@@ -27,17 +37,8 @@ public class PrintPropertiesAsJson
         if (string.IsNullOrEmpty(jsonString2)) return MergeJsonStrings(jsonString1, jsonString3);
         if (string.IsNullOrEmpty(jsonString3)) return MergeJsonStrings(jsonString1, jsonString2);
 
-        // Remove the opening "{" and closing "}" from each JSON string
-        string modifiedJsonString1 = jsonString1.TrimStart('{').TrimEnd('}');
-        string modifiedJsonString2 = jsonString2.TrimStart('{').TrimEnd('}');
-        string modifiedJsonString3 = jsonString3.TrimStart('{').TrimEnd('}');
-
-        // Concatenate the three strings with commas
-        string mergedJson = "{" + modifiedJsonString1
-            + (string.IsNullOrEmpty(modifiedJsonString1) ? "" : ", ") + modifiedJsonString2
-            + (string.IsNullOrEmpty(modifiedJsonString2) ? "" : ", ") + modifiedJsonString3 + "}";
-
-        return mergedJson;
+        var merged12 = MergeJsonStrings(jsonString1, jsonString2);
+        return MergeJsonStrings(merged12, jsonString3);
     }
 
      public static string PrintMessageIDProperties(string messageID)
@@ -239,7 +240,7 @@ public class PrintPropertiesAsJson
         StringBuilder output = new StringBuilder();
 
         output.Append("{");
-        output.Append("\"agent_location\" : \"").Append(agentLocation).Append("\", ");
+        output.Append("\"agent_location\" : \"").Append(agentLocation).Append("\"");
         output.Append("}");
         return output.ToString();
     }
