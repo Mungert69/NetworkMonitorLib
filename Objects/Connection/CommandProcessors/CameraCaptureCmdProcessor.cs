@@ -56,6 +56,7 @@ namespace NetworkMonitor.Connection
             string ffmpegPath = GetArg(args, "ffmpeg_path", "ffmpeg");
             string profileToken = GetArg(args, "profile_token", "Profile_1");
             string rtspPath = GetArg(args, "rtsp_path", "");
+            bool allowInsecureTls = ParseBool(GetArg(args, "allow_insecure_tls", "true"));
 
             if (string.IsNullOrWhiteSpace(address))
             {
@@ -74,6 +75,7 @@ namespace NetworkMonitor.Connection
                     profileToken,
                     ffmpegPath,
                     longEdge,
+                    allowInsecureTls,
                     cancellationToken);
 
                 if (!capture.Success || capture.ImageBytes == null || capture.ImageBytes.Length == 0)
@@ -89,6 +91,7 @@ namespace NetworkMonitor.Connection
                     status = "success",
                     source = capture.Source,
                     protocol,
+                    warning = capture.WarningMessage,
                     width_target = longEdge,
                     jpeg_quality = 80,
                     bytes = imageBytes.Length,
@@ -136,6 +139,7 @@ Optional:
 - --profile_token <ONVIF profile token> (default: Profile_1)
 - --rtsp_path <path> when address is host-only
 - --ffmpeg_path <path> (default: ffmpeg)
+- --allow_insecure_tls true|false (default: true; for ONVIF HTTPS/self-signed certs)
 
 Examples:
 - --protocol rtsp --address 192.168.1.10 --username admin --password pass
@@ -164,6 +168,7 @@ Examples:
             public bool Success { get; set; }
             public byte[]? ImageBytes { get; set; }
             public string? ErrorMessage { get; set; }
+            public string? WarningMessage { get; set; }
             public string Source { get; set; } = "";
         }
 
@@ -176,21 +181,60 @@ Examples:
             string profileToken,
             string ffmpegPath,
             int longEdge,
+            bool allowInsecureTls,
             CancellationToken cancellationToken)
         {
             if (string.Equals(protocol, "onvif", StringComparison.OrdinalIgnoreCase))
             {
-                var snapshotResult = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, cancellationToken);
+                var snapshotResult = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, allowInsecureTls, cancellationToken);
                 if (!snapshotResult.Success || string.IsNullOrWhiteSpace(snapshotResult.Source))
                 {
                     return snapshotResult;
                 }
 
-                return await CaptureStillWithFfmpegAsync(snapshotResult.Source, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: false);
+                var ffmpegResult = await CaptureStillWithFfmpegAsync(snapshotResult.Source, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: false);
+                if (ffmpegResult.Success)
+                {
+                    return ffmpegResult;
+                }
+
+                var onvifFallbackResult = await CaptureStillFromHttpAsync(snapshotResult.Source, username, password, allowInsecureTls, cancellationToken);
+                if (onvifFallbackResult.Success)
+                {
+                    onvifFallbackResult.WarningMessage = "ffmpeg capture failed; used ONVIF HTTP snapshot fallback.";
+                    return onvifFallbackResult;
+                }
+
+                onvifFallbackResult.ErrorMessage = $"{ffmpegResult.ErrorMessage} ONVIF HTTP snapshot fallback failed: {onvifFallbackResult.ErrorMessage}".Trim();
+                return onvifFallbackResult;
             }
 
             var rtspUrl = BuildRtspUrl(address, username, password, rtspPath);
-            return await CaptureStillWithFfmpegAsync(rtspUrl, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: true);
+            var ffmpegRtspResult = await CaptureStillWithFfmpegAsync(rtspUrl, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: true);
+            if (ffmpegRtspResult.Success)
+            {
+                return ffmpegRtspResult;
+            }
+
+            var snapshotFallback = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, allowInsecureTls, cancellationToken);
+            if (!snapshotFallback.Success || string.IsNullOrWhiteSpace(snapshotFallback.Source))
+            {
+                return new CaptureResult
+                {
+                    Success = false,
+                    ErrorMessage = $"{ffmpegRtspResult.ErrorMessage} ONVIF fallback failed: {snapshotFallback.ErrorMessage}".Trim()
+                };
+            }
+
+            var onvifRtspFallback = await CaptureStillFromHttpAsync(snapshotFallback.Source, username, password, allowInsecureTls, cancellationToken);
+            if (onvifRtspFallback.Success)
+            {
+                onvifRtspFallback.WarningMessage = "ffmpeg capture failed; used ONVIF HTTP snapshot fallback.";
+                return onvifRtspFallback;
+            }
+
+            onvifRtspFallback.ErrorMessage = $"{ffmpegRtspResult.ErrorMessage} ONVIF HTTP snapshot fallback failed: {onvifRtspFallback.ErrorMessage}".Trim();
+            return onvifRtspFallback;
         }
 
         private async Task<CaptureResult> ResolveOnvifSnapshotUriAsync(
@@ -198,65 +242,69 @@ Examples:
             string username,
             string password,
             string profileToken,
+            bool allowInsecureTls,
             CancellationToken cancellationToken)
         {
             var result = new CaptureResult { Success = false };
             var candidateUris = BuildOnvifMediaServiceUris(address);
 
-            var handler = new HttpClientHandler();
-            if (!string.IsNullOrWhiteSpace(username))
-            {
-                handler.Credentials = new NetworkCredential(username, password ?? string.Empty);
-                handler.PreAuthenticate = true;
-            }
+            var handler = CreateCameraHttpClientHandler(username, password, allowInsecureTls);
 
             using var client = new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromSeconds(20)
             };
 
-            string body =
-                $@"<?xml version=""1.0"" encoding=""utf-8""?>
-<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
-  <s:Body>
-    <GetSnapshotUri xmlns=""http://www.onvif.org/ver10/media/wsdl"">
-      <ProfileToken>{SecurityElementEscape(profileToken)}</ProfileToken>
-    </GetSnapshotUri>
-  </s:Body>
-</s:Envelope>";
+            string[] tokenCandidates = new[] { profileToken };
 
             foreach (var mediaUri in candidateUris)
             {
                 try
                 {
-                    using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
-                    using var response = await client.PostAsync(mediaUri, content, cancellationToken);
-                    if (!response.IsSuccessStatusCode)
+                    var discoveredTokens = await DiscoverOnvifProfileTokensAsync(client, mediaUri, profileToken, cancellationToken);
+                    if (discoveredTokens.Count > 0)
                     {
-                        continue;
+                        tokenCandidates = discoveredTokens.ToArray();
                     }
-
-                    var xml = await response.Content.ReadAsStringAsync(cancellationToken);
-                    var snapshotUri = ExtractSnapshotUri(xml);
-                    if (string.IsNullOrWhiteSpace(snapshotUri))
-                    {
-                        continue;
-                    }
-
-                    if (Uri.TryCreate(snapshotUri, UriKind.Relative, out var relativeUri) &&
-                        relativeUri.IsAbsoluteUri == false &&
-                        Uri.TryCreate(mediaUri, snapshotUri, out var resolved))
-                    {
-                        snapshotUri = resolved.ToString();
-                    }
-
-                    result.Success = true;
-                    result.Source = snapshotUri;
-                    return result;
                 }
                 catch
                 {
-                    // Continue trying other endpoints.
+                }
+
+                foreach (var token in tokenCandidates)
+                {
+                    try
+                    {
+                        string body = BuildGetSnapshotUriBody(token);
+                        using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
+                        using var response = await client.PostAsync(mediaUri, content, cancellationToken);
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            continue;
+                        }
+
+                        var xml = await response.Content.ReadAsStringAsync(cancellationToken);
+                        var snapshotUri = ExtractSnapshotUri(xml);
+                        if (string.IsNullOrWhiteSpace(snapshotUri))
+                        {
+                            continue;
+                        }
+
+                        if (Uri.TryCreate(snapshotUri, UriKind.Relative, out var relativeUri) &&
+                            relativeUri.IsAbsoluteUri == false &&
+                            Uri.TryCreate(mediaUri, snapshotUri, out var resolved))
+                        {
+                            snapshotUri = resolved.ToString();
+                        }
+
+                        result.Success = true;
+                        result.Source = snapshotUri;
+                        return result;
+                    }
+                    catch
+                    {
+                        // Continue trying other tokens/endpoints.
+                    }
                 }
             }
 
@@ -269,6 +317,15 @@ Examples:
             if (!Uri.TryCreate(address, UriKind.Absolute, out var addressUri))
             {
                 addressUri = new Uri($"http://{address.Trim('/')}");
+            }
+            else if (string.Equals(addressUri.Scheme, "rtsp", StringComparison.OrdinalIgnoreCase))
+            {
+                var builder = new UriBuilder(addressUri)
+                {
+                    Scheme = Uri.UriSchemeHttp,
+                    Port = addressUri.IsDefaultPort ? -1 : addressUri.Port
+                };
+                addressUri = builder.Uri;
             }
 
             if (addressUri.AbsolutePath.Contains("media_service", StringComparison.OrdinalIgnoreCase) ||
@@ -298,6 +355,85 @@ Examples:
             {
                 return string.Empty;
             }
+        }
+
+        private static string BuildGetSnapshotUriBody(string profileToken)
+        {
+            return
+                $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
+  <s:Body>
+    <GetSnapshotUri xmlns=""http://www.onvif.org/ver10/media/wsdl"">
+      <ProfileToken>{SecurityElementEscape(profileToken)}</ProfileToken>
+    </GetSnapshotUri>
+  </s:Body>
+</s:Envelope>";
+        }
+
+        private static string BuildGetProfilesBody()
+        {
+            return
+                @"<?xml version=""1.0"" encoding=""utf-8""?>
+<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
+  <s:Body>
+    <GetProfiles xmlns=""http://www.onvif.org/ver10/media/wsdl"" />
+  </s:Body>
+</s:Envelope>";
+        }
+
+        private static List<string> ExtractOnvifProfileTokens(string xml)
+        {
+            try
+            {
+                var document = XDocument.Parse(xml);
+                return document
+                    .Descendants()
+                    .Where(e => string.Equals(e.Name.LocalName, "Profiles", StringComparison.OrdinalIgnoreCase))
+                    .Select(e => e.Attributes().FirstOrDefault(a => string.Equals(a.Name.LocalName, "token", StringComparison.OrdinalIgnoreCase))?.Value)
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Distinct(StringComparer.Ordinal)
+                    .Cast<string>()
+                    .ToList();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static async Task<List<string>> DiscoverOnvifProfileTokensAsync(
+            HttpClient client,
+            Uri mediaUri,
+            string preferredProfileToken,
+            CancellationToken cancellationToken)
+        {
+            var tokens = new List<string>();
+            if (!string.IsNullOrWhiteSpace(preferredProfileToken))
+            {
+                tokens.Add(preferredProfileToken);
+            }
+
+            string body = BuildGetProfilesBody();
+            using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
+            using var response = await client.PostAsync(mediaUri, content, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return tokens;
+            }
+
+            var xml = await response.Content.ReadAsStringAsync(cancellationToken);
+            var discovered = ExtractOnvifProfileTokens(xml);
+            foreach (var token in discovered)
+            {
+                if (tokens.Contains(token, StringComparer.Ordinal))
+                {
+                    continue;
+                }
+
+                tokens.Add(token);
+            }
+
+            return tokens;
         }
 
         private async Task<CaptureResult> CaptureStillWithFfmpegAsync(
@@ -395,6 +531,78 @@ Examples:
                 {
                 }
             }
+        }
+
+        private async Task<CaptureResult> CaptureStillFromHttpAsync(
+            string sourceUrl,
+            string username,
+            string password,
+            bool allowInsecureTls,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var handler = CreateCameraHttpClientHandler(username, password, allowInsecureTls);
+
+                using var client = new HttpClient(handler)
+                {
+                    Timeout = TimeSpan.FromSeconds(20)
+                };
+                using var response = await client.GetAsync(sourceUrl, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new CaptureResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"HTTP snapshot request failed with status {(int)response.StatusCode}."
+                    };
+                }
+
+                var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                if (bytes.Length == 0)
+                {
+                    return new CaptureResult
+                    {
+                        Success = false,
+                        ErrorMessage = "HTTP snapshot request returned empty content."
+                    };
+                }
+
+                return new CaptureResult
+                {
+                    Success = true,
+                    ImageBytes = bytes,
+                    Source = sourceUrl
+                };
+            }
+            catch (Exception ex)
+            {
+                return new CaptureResult
+                {
+                    Success = false,
+                    ErrorMessage = $"HTTP snapshot fallback failed: {ex.Message}"
+                };
+            }
+        }
+
+        private static HttpClientHandler CreateCameraHttpClientHandler(
+            string username,
+            string password,
+            bool allowInsecureTls)
+        {
+            var handler = new HttpClientHandler();
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                handler.Credentials = new NetworkCredential(username, password ?? string.Empty);
+                handler.PreAuthenticate = true;
+            }
+
+            if (allowInsecureTls)
+            {
+                handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            }
+
+            return handler;
         }
 
         private static string BuildRtspUrl(string address, string username, string password, string rtspPath)
