@@ -275,19 +275,49 @@ Examples:
                 Timeout = TimeSpan.FromSeconds(20)
             };
 
-            var candidateUris = await DiscoverOnvifMediaServiceUrisAsync(client, address, onvifPort, cancellationToken);
+            var candidateUris = await DiscoverOnvifMediaServiceUrisAsync(client, address, onvifPort, username, password, cancellationToken);
             string[] tokenCandidates = new[] { profileToken };
             int attemptedEndpoints = 0;
+            bool snapshotActionNotSupported = false;
+            var endpointDiagnostics = new List<string>();
+            var allTokens = new HashSet<string>(StringComparer.Ordinal);
+            if (!string.IsNullOrWhiteSpace(profileToken))
+            {
+                allTokens.Add(profileToken);
+            }
 
             foreach (var mediaUri in candidateUris)
             {
                 attemptedEndpoints++;
                 try
                 {
-                    var discoveredTokens = await DiscoverOnvifProfileTokensAsync(client, mediaUri, profileToken, cancellationToken);
-                    if (discoveredTokens.Count > 0)
+                    var capabilitiesResult = await DiscoverOnvifMediaServiceCapabilitiesAsync(client, mediaUri, username, password, cancellationToken);
+                    if (capabilitiesResult.Capabilities != null)
                     {
-                        tokenCandidates = discoveredTokens.ToArray();
+                        endpointDiagnostics.Add(
+                            $"endpoint={mediaUri}; auth={FormatAuthMode(capabilitiesResult.Response)}; snapshot_uri={FormatBool(capabilitiesResult.Capabilities.SnapshotUri)}; " +
+                            $"rtsp={FormatBool(!capabilitiesResult.Capabilities.NoRtspStreaming)}; rtp_rtsp_tcp={FormatBool(capabilitiesResult.Capabilities.RtpRtspTcp)}; " +
+                            $"max_profiles={FormatInt(capabilitiesResult.Capabilities.MaximumNumberOfProfiles)}");
+
+                        if (capabilitiesResult.Capabilities.SnapshotUri == false)
+                        {
+                            snapshotActionNotSupported = true;
+                        }
+                    }
+                    else
+                    {
+                        endpointDiagnostics.Add(
+                            $"endpoint={mediaUri}; auth={FormatAuthMode(capabilitiesResult.Response)}; media_capabilities=unavailable; status={(int)capabilitiesResult.Response.StatusCode}");
+                    }
+
+                    var profileDiscovery = await DiscoverOnvifProfileTokensAsync(client, mediaUri, profileToken, username, password, cancellationToken);
+                    if (profileDiscovery.Tokens.Count > 0)
+                    {
+                        tokenCandidates = profileDiscovery.Tokens.ToArray();
+                        foreach (var token in profileDiscovery.Tokens)
+                        {
+                            allTokens.Add(token);
+                        }
                     }
                 }
                 catch
@@ -298,18 +328,24 @@ Examples:
                 {
                     try
                     {
-                        string body = BuildGetSnapshotUriBody(token);
-                        using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
-                        using var response = await client.PostAsync(mediaUri, content, cancellationToken);
+                        string operationXml = BuildGetSnapshotUriOperationXml(token);
+                        var response = await PostOnvifSoapAsync(client, mediaUri, operationXml, username, password, cancellationToken);
                         if (!response.IsSuccessStatusCode)
                         {
+                            if (IsOnvifActionNotSupportedFault(response.Xml))
+                            {
+                                snapshotActionNotSupported = true;
+                            }
+                            endpointDiagnostics.Add(
+                                $"snapshot_uri_attempt endpoint={mediaUri}; token={token}; auth={FormatAuthMode(response)}; status={(int)response.StatusCode}; fault={GetOnvifFaultKind(response.Xml)}");
                             continue;
                         }
 
-                        var xml = await response.Content.ReadAsStringAsync(cancellationToken);
-                        var snapshotUri = ExtractSnapshotUri(xml);
+                        var snapshotUri = ExtractSnapshotUri(response.Xml);
                         if (string.IsNullOrWhiteSpace(snapshotUri))
                         {
+                            endpointDiagnostics.Add(
+                                $"snapshot_uri_attempt endpoint={mediaUri}; token={token}; auth={FormatAuthMode(response)}; result=empty_uri");
                             continue;
                         }
 
@@ -331,9 +367,16 @@ Examples:
                 }
             }
 
+            string diagnosticsSuffix = BuildOnvifDiagnosticsSuffix(attemptedEndpoints, allTokens, endpointDiagnostics);
+            if (snapshotActionNotSupported)
+            {
+                result.ErrorMessage = $"ONVIF GetSnapshotUri is not supported by this camera. Use ffmpeg RTSP capture for this device.{diagnosticsSuffix}";
+                return result;
+            }
+
             result.ErrorMessage = attemptedEndpoints == 0
-                ? "Unable to resolve ONVIF media service URL."
-                : $"Unable to resolve ONVIF snapshot URI after trying {attemptedEndpoints} media endpoint(s).";
+                ? $"Unable to resolve ONVIF media service URL.{diagnosticsSuffix}"
+                : $"Unable to resolve ONVIF snapshot URI after trying {attemptedEndpoints} media endpoint(s).{diagnosticsSuffix}";
             return result;
         }
 
@@ -456,6 +499,8 @@ Examples:
             HttpClient client,
             string address,
             int? preferredOnvifPort,
+            string username,
+            string password,
             CancellationToken cancellationToken)
         {
             var discovered = new List<Uri>();
@@ -467,7 +512,7 @@ Examples:
             {
                 try
                 {
-                    var xAddrs = await DiscoverOnvifMediaXAddrsAsync(client, deviceUri, cancellationToken);
+                    var xAddrs = await DiscoverOnvifMediaXAddrsAsync(client, deviceUri, username, password, cancellationToken);
                     foreach (var xAddr in xAddrs)
                     {
                         if (Uri.TryCreate(xAddr, UriKind.Absolute, out var mediaUri))
@@ -525,58 +570,151 @@ Examples:
             }
         }
 
-        private static string BuildGetCapabilitiesBody()
+        private static string BuildGetCapabilitiesOperationXml()
         {
             return
-                @"<?xml version=""1.0"" encoding=""utf-8""?>
-<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
-  <s:Body>
-    <GetCapabilities xmlns=""http://www.onvif.org/ver10/device/wsdl"">
-      <Category>All</Category>
-    </GetCapabilities>
-  </s:Body>
-</s:Envelope>";
+                @"<GetCapabilities xmlns=""http://www.onvif.org/ver10/device/wsdl"">
+  <Category>All</Category>
+</GetCapabilities>";
+        }
+
+        private static string BuildGetMediaServiceCapabilitiesOperationXml()
+        {
+            return @"<GetServiceCapabilities xmlns=""http://www.onvif.org/ver10/media/wsdl"" />";
         }
 
         private static async Task<List<string>> DiscoverOnvifMediaXAddrsAsync(
             HttpClient client,
             Uri deviceServiceUri,
+            string username,
+            string password,
             CancellationToken cancellationToken)
         {
-            string body = BuildGetCapabilitiesBody();
-            using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
-            using var response = await client.PostAsync(deviceServiceUri, content, cancellationToken);
+            string operationXml = BuildGetCapabilitiesOperationXml();
+            var response = await PostOnvifSoapAsync(client, deviceServiceUri, operationXml, username, password, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 return new List<string>();
             }
 
-            var xml = await response.Content.ReadAsStringAsync(cancellationToken);
-            return ExtractOnvifMediaXAddrs(xml);
+            return ExtractOnvifMediaXAddrs(response.Xml);
         }
 
-        private static string BuildGetSnapshotUriBody(string profileToken)
+        private static string BuildGetSnapshotUriOperationXml(string profileToken)
         {
             return
-                $@"<?xml version=""1.0"" encoding=""utf-8""?>
-<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
-  <s:Body>
-    <GetSnapshotUri xmlns=""http://www.onvif.org/ver10/media/wsdl"">
-      <ProfileToken>{SecurityElementEscape(profileToken)}</ProfileToken>
-    </GetSnapshotUri>
-  </s:Body>
-</s:Envelope>";
+                $@"<GetSnapshotUri xmlns=""http://www.onvif.org/ver10/media/wsdl"">
+  <ProfileToken>{SecurityElementEscape(profileToken)}</ProfileToken>
+</GetSnapshotUri>";
         }
 
-        private static string BuildGetProfilesBody()
+        private static string BuildGetProfilesOperationXml()
         {
             return
-                @"<?xml version=""1.0"" encoding=""utf-8""?>
-<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
-  <s:Body>
-    <GetProfiles xmlns=""http://www.onvif.org/ver10/media/wsdl"" />
-  </s:Body>
-</s:Envelope>";
+                @"<GetProfiles xmlns=""http://www.onvif.org/ver10/media/wsdl"" />";
+        }
+
+        private sealed class OnvifMediaCapabilities
+        {
+            public bool? SnapshotUri { get; set; }
+            public bool? NoRtspStreaming { get; set; }
+            public bool? RtpRtspTcp { get; set; }
+            public bool? RtpTcp { get; set; }
+            public bool? RtpMulticast { get; set; }
+            public int? MaximumNumberOfProfiles { get; set; }
+        }
+
+        private sealed class OnvifMediaCapabilitiesResult
+        {
+            public OnvifSoapResponse Response { get; set; } = new OnvifSoapResponse();
+            public OnvifMediaCapabilities? Capabilities { get; set; }
+        }
+
+        private sealed class OnvifProfileDiscoveryResult
+        {
+            public List<string> Tokens { get; set; } = new List<string>();
+        }
+
+        private static OnvifMediaCapabilities? ExtractOnvifMediaCapabilities(string xml)
+        {
+            try
+            {
+                var doc = XDocument.Parse(xml);
+                var capabilitiesElement = doc
+                    .Descendants()
+                    .FirstOrDefault(e => string.Equals(e.Name.LocalName, "Capabilities", StringComparison.OrdinalIgnoreCase));
+                if (capabilitiesElement == null)
+                {
+                    return null;
+                }
+
+                int? maxProfiles = null;
+                var profileCaps = capabilitiesElement
+                    .Descendants()
+                    .FirstOrDefault(e => string.Equals(e.Name.LocalName, "ProfileCapabilities", StringComparison.OrdinalIgnoreCase));
+                if (profileCaps != null)
+                {
+                    var maxProfilesAttr = profileCaps.Attributes()
+                        .FirstOrDefault(a => string.Equals(a.Name.LocalName, "MaximumNumberOfProfiles", StringComparison.OrdinalIgnoreCase))
+                        ?.Value;
+                    if (int.TryParse(maxProfilesAttr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMaxProfiles))
+                    {
+                        maxProfiles = parsedMaxProfiles;
+                    }
+                }
+
+                var streamingCaps = capabilitiesElement
+                    .Descendants()
+                    .FirstOrDefault(e => string.Equals(e.Name.LocalName, "StreamingCapabilities", StringComparison.OrdinalIgnoreCase));
+
+                return new OnvifMediaCapabilities
+                {
+                    SnapshotUri = ParseBoolAttribute(capabilitiesElement, "SnapshotUri"),
+                    NoRtspStreaming = ParseBoolAttribute(streamingCaps, "NoRTSPStreaming"),
+                    RtpRtspTcp = ParseBoolAttribute(streamingCaps, "RTP_RTSP_TCP"),
+                    RtpTcp = ParseBoolAttribute(streamingCaps, "RTP_TCP"),
+                    RtpMulticast = ParseBoolAttribute(streamingCaps, "RTPMulticast"),
+                    MaximumNumberOfProfiles = maxProfiles
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool? ParseBoolAttribute(XElement? element, string name)
+        {
+            if (element == null)
+            {
+                return null;
+            }
+
+            var value = element.Attributes()
+                .FirstOrDefault(a => string.Equals(a.Name.LocalName, name, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            if (bool.TryParse(value, out var parsed))
+            {
+                return parsed;
+            }
+
+            return null;
+        }
+
+        private static async Task<OnvifMediaCapabilitiesResult> DiscoverOnvifMediaServiceCapabilitiesAsync(
+            HttpClient client,
+            Uri mediaUri,
+            string username,
+            string password,
+            CancellationToken cancellationToken)
+        {
+            string operationXml = BuildGetMediaServiceCapabilitiesOperationXml();
+            var response = await PostOnvifSoapAsync(client, mediaUri, operationXml, username, password, cancellationToken);
+            return new OnvifMediaCapabilitiesResult
+            {
+                Response = response,
+                Capabilities = response.IsSuccessStatusCode ? ExtractOnvifMediaCapabilities(response.Xml) : null
+            };
         }
 
         private static List<string> ExtractOnvifProfileTokens(string xml)
@@ -599,39 +737,234 @@ Examples:
             }
         }
 
-        private static async Task<List<string>> DiscoverOnvifProfileTokensAsync(
+        private static async Task<OnvifProfileDiscoveryResult> DiscoverOnvifProfileTokensAsync(
             HttpClient client,
             Uri mediaUri,
             string preferredProfileToken,
+            string username,
+            string password,
             CancellationToken cancellationToken)
         {
-            var tokens = new List<string>();
+            var result = new OnvifProfileDiscoveryResult();
             if (!string.IsNullOrWhiteSpace(preferredProfileToken))
             {
-                tokens.Add(preferredProfileToken);
+                result.Tokens.Add(preferredProfileToken);
             }
 
-            string body = BuildGetProfilesBody();
-            using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
-            using var response = await client.PostAsync(mediaUri, content, cancellationToken);
+            string operationXml = BuildGetProfilesOperationXml();
+            var response = await PostOnvifSoapAsync(client, mediaUri, operationXml, username, password, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                return tokens;
+                return result;
             }
 
-            var xml = await response.Content.ReadAsStringAsync(cancellationToken);
-            var discovered = ExtractOnvifProfileTokens(xml);
+            var discovered = ExtractOnvifProfileTokens(response.Xml);
             foreach (var token in discovered)
             {
-                if (tokens.Contains(token, StringComparer.Ordinal))
+                if (result.Tokens.Contains(token, StringComparer.Ordinal))
                 {
                     continue;
                 }
 
-                tokens.Add(token);
+                result.Tokens.Add(token);
             }
 
-            return tokens;
+            return result;
+        }
+
+        private sealed class OnvifSoapResponse
+        {
+            public bool IsSuccessStatusCode { get; set; }
+            public string Xml { get; set; } = string.Empty;
+            public HttpStatusCode StatusCode { get; set; }
+            public bool UsedWsseDigest { get; set; }
+        }
+
+        private static async Task<OnvifSoapResponse> PostOnvifSoapAsync(
+            HttpClient client,
+            Uri endpoint,
+            string operationXml,
+            string username,
+            string password,
+            CancellationToken cancellationToken)
+        {
+            var plainEnvelope = BuildSoapEnvelope(operationXml, wsseHeaderXml: null);
+            using var plainContent = new StringContent(plainEnvelope, Encoding.UTF8, "application/soap+xml");
+            using var plainResponse = await client.PostAsync(endpoint, plainContent, cancellationToken);
+            var plainXml = await plainResponse.Content.ReadAsStringAsync(cancellationToken);
+            if (plainResponse.IsSuccessStatusCode)
+            {
+                return new OnvifSoapResponse
+                {
+                    IsSuccessStatusCode = true,
+                    Xml = plainXml,
+                    StatusCode = plainResponse.StatusCode,
+                    UsedWsseDigest = false
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(username) ||
+                !(plainResponse.StatusCode == HttpStatusCode.Unauthorized ||
+                  plainResponse.StatusCode == HttpStatusCode.Forbidden ||
+                  IsOnvifNotAuthorizedFault(plainXml)))
+            {
+                return new OnvifSoapResponse
+                {
+                    IsSuccessStatusCode = false,
+                    Xml = plainXml,
+                    StatusCode = plainResponse.StatusCode,
+                    UsedWsseDigest = false
+                };
+            }
+
+            var wsseHeader = BuildWsseSecurityHeaderXml(username, password ?? string.Empty);
+            var wsseEnvelope = BuildSoapEnvelope(operationXml, wsseHeader);
+            using var wsseContent = new StringContent(wsseEnvelope, Encoding.UTF8, "application/soap+xml");
+            using var wsseResponse = await client.PostAsync(endpoint, wsseContent, cancellationToken);
+            var wsseXml = await wsseResponse.Content.ReadAsStringAsync(cancellationToken);
+            return new OnvifSoapResponse
+            {
+                IsSuccessStatusCode = wsseResponse.IsSuccessStatusCode,
+                Xml = wsseXml,
+                StatusCode = wsseResponse.StatusCode,
+                UsedWsseDigest = true
+            };
+        }
+
+        private static bool IsOnvifNotAuthorizedFault(string xml)
+        {
+            return xml.Contains("NotAuthorized", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsOnvifActionNotSupportedFault(string xml)
+        {
+            return xml.Contains("ActionNotSupported", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetOnvifFaultKind(string xml)
+        {
+            if (string.IsNullOrWhiteSpace(xml))
+            {
+                return "unknown";
+            }
+
+            if (IsOnvifActionNotSupportedFault(xml))
+            {
+                return "ActionNotSupported";
+            }
+
+            if (IsOnvifNotAuthorizedFault(xml))
+            {
+                return "NotAuthorized";
+            }
+
+            if (xml.Contains("Sender", StringComparison.OrdinalIgnoreCase))
+            {
+                return "SenderFault";
+            }
+
+            if (xml.Contains("Receiver", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ReceiverFault";
+            }
+
+            return "unknown";
+        }
+
+        private static string FormatAuthMode(OnvifSoapResponse response)
+        {
+            return response.UsedWsseDigest ? "wsse_digest" : "none_or_http_auth";
+        }
+
+        private static string FormatBool(bool? value)
+        {
+            return value.HasValue ? (value.Value ? "true" : "false") : "unknown";
+        }
+
+        private static string FormatInt(int? value)
+        {
+            return value?.ToString(CultureInfo.InvariantCulture) ?? "unknown";
+        }
+
+        private static string BuildOnvifDiagnosticsSuffix(
+            int attemptedEndpoints,
+            HashSet<string> discoveredTokens,
+            List<string> endpointDiagnostics)
+        {
+            var sb = new StringBuilder();
+            sb.Append(" ONVIF diagnostics: ");
+            sb.Append($"attempted_endpoints={attemptedEndpoints}");
+            if (discoveredTokens.Count > 0)
+            {
+                sb.Append($"; discovered_tokens=[{string.Join(",", discoveredTokens)}]");
+            }
+
+            if (endpointDiagnostics.Count > 0)
+            {
+                sb.Append("; endpoint_details=");
+                sb.Append(string.Join(" | ", endpointDiagnostics.Take(12)));
+                if (endpointDiagnostics.Count > 12)
+                {
+                    sb.Append($" | ...(+{endpointDiagnostics.Count - 12} more)");
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private static string BuildSoapEnvelope(string operationXml, string? wsseHeaderXml)
+        {
+            var header = string.IsNullOrWhiteSpace(wsseHeaderXml)
+                ? string.Empty
+                : $"<s:Header>{wsseHeaderXml}</s:Header>";
+
+            return
+                $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope""
+            xmlns:wsse=""http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd""
+            xmlns:wsu=""http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"">
+  {header}
+  <s:Body>
+    {operationXml}
+  </s:Body>
+</s:Envelope>";
+        }
+
+        private static string BuildWsseSecurityHeaderXml(string username, string password)
+        {
+            Span<byte> nonceBytes = stackalloc byte[16];
+            RandomNumberGenerator.Fill(nonceBytes);
+            var nonce = Convert.ToBase64String(nonceBytes);
+            var created = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+            var digestBytes = SHA1.HashData(CombineBytes(
+                nonceBytes.ToArray(),
+                Encoding.UTF8.GetBytes(created),
+                Encoding.UTF8.GetBytes(password)));
+            var passwordDigest = Convert.ToBase64String(digestBytes);
+
+            return
+                $@"<wsse:Security s:mustUnderstand=""1"">
+  <wsse:UsernameToken>
+    <wsse:Username>{SecurityElementEscape(username)}</wsse:Username>
+    <wsse:Password Type=""http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest"">{passwordDigest}</wsse:Password>
+    <wsse:Nonce EncodingType=""http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary"">{nonce}</wsse:Nonce>
+    <wsu:Created>{created}</wsu:Created>
+  </wsse:UsernameToken>
+</wsse:Security>";
+        }
+
+        private static byte[] CombineBytes(params byte[][] values)
+        {
+            int totalLength = values.Sum(v => v.Length);
+            var combined = new byte[totalLength];
+            int offset = 0;
+            foreach (var value in values)
+            {
+                Buffer.BlockCopy(value, 0, combined, offset, value.Length);
+                offset += value.Length;
+            }
+
+            return combined;
         }
 
         private async Task<CaptureResult> CaptureStillWithFfmpegAsync(
