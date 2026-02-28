@@ -56,6 +56,8 @@ namespace NetworkMonitor.Connection
             string ffmpegPath = GetArg(args, "ffmpeg_path", "ffmpeg");
             string profileToken = GetArg(args, "profile_token", "Profile_1");
             string rtspPath = GetArg(args, "rtsp_path", "");
+            int? rtspPort = ParsePort(GetArg(args, "rtsp_port", ""));
+            int? onvifPort = ParsePort(GetArg(args, "onvif_port", ""));
             bool allowInsecureTls = ParseBool(GetArg(args, "allow_insecure_tls", "true"));
 
             if (string.IsNullOrWhiteSpace(address))
@@ -72,7 +74,9 @@ namespace NetworkMonitor.Connection
                     username,
                     password,
                     rtspPath,
+                    rtspPort,
                     profileToken,
+                    onvifPort,
                     ffmpegPath,
                     longEdge,
                     allowInsecureTls,
@@ -138,6 +142,8 @@ Optional:
 - --high_detail true|false (default: false; false=1024 long edge, true=1280)
 - --profile_token <ONVIF profile token> (default: Profile_1)
 - --rtsp_path <path> when address is host-only
+- --rtsp_port <port> optional RTSP port override
+- --onvif_port <port> optional ONVIF HTTP(S) port override
 - --ffmpeg_path <path> (default: ffmpeg)
 - --allow_insecure_tls true|false (default: true; for ONVIF HTTPS/self-signed certs)
 
@@ -163,6 +169,18 @@ Examples:
                    string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
         }
 
+        private static int? ParsePort(string value)
+        {
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var port) &&
+                port > 0 &&
+                port <= 65535)
+            {
+                return port;
+            }
+
+            return null;
+        }
+
         private sealed class CaptureResult
         {
             public bool Success { get; set; }
@@ -178,7 +196,9 @@ Examples:
             string username,
             string password,
             string rtspPath,
+            int? rtspPort,
             string profileToken,
+            int? onvifPort,
             string ffmpegPath,
             int longEdge,
             bool allowInsecureTls,
@@ -186,13 +206,13 @@ Examples:
         {
             if (string.Equals(protocol, "onvif", StringComparison.OrdinalIgnoreCase))
             {
-                var snapshotResult = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, allowInsecureTls, cancellationToken);
+                var snapshotResult = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, onvifPort, allowInsecureTls, cancellationToken);
                 if (!snapshotResult.Success || string.IsNullOrWhiteSpace(snapshotResult.Source))
                 {
                     return snapshotResult;
                 }
 
-                var ffmpegResult = await CaptureStillWithFfmpegAsync(snapshotResult.Source, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: false);
+                var ffmpegResult = await CaptureStillWithFfmpegAsync(snapshotResult.Source, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: false, rtspPort: null);
                 if (ffmpegResult.Success)
                 {
                     return ffmpegResult;
@@ -209,14 +229,14 @@ Examples:
                 return onvifFallbackResult;
             }
 
-            var rtspUrl = BuildRtspUrl(address, username, password, rtspPath);
-            var ffmpegRtspResult = await CaptureStillWithFfmpegAsync(rtspUrl, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: true);
+            var rtspUrl = BuildRtspUrl(address, username, password, rtspPath, rtspPort);
+            var ffmpegRtspResult = await CaptureStillWithFfmpegAsync(rtspUrl, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: true, rtspPort: rtspPort);
             if (ffmpegRtspResult.Success)
             {
                 return ffmpegRtspResult;
             }
 
-            var snapshotFallback = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, allowInsecureTls, cancellationToken);
+            var snapshotFallback = await ResolveOnvifSnapshotUriAsync(address, username, password, profileToken, onvifPort, allowInsecureTls, cancellationToken);
             if (!snapshotFallback.Success || string.IsNullOrWhiteSpace(snapshotFallback.Source))
             {
                 return new CaptureResult
@@ -242,6 +262,7 @@ Examples:
             string username,
             string password,
             string profileToken,
+            int? onvifPort,
             bool allowInsecureTls,
             CancellationToken cancellationToken)
         {
@@ -254,7 +275,7 @@ Examples:
                 Timeout = TimeSpan.FromSeconds(20)
             };
 
-            var candidateUris = await DiscoverOnvifMediaServiceUrisAsync(client, address, cancellationToken);
+            var candidateUris = await DiscoverOnvifMediaServiceUrisAsync(client, address, onvifPort, cancellationToken);
             string[] tokenCandidates = new[] { profileToken };
             int attemptedEndpoints = 0;
 
@@ -316,7 +337,7 @@ Examples:
             return result;
         }
 
-        private static List<Uri> BuildOnvifMediaServiceUris(string address)
+        private static List<Uri> BuildOnvifMediaServiceUris(string address, int? preferredOnvifPort)
         {
             if (!Uri.TryCreate(address, UriKind.Absolute, out var addressUri))
             {
@@ -328,6 +349,18 @@ Examples:
                 {
                     Scheme = Uri.UriSchemeHttp,
                     Port = addressUri.IsDefaultPort ? -1 : addressUri.Port
+                };
+                addressUri = builder.Uri;
+            }
+
+            if (preferredOnvifPort.HasValue)
+            {
+                var builder = new UriBuilder(addressUri)
+                {
+                    Scheme = string.Equals(addressUri.Scheme, "https", StringComparison.OrdinalIgnoreCase)
+                        ? Uri.UriSchemeHttps
+                        : Uri.UriSchemeHttp,
+                    Port = preferredOnvifPort.Value
                 };
                 addressUri = builder.Uri;
             }
@@ -347,7 +380,7 @@ Examples:
             };
         }
 
-        private static List<Uri> BuildOnvifDeviceServiceUris(string address)
+        private static List<Uri> BuildOnvifDeviceServiceUris(string address, int? preferredOnvifPort)
         {
             var candidates = new List<Uri>();
             if (!Uri.TryCreate(address, UriKind.Absolute, out var addressUri))
@@ -363,6 +396,16 @@ Examples:
                 Path = "/"
             };
             candidates.Add(new Uri(tapoPreferred.Uri, "/onvif/device_service"));
+            if (preferredOnvifPort.HasValue)
+            {
+                var preferredBuilder = new UriBuilder(addressUri)
+                {
+                    Scheme = Uri.UriSchemeHttp,
+                    Port = preferredOnvifPort.Value,
+                    Path = "/"
+                };
+                candidates.Add(new Uri(preferredBuilder.Uri, "/onvif/device_service"));
+            }
 
             var schemes = new List<string>();
             if (string.Equals(addressUri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
@@ -377,6 +420,10 @@ Examples:
             }
 
             var ports = new List<int?> { 2020, null, 80, 443, 8080, 8899 };
+            if (preferredOnvifPort.HasValue)
+            {
+                ports.Insert(0, preferredOnvifPort.Value);
+            }
             if (!addressUri.IsDefaultPort)
             {
                 ports.Insert(0, addressUri.Port);
@@ -408,13 +455,14 @@ Examples:
         private static async Task<List<Uri>> DiscoverOnvifMediaServiceUrisAsync(
             HttpClient client,
             string address,
+            int? preferredOnvifPort,
             CancellationToken cancellationToken)
         {
             var discovered = new List<Uri>();
-            var defaults = BuildOnvifMediaServiceUris(address);
+            var defaults = BuildOnvifMediaServiceUris(address, preferredOnvifPort);
             discovered.AddRange(defaults);
 
-            var deviceUris = BuildOnvifDeviceServiceUris(address);
+            var deviceUris = BuildOnvifDeviceServiceUris(address, preferredOnvifPort);
             foreach (var deviceUri in deviceUris)
             {
                 try
@@ -593,14 +641,15 @@ Examples:
             string ffmpegPath,
             int longEdge,
             CancellationToken cancellationToken,
-            bool isRtsp)
+            bool isRtsp,
+            int? rtspPort)
         {
             string tempFile = Path.Combine(Path.GetTempPath(), $"camera-capture-{Guid.NewGuid():N}.jpg");
             try
             {
                 if (isRtsp)
                 {
-                    sourceUrl = BuildRtspUrl(sourceUrl, username, password, string.Empty);
+                    sourceUrl = BuildRtspUrl(sourceUrl, username, password, string.Empty, rtspPort);
                 }
 
                 var args = new List<string>
@@ -755,7 +804,7 @@ Examples:
             return handler;
         }
 
-        private static string BuildRtspUrl(string address, string username, string password, string rtspPath)
+        private static string BuildRtspUrl(string address, string username, string password, string rtspPath, int? rtspPort)
         {
             var source = address.Trim();
             if (!source.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
@@ -773,16 +822,18 @@ Examples:
                 return source;
             }
 
-            if (string.IsNullOrWhiteSpace(username) || !string.IsNullOrWhiteSpace(uri.UserInfo))
+            var builder = new UriBuilder(uri);
+            if (rtspPort.HasValue)
             {
-                return source;
+                builder.Port = rtspPort.Value;
             }
 
-            var builder = new UriBuilder(uri)
+            if (!string.IsNullOrWhiteSpace(username) && string.IsNullOrWhiteSpace(uri.UserInfo))
             {
-                UserName = username,
-                Password = password ?? string.Empty
-            };
+                builder.UserName = username;
+                builder.Password = password ?? string.Empty;
+            }
+
             return builder.Uri.ToString();
         }
 
