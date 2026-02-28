@@ -355,6 +355,15 @@ Examples:
                 addressUri = new Uri($"http://{address.Trim('/')}");
             }
 
+            // Prioritize Tapo-style ONVIF endpoint first.
+            var tapoPreferred = new UriBuilder(addressUri)
+            {
+                Scheme = Uri.UriSchemeHttp,
+                Port = 2020,
+                Path = "/"
+            };
+            candidates.Add(new Uri(tapoPreferred.Uri, "/onvif/device_service"));
+
             var schemes = new List<string>();
             if (string.Equals(addressUri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
             {
@@ -367,7 +376,7 @@ Examples:
                 schemes.Add(Uri.UriSchemeHttps);
             }
 
-            var ports = new List<int?> { null, 80, 443, 8080, 8899 };
+            var ports = new List<int?> { 2020, null, 80, 443, 8080, 8899 };
             if (!addressUri.IsDefaultPort)
             {
                 ports.Insert(0, addressUri.Port);
