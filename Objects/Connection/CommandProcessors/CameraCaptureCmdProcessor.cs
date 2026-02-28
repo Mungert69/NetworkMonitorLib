@@ -1006,6 +1006,21 @@ Examples:
             string tempFile = Path.Combine(Path.GetTempPath(), $"camera-capture-{Guid.NewGuid():N}.jpg");
             try
             {
+                if (Path.IsPathRooted(ffmpegPath) && !File.Exists(ffmpegPath))
+                {
+                    string guidance = string.Empty;
+                    if (!string.IsNullOrWhiteSpace(_netConfig.NativeLibDir))
+                    {
+                        guidance = " On Android, deploy libffmpeg_exec.so into Platforms/Android/jniLibs/<abi>/ and rebuild the app.";
+                    }
+
+                    return new CaptureResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"ffmpeg executable not found at '{ffmpegPath}'.{guidance}".Trim()
+                    };
+                }
+
                 if (isRtsp)
                 {
                     sourceUrl = BuildRtspUrl(sourceUrl, username, password, string.Empty, rtspPort);
@@ -1040,6 +1055,11 @@ Examples:
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
+
+                if (!string.IsNullOrWhiteSpace(_netConfig.CommandPath) && Directory.Exists(_netConfig.CommandPath))
+                {
+                    psi.WorkingDirectory = _netConfig.CommandPath;
+                }
 
                 foreach (var arg in args)
                 {
