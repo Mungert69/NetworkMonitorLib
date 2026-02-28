@@ -246,7 +246,6 @@ Examples:
             CancellationToken cancellationToken)
         {
             var result = new CaptureResult { Success = false };
-            var candidateUris = BuildOnvifMediaServiceUris(address);
 
             var handler = CreateCameraHttpClientHandler(username, password, allowInsecureTls);
 
@@ -255,10 +254,13 @@ Examples:
                 Timeout = TimeSpan.FromSeconds(20)
             };
 
+            var candidateUris = await DiscoverOnvifMediaServiceUrisAsync(client, address, cancellationToken);
             string[] tokenCandidates = new[] { profileToken };
+            int attemptedEndpoints = 0;
 
             foreach (var mediaUri in candidateUris)
             {
+                attemptedEndpoints++;
                 try
                 {
                     var discoveredTokens = await DiscoverOnvifProfileTokensAsync(client, mediaUri, profileToken, cancellationToken);
@@ -308,7 +310,9 @@ Examples:
                 }
             }
 
-            result.ErrorMessage = "Unable to resolve ONVIF snapshot URI.";
+            result.ErrorMessage = attemptedEndpoints == 0
+                ? "Unable to resolve ONVIF media service URL."
+                : $"Unable to resolve ONVIF snapshot URI after trying {attemptedEndpoints} media endpoint(s).";
             return result;
         }
 
@@ -337,8 +341,94 @@ Examples:
             return new List<Uri>
             {
                 new Uri(addressUri, "/onvif/media_service"),
-                new Uri(addressUri, "/onvif/media2_service")
+                new Uri(addressUri, "/onvif/media2_service"),
+                new Uri(addressUri, "/onvif/Media"),
+                new Uri(addressUri, "/onvif/media")
             };
+        }
+
+        private static List<Uri> BuildOnvifDeviceServiceUris(string address)
+        {
+            var candidates = new List<Uri>();
+            if (!Uri.TryCreate(address, UriKind.Absolute, out var addressUri))
+            {
+                addressUri = new Uri($"http://{address.Trim('/')}");
+            }
+
+            var schemes = new List<string>();
+            if (string.Equals(addressUri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            {
+                schemes.Add(Uri.UriSchemeHttps);
+                schemes.Add(Uri.UriSchemeHttp);
+            }
+            else
+            {
+                schemes.Add(Uri.UriSchemeHttp);
+                schemes.Add(Uri.UriSchemeHttps);
+            }
+
+            var ports = new List<int?> { null, 80, 443, 8080, 8899 };
+            if (!addressUri.IsDefaultPort)
+            {
+                ports.Insert(0, addressUri.Port);
+            }
+
+            foreach (var scheme in schemes)
+            {
+                foreach (var port in ports)
+                {
+                    var builder = new UriBuilder(addressUri)
+                    {
+                        Scheme = scheme,
+                        Port = port ?? -1,
+                        Path = "/"
+                    };
+
+                    candidates.Add(new Uri(builder.Uri, "/onvif/device_service"));
+                    candidates.Add(new Uri(builder.Uri, "/onvif/deviceservice"));
+                    candidates.Add(new Uri(builder.Uri, "/device_service"));
+                }
+            }
+
+            return candidates
+                .GroupBy(u => u.ToString(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private static async Task<List<Uri>> DiscoverOnvifMediaServiceUrisAsync(
+            HttpClient client,
+            string address,
+            CancellationToken cancellationToken)
+        {
+            var discovered = new List<Uri>();
+            var defaults = BuildOnvifMediaServiceUris(address);
+            discovered.AddRange(defaults);
+
+            var deviceUris = BuildOnvifDeviceServiceUris(address);
+            foreach (var deviceUri in deviceUris)
+            {
+                try
+                {
+                    var xAddrs = await DiscoverOnvifMediaXAddrsAsync(client, deviceUri, cancellationToken);
+                    foreach (var xAddr in xAddrs)
+                    {
+                        if (Uri.TryCreate(xAddr, UriKind.Absolute, out var mediaUri))
+                        {
+                            discovered.Add(mediaUri);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Keep trying alternate device_service endpoints.
+                }
+            }
+
+            return discovered
+                .GroupBy(u => u.ToString(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
         }
 
         private static string ExtractSnapshotUri(string xml)
@@ -355,6 +445,57 @@ Examples:
             {
                 return string.Empty;
             }
+        }
+
+        private static List<string> ExtractOnvifMediaXAddrs(string xml)
+        {
+            try
+            {
+                var document = XDocument.Parse(xml);
+                return document
+                    .Descendants()
+                    .Where(e => string.Equals(e.Name.LocalName, "XAddr", StringComparison.OrdinalIgnoreCase))
+                    .Where(e => e.Ancestors().Any(a => a.Name.LocalName.Contains("Media", StringComparison.OrdinalIgnoreCase)))
+                    .Select(e => e.Value?.Trim())
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Cast<string>()
+                    .ToList();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static string BuildGetCapabilitiesBody()
+        {
+            return
+                @"<?xml version=""1.0"" encoding=""utf-8""?>
+<s:Envelope xmlns:s=""http://www.w3.org/2003/05/soap-envelope"">
+  <s:Body>
+    <GetCapabilities xmlns=""http://www.onvif.org/ver10/device/wsdl"">
+      <Category>All</Category>
+    </GetCapabilities>
+  </s:Body>
+</s:Envelope>";
+        }
+
+        private static async Task<List<string>> DiscoverOnvifMediaXAddrsAsync(
+            HttpClient client,
+            Uri deviceServiceUri,
+            CancellationToken cancellationToken)
+        {
+            string body = BuildGetCapabilitiesBody();
+            using var content = new StringContent(body, Encoding.UTF8, "application/soap+xml");
+            using var response = await client.PostAsync(deviceServiceUri, content, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new List<string>();
+            }
+
+            var xml = await response.Content.ReadAsStringAsync(cancellationToken);
+            return ExtractOnvifMediaXAddrs(xml);
         }
 
         private static string BuildGetSnapshotUriBody(string profileToken)
