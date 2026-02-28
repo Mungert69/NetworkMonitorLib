@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -53,7 +54,7 @@ namespace NetworkMonitor.Connection
             string password = GetArg(args, "password", "");
             bool highDetail = ParseBool(GetArg(args, "high_detail", "false"));
             int longEdge = highDetail ? HighDetailLongEdge : DefaultLongEdge;
-            string ffmpegPath = GetArg(args, "ffmpeg_path", "ffmpeg");
+            string ffmpegPath = ResolveFfmpegPath(GetArg(args, "ffmpeg_path", "ffmpeg"));
             string profileToken = GetArg(args, "profile_token", "Profile_1");
             string rtspPath = GetArg(args, "rtsp_path", "");
             int? rtspPort = ParsePort(GetArg(args, "rtsp_port", ""));
@@ -151,6 +152,31 @@ Examples:
 - --protocol rtsp --address 192.168.1.10 --username admin --password pass
 - --protocol onvif --address 192.168.1.20 --username admin --password pass --profile_token Profile_1
 ";
+        }
+
+        private string ResolveFfmpegPath(string requestedPath)
+        {
+            if (!string.Equals(requestedPath, "ffmpeg", StringComparison.OrdinalIgnoreCase))
+            {
+                return requestedPath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_netConfig.NativeLibDir))
+            {
+                return Path.Combine(_netConfig.NativeLibDir, "libffmpeg_exec.so");
+            }
+
+            if (!string.IsNullOrWhiteSpace(_netConfig.CommandPath))
+            {
+                string fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "ffmpeg.exe" : "ffmpeg";
+                string candidate = Path.Combine(_netConfig.CommandPath, fileName);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return requestedPath;
         }
 
         private static string GetArg(Dictionary<string, string> args, string key, string defaultValue)
