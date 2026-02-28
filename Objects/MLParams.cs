@@ -90,6 +90,7 @@ public class MLParams
     private Dictionary<string, string> _expertPromptProfileByToolsId = new(StringComparer.OrdinalIgnoreCase);
     private string _expertExtraPrompt = "";
     private Dictionary<string, string> _expertExtraPromptByToolsId = new(StringComparer.OrdinalIgnoreCase);
+    private bool _llmUseInlineImageData = false;
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
     private Dictionary<string, string> _llmAgentDic = new Dictionary<string, string>();
@@ -190,6 +191,7 @@ public class MLParams
     public global::System.Decimal CompletionCostMultiplier { get => _completionCostMultiplier; set => _completionCostMultiplier = value; }
     public global::System.Int32 MaxFunctionCallsInARow { get => _maxFunctionCallsInARow; set => _maxFunctionCallsInARow = value; }
     public global::System.Boolean NoNShot { get => _noNShot; set => _noNShot = value; }
+    public global::System.Boolean LlmUseInlineImageData { get => _llmUseInlineImageData; set => _llmUseInlineImageData = value; }
     public string GptModelVersion { get => _gptModelVersion; set => _gptModelVersion = value; }
     public global::System.Int32 HfRetryMaxAttempts { get => _hfRetryMaxAttempts; set => _hfRetryMaxAttempts = value; }
     public global::System.Int32 HfRetryDelaySeconds { get => _hfRetryDelaySeconds; set => _hfRetryDelaySeconds = value; }

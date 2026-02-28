@@ -462,6 +462,7 @@ namespace NetworkMonitor.Utils.Helpers
 
             mlParams.StartThisTestLLM = _config.GetValue<bool?>("StartThisTestLLM") ?? true;
             mlParams.NoNShot = _config.GetValue<bool?>("NoNShot") ?? false;
+            mlParams.LlmUseInlineImageData = _config.GetValue<bool?>("LlmUseInlineImageData") ?? false;
             mlParams.LlmHfSupportsFunctionCalling = _config.GetValue<bool?>("LlmHfSupportsFunctionCalling") ?? true;
             mlParams.LlmNoThink = _config.GetValue<bool?>("LlmNoThink") ?? false;
             mlParams.LlmPromptTokens = int.TryParse(_config["LlmPromptTokens"], out int llmPromptTokens) ? llmPromptTokens : 28000;
