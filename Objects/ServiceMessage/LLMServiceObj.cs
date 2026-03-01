@@ -85,6 +85,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
             messageID = other.MessageID;
             StartTimeUTC = other.StartTimeUTC;
             ChatAgentLocation = other.ChatAgentLocation;
+            ChatDeviceContext = other.ChatDeviceContext;
             ToolsDefinitionId = other.ToolsDefinitionId;
             JsonToolsBuilderSpec = other.JsonToolsBuilderSpec;
             Timeout = other.Timeout;
@@ -106,6 +107,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private string? jsonToolsBuilderSpec = null;
         private string llmRunnerType = "TurboLLM";
         private string chatAgentLocation="";
+        private string chatDeviceContext = "";
         private string sourceLlm = "";
         private string destinationLlm = "";
         private int tokensUsed = 0;
@@ -287,6 +289,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public bool IsSystemLlm { get => isSystemLlm; set => isSystemLlm = value; }
         public DateTime StartTimeUTC { get => startTimeUTC; set => startTimeUTC = value; }
         public string ChatAgentLocation { get => chatAgentLocation; set => chatAgentLocation = value; }
+        public string ChatDeviceContext { get => chatDeviceContext; set => chatDeviceContext = value; }
         public string? ToolsDefinitionId { get => toolsDefinitionId; set => toolsDefinitionId = value; }
         public string? JsonToolsBuilderSpec { get => jsonToolsBuilderSpec; set => jsonToolsBuilderSpec = value; }
         public string SwapFunctionName { get => swapFunctionName; set => swapFunctionName = value; }

@@ -120,6 +120,7 @@ namespace NetworkMonitor.Connection
         private AgentUserFlow _agentUserFlow = new AgentUserFlow();
         private List<FilterStrategyConfig> _filterStrategies = new List<FilterStrategyConfig>();
         private string _rabbitPassword = string.Empty;
+        private DeviceContext _deviceContext = new DeviceContext();
 
 
         public int MaxTaskQueueSize
@@ -216,6 +217,11 @@ namespace NetworkMonitor.Connection
         {
             get => _filterStrategies;
             set => SetProperty(ref _filterStrategies, value);
+        }
+        public DeviceContext DeviceContext
+        {
+            get => _deviceContext;
+            set => SetProperty(ref _deviceContext, value ?? new DeviceContext());
         }
         public string GoogleSearchApiKey { get => _googleSearchApiKey; set => _googleSearchApiKey = value; }
         public string GoogleSearchApiCxID { get => _googleSearchApiCxID; set => _googleSearchApiCxID = value; }
@@ -322,6 +328,11 @@ namespace NetworkMonitor.Connection
                 ForceHeadless = bool.TryParse(config["ForceHeadless"], out bool forceHeadless) ? forceHeadless : false;
                 Owner = config["Owner"] ?? "";
                 MonitorLocation = config["MonitorLocation"] ?? "Not set - ffffff";
+                DeviceContext = config.GetSection("DeviceContext").Get<DeviceContext>() ?? new DeviceContext();
+                if (string.IsNullOrWhiteSpace(MonitorLocation) || MonitorLocation.StartsWith("Not set", StringComparison.OrdinalIgnoreCase))
+                {
+                    MonitorLocation = DeviceContextHelper.BuildMonitorLocation(DeviceContext, MonitorLocation);
+                }
                 GoogleSearchApiKey = config["GoogleSearchApiKey"] ?? "Not set";
                 GoogleSearchApiCxID = config["GoogleSearchApiCxID"] ?? "Not set";
 #pragma warning restore IL2026
