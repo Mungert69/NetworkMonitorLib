@@ -33,11 +33,32 @@ namespace NetworkMonitor.Utils.Helpers
 
             foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
             {
-                var props = nic.GetIPProperties();
+                IPInterfaceProperties? props = null;
+                try
+                {
+                    props = nic.GetIPProperties();
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (props == null)
+                {
+                    continue;
+                }
                 var ip4 = props.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork);
-                var gateway = props.GatewayAddresses
-                    .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
-                    ?.Address.ToString() ?? string.Empty;
+                string gateway = string.Empty;
+                try
+                {
+                    gateway = props.GatewayAddresses
+                        .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
+                        ?.Address.ToString() ?? string.Empty;
+                }
+                catch
+                {
+                    gateway = string.Empty;
+                }
                 var mask = ip4?.IPv4Mask?.ToString() ?? string.Empty;
                 var ip = ip4?.Address?.ToString() ?? string.Empty;
                 var isUp = nic.OperationalStatus == OperationalStatus.Up;
@@ -61,16 +82,24 @@ namespace NetworkMonitor.Utils.Helpers
             context.Interfaces = all;
 
             var primary = candidates
-                .OrderByDescending(c => c.nic.GetIPProperties().GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork))
+                .OrderByDescending(c => HasGatewayAddress(c.nic))
                 .ThenByDescending(c => c.nic.Speed)
                 .FirstOrDefault();
 
             if (primary.nic != null)
             {
-                var props = primary.nic.GetIPProperties();
-                var gateway = props.GatewayAddresses
-                    .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
-                    ?.Address.ToString() ?? string.Empty;
+                string gateway = string.Empty;
+                try
+                {
+                    var props = primary.nic.GetIPProperties();
+                    gateway = props.GatewayAddresses
+                        .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
+                        ?.Address.ToString() ?? string.Empty;
+                }
+                catch
+                {
+                    gateway = string.Empty;
+                }
 
                 context.PrimaryInterface = primary.nic.Name;
                 context.PrimaryIPv4 = primary.ip.Address.ToString();
@@ -260,5 +289,18 @@ namespace NetworkMonitor.Utils.Helpers
 
         private static string NormalizeNoComma(string value)
             => (value ?? string.Empty).Replace(",", " ").Trim();
+
+        private static bool HasGatewayAddress(NetworkInterface nic)
+        {
+            try
+            {
+                var props = nic.GetIPProperties();
+                return props.GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }
