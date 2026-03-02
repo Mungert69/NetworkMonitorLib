@@ -464,6 +464,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.NoNShot = _config.GetValue<bool?>("NoNShot") ?? false;
             mlParams.LlmUseInlineImageData = _config.GetValue<bool?>("LlmUseInlineImageData") ?? false;
             mlParams.LlmHfSupportsFunctionCalling = _config.GetValue<bool?>("LlmHfSupportsFunctionCalling") ?? true;
+            mlParams.LlmUseToolRoleForFunctionResponses = _config.GetValue<bool?>("LlmUseToolRoleForFunctionResponses") ?? true;
             mlParams.LlmNoThink = _config.GetValue<bool?>("LlmNoThink") ?? false;
             mlParams.LlmPromptTokens = int.TryParse(_config["LlmPromptTokens"], out int llmPromptTokens) ? llmPromptTokens : 28000;
             mlParams.LlmGptModel = _config.GetValue<string>("LlmGptModel") ?? "gpt-4.1-mini";
