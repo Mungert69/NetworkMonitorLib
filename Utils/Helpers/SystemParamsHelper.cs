@@ -156,11 +156,8 @@ namespace NetworkMonitor.Utils.Helpers
             if (systemParams.SystemUrls != null && systemParams.SystemUrls.Count > 1) systemParams.IsSingleSystem = false;
             systemParams.ThisSystemUrl = _config.GetSection("LocalSystemUrl").Get<SystemUrl>() ?? throw new Exception(" Check config no LocalSystemUrl found");
             // Compatibility: allow setting this either under LocalSystemUrl or as a top-level key.
-            var requirePublisherUserId = _config.GetValue<bool?>("RequirePublisherUserId");
-            if (requirePublisherUserId.HasValue)
-            {
-                systemParams.ThisSystemUrl.RequirePublisherUserId = requirePublisherUserId.Value;
-            }
+            systemParams.ThisSystemUrl.RequirePublisherUserId = _config.GetValue<bool?>("RequirePublisherUserId") ?? true;
+            
             if (!string.IsNullOrEmpty(rabbitPassword))
             {
                 systemParams.ThisSystemUrl.RabbitPassword = rabbitPassword;
