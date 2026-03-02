@@ -509,5 +509,55 @@ namespace NetworkMonitor.Objects.Repository
         {
             get { return _currentPublisherUserId.Value ?? string.Empty; }
         }
+
+        protected bool ValidatePublisherIdentityForApp(
+            ResultObj result,
+            string? appId,
+            string context,
+            bool allowUserSetupPublisher = false,
+            bool allowDefaultPublisher = false)
+        {
+            if (!_systemUrl.RequirePublisherUserId)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(CurrentPublisherUserId))
+            {
+                result.Success = false;
+                result.Message += $" Error : {context} publisher identity is missing.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(appId))
+            {
+                result.Success = false;
+                result.Message += $" Error : {context} AppID is missing.";
+                return false;
+            }
+
+            bool isSharedPublisher =
+                (allowUserSetupPublisher && string.Equals(CurrentPublisherUserId, "usersetup", StringComparison.OrdinalIgnoreCase)) ||
+                (allowDefaultPublisher && string.Equals(CurrentPublisherUserId, "default", StringComparison.OrdinalIgnoreCase));
+
+            if (!isSharedPublisher && !appId.StartsWith(CurrentPublisherUserId + "-", StringComparison.Ordinal))
+            {
+                result.Success = false;
+                result.Message += $" Error : {context} AppID '{appId}' is not bound to publisher '{CurrentPublisherUserId}'.";
+                return false;
+            }
+
+            return true;
+        }
+
+        protected bool ShouldValidateClaimedUserAgainstPublisher(bool isSystemProcessor)
+        {
+            if (!_systemUrl.RequirePublisherUserId)
+            {
+                return false;
+            }
+
+            return !isSystemProcessor;
+        }
     }
 }
