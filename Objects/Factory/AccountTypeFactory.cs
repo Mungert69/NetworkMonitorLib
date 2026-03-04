@@ -130,6 +130,7 @@ public class AccountTypeFactory
             "delete_agent_flow",
             "run_agent_flow",
             "execute_query*",
+            "get_memory_turn_window*",
             "cp_*"
         },
             "Standard" => new List<string>
@@ -183,6 +184,7 @@ public class AccountTypeFactory
             "delete_agent_flow",
             "run_agent_flow",
             "execute_query*",
+            "get_memory_turn_window*",
             "cp_*"
         },
             "Professional" => new List<string>
@@ -240,6 +242,7 @@ public class AccountTypeFactory
             "delete_agent_flow",
             "run_agent_flow",
             "execute_query*",
+            "get_memory_turn_window*",
             "cp_*"
         },
             "Enterprise" => new List<string>
@@ -300,6 +303,7 @@ public class AccountTypeFactory
             "delete_agent_flow",
             "run_agent_flow",
             "execute_query*",
+            "get_memory_turn_window*",
             "cp_*"
         },
             "God" => new List<string>
@@ -360,6 +364,7 @@ public class AccountTypeFactory
             "delete_agent_flow",
             "run_agent_flow",
             "execute_query*",
+            "get_memory_turn_window*",
             "cp_*"
         },
             _ => new List<string>
@@ -398,6 +403,7 @@ public class AccountTypeFactory
             "delete_agent_flow",
             "run_agent_flow",
             "execute_query*",
+            "get_memory_turn_window*",
             "cp_*"
         }
         };
