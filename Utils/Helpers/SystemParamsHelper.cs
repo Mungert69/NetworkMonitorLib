@@ -13,6 +13,7 @@ using NetworkMonitor.Objects.Factory;
 using DotNetEnv;
 using System.IO;
 using System.Text.Json;
+using NetworkMonitor.Utils;
 
 
 namespace NetworkMonitor.Utils.Helpers
@@ -147,7 +148,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.LLMEncryptKey = ResolveEncryptionKey("LLMEncryptKey", "Crypto:LLM");
             systemParams.OpenAIPluginServiceKey = GetConfigHelper.GetConfigValue("OpenAIPluginServiceKey", "Missing");
             systemParams.RapidApiKeys = GetConfigHelper.GetSection("RapidApiKeys").Get<List<string>>() ?? new List<string>();
-            systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue("ServiceAuthKey") ;
+            systemParams.ServiceAuthKey = GetConfigHelper.GetConfigValue("ServiceAuthKey");
             string rabbitPassword = GetConfigHelper.GetConfigValue("RabbitPassword", "");
             systemParams.RedisSecret = GetConfigHelper.GetConfigValue("REDIS_PASSWORD");
             systemParams.DbPassword = GetConfigHelper.GetConfigValue("DB_PASSWORD");
@@ -163,6 +164,27 @@ namespace NetworkMonitor.Utils.Helpers
                 systemParams.ThisSystemUrl.RabbitPassword = rabbitPassword;
             }
             _logger.LogInformation(" Info : Config ExtermalUrl = " + systemParams.ThisSystemUrl.ExternalUrl + " Config IP address = " + systemParams.ThisSystemUrl.IPAddress + " Found public IP address " + systemParams.PublicIPAddress);
+
+            // AuthKey validation (used by Search service) expects AuthKey = Encrypt(LLMEncryptKey, ServiceID/AppID).
+            // Many appsettings use `ServiceAuthKey: ".env"`; when the env var is missing the value becomes empty.
+            if (string.IsNullOrWhiteSpace(systemParams.ServiceAuthKey) ||
+                string.Equals(systemParams.ServiceAuthKey, "Missing", StringComparison.Ordinal))
+            {
+                if (!string.IsNullOrWhiteSpace(systemParams.LLMEncryptKey) &&
+                    !string.Equals(systemParams.LLMEncryptKey, "Missing", StringComparison.Ordinal))
+                {
+                    systemParams.ServiceAuthKey = AesOperation.EncryptString(systemParams.LLMEncryptKey, systemParams.ServiceID ?? "Service");
+                    _logger.LogWarning(
+                        "ServiceAuthKey missing/blank; generated one from LLMEncryptKey for ServiceID '{ServiceID}'. Consider setting ServiceAuthKey explicitly.",
+                        systemParams.ServiceID);
+                }
+                else
+                {
+                    _logger.LogError(
+                        "ServiceAuthKey missing/blank and LLMEncryptKey is not set; requests requiring AuthKey validation will fail for ServiceID '{ServiceID}'.",
+                        systemParams.ServiceID);
+                }
+            }
 
             return systemParams;
         }
