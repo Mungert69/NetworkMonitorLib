@@ -55,6 +55,10 @@ public class QueryIndexRequest
     public string IndexName { get; set; } = "";
     public VectorSearchMode VectorSearchMode { get; set; } = VectorSearchMode.content;
     public string QueryText { get; set; } = "";
+    public string UserId { get; set; } = "";
+    public string SessionId { get; set; } = "";
+    public int TopK { get; set; } = 0;
+    public bool IncludeToolTurns { get; set; } = false;
     public string AppID { get; set; } = "";
     public string AuthKey { get; set; } = "";
     public string MessageID { get; set; } = "";
