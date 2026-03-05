@@ -8,6 +8,7 @@ public class MemoryQueryRequest
     public string QueryText { get; set; } = "";
     public string UserId { get; set; } = "";
     public string SessionId { get; set; } = "";
+    public string CurrentSessionId { get; set; } = "";
     public int TopK { get; set; } = 8;
     public bool IncludeToolTurns { get; set; } = false;
 
