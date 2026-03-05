@@ -36,6 +36,7 @@ public class AccountTypeFactory
                     { "call_connect_expert", "connect" },
                     { "call_quantum_expert", "quantum" },
                     { "call_camera_expert", "camera" },
+                    { "call_memory_expert", "memory" },
 		    { "call_monitor_expert", "monitorsys"},
                     { "run_busybox_command", "busybox" }
                 };
@@ -51,6 +52,7 @@ public class AccountTypeFactory
                     { "call_connect_expert", "connect" },
                     { "call_quantum_expert", "quantum" },
                     { "call_camera_expert", "camera" },
+                    { "call_memory_expert", "memory" },
 		    { "call_monitor_expert", "monitorsys"},
                     { "run_busybox_command", "busybox" }
                 };
@@ -71,6 +73,7 @@ public class AccountTypeFactory
                     {"call_cmd_processor_expert", "cmdprocessor" },
                     {"call_connect_expert", "connect" },
                     {"call_camera_expert", "camera" },
+                    {"call_memory_expert", "memory" },
 		    {"call_monitor_expert", "monitorsys" },
                     {"run_busybox_command", "busybox" }
                 };
@@ -97,6 +100,7 @@ public class AccountTypeFactory
             "call_connect_expert",
             "call_quantum_expert",
             "call_camera_expert",
+            "call_memory_expert",
 	    "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
@@ -151,6 +155,7 @@ public class AccountTypeFactory
             "call_connect_expert",
             "call_quantum_expert",
             "call_camera_expert",
+            "call_memory_expert",
 	    "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
@@ -206,6 +211,7 @@ public class AccountTypeFactory
             "call_search_expert",
             "call_quantum_expert",
             "call_camera_expert",
+            "call_memory_expert",
 	    "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
@@ -263,6 +269,7 @@ public class AccountTypeFactory
             "call_monitor_sys",
             "call_quantum_expert",
             "call_camera_expert",
+            "call_memory_expert",
 	    "call_monitor_expert",
             "run_busybox",
             "call_search_expert",
@@ -324,6 +331,7 @@ public class AccountTypeFactory
             "call_monitor_sys",
             "call_quantum_expert",
             "call_camera_expert",
+            "call_memory_expert",
 	    "call_monitor_expert",
             "run_busybox",
             "call_search_expert",
@@ -391,6 +399,7 @@ public class AccountTypeFactory
             "validate_quantum_config",
             "test_quantum_certificate",
             "call_quantum_expert",
+            "call_memory_expert",
 	    "call_monitor_expert",
             "call_monitor_sys",
             "call_security_basic_flow",
