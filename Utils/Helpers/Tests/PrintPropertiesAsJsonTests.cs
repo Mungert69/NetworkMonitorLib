@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Utils.Helpers;
 using NetworkMonitor.Utils;
@@ -40,7 +41,9 @@ public class PrintPropertiesAsJsonTests
 
         var json = PrintPropertiesAsJson.PrintResultObjProperties(resultObj);
 
-        Assert.Equal("{\"message\" : \"ok\", \"success\" : true}", json);
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("ok", doc.RootElement.GetProperty("message").GetString());
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using NetworkMonitor.Objects;
 using System;
 using System.Text;
+using System.Text.Json;
 
 namespace NetworkMonitor.Utils.Helpers;
 public class PrintPropertiesAsJson
@@ -56,65 +57,29 @@ public class PrintPropertiesAsJson
 
     public static string PrintTSResultObjProperties<TData, SData>(TResultObj<TData, SData> resultObj)
     {
-        StringBuilder output = new StringBuilder();
-
-        output.Append("{");
-
-        output.Append("\"message\" : \"").Append(resultObj.Message).Append("\", ");
-        output.Append("\"success\" : ").Append(resultObj.Success.ToString().ToLower()).Append(", ");
-
-
-        // Remove the trailing comma and space
-        if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
+        return JsonSerializer.Serialize(new
         {
-            output.Length -= 2;
-        }
-
-        output.Append("}");
-
-        return output.ToString();
+            message = resultObj?.Message ?? string.Empty,
+            success = resultObj?.Success ?? false
+        });
 
     }
     public static string PrintTResultObjProperties<TData>(TResultObj<TData> resultObj)
     {
-        StringBuilder output = new StringBuilder();
-
-        output.Append("{");
-
-        output.Append("\"message\" : \"").Append(resultObj.Message).Append("\", ");
-        output.Append("\"success\" : ").Append(resultObj.Success.ToString().ToLower()).Append(", ");
-
-
-        // Remove the trailing comma and space
-        if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
+        return JsonSerializer.Serialize(new
         {
-            output.Length -= 2;
-        }
-
-        output.Append("}");
-
-        return output.ToString();
+            message = resultObj?.Message ?? string.Empty,
+            success = resultObj?.Success ?? false
+        });
 
     }
     public static string PrintResultObjProperties(ResultObj resultObj)
     {
-        StringBuilder output = new StringBuilder();
-
-        output.Append("{");
-
-        output.Append("\"message\" : \"").Append(resultObj.Message).Append("\", ");
-        output.Append("\"success\" : ").Append(resultObj.Success.ToString().ToLower()).Append(", ");
-
-
-        // Remove the trailing comma and space
-        if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
+        return JsonSerializer.Serialize(new
         {
-            output.Length -= 2;
-        }
-
-        output.Append("}");
-
-        return output.ToString();
+            message = resultObj?.Message ?? string.Empty,
+            success = resultObj?.Success ?? false
+        });
     }
     public static string PrintUserInfoPropertiesWithDate(UserInfo user, bool isUserLoggedIn, string currentTime, bool detail)
     {
