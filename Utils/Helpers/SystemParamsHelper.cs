@@ -453,6 +453,9 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.CompletionCostMultiplier = decimal.TryParse(_config["CompletionCostMultiplier"], out var k) ? k : 8.00m;
             mlParams.DefaultAgentLocation = _config.GetValue<string>("DefaultAgentLocation") ?? "Scanner - EU";
             mlParams.LlmTemp = _config.GetValue<string>("LlmTemp") ?? "0.1";
+            mlParams.HfRetryMaxAttempts = int.TryParse(_config["HfRetryMaxAttempts"], out int hfRetryMaxAttempts) ? hfRetryMaxAttempts : 3;
+            mlParams.HfRetryDelaySeconds = int.TryParse(_config["HfRetryDelaySeconds"], out int hfRetryDelaySeconds) ? hfRetryDelaySeconds : 10;
+            mlParams.HfRequestTimeoutSeconds = int.TryParse(_config["HfRequestTimeoutSeconds"], out int hfRequestTimeoutSeconds) ? hfRequestTimeoutSeconds : 120;
 
             mlParams.LlmOpenAICtxSize = int.TryParse(_config["LlmOpenAICtxSize"], out int llmOpenAICtxSize) ? llmOpenAICtxSize : 32000;
             mlParams.LlmCtxRatio = int.TryParse(_config["LlmCtxRatio"], out int llmCtxRatio) ? llmCtxRatio : 6;
