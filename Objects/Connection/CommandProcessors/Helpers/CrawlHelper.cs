@@ -15,6 +15,7 @@ using System.Xml.Linq;
 using System.IO;
 using System.Threading;
 using PuppeteerSharp;
+using System.Text.Json;
 namespace NetworkMonitor.Connection;
 public class CrawlHelper
 {
@@ -106,96 +107,105 @@ public class CrawlHelper
 
 
 
-    public static async Task<TResultObj<string>> ExtractContent(IPage page, ILogger logger, int timeout)
+    public static async Task<TResultObj<string>> ExtractContent(IPage page, ILogger logger, int timeout, string? responseContentType = null)
     {
-
         logger.LogInformation("Waiting for page content to load...");
-        await page.WaitForSelectorAsync("body", new WaitForSelectorOptions { Timeout = timeout });
-
-        logger.LogInformation("Extracting content...");
-
-        // Extract text content with inline links, excluding cookie and privacy-related elements
-        var content = await page.EvaluateFunctionAsync<string>(@"() => {
-    const unwantedKeywords = ['cookies', 'cookie'];
-
-    const getTextWithLinks = (node) => {
-        let text = '';
-        if (node.nodeType === Node.TEXT_NODE) {
-            return node.textContent;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-            if (['SCRIPT', 'STYLE', 'IMG', 'HEADER', 'FOOTER', 'NAV'].includes(node.nodeName)) {
-                return '';
-            }
-
-            // Check if element contains cookie-related keywords
-            const elementText = node.innerText || '';
-            if (unwantedKeywords.some(keyword => elementText.toLowerCase().includes(keyword))) {
-                return '';
-            }
-
-            let prefix = '';
-            let suffix = '';
-
-            // Handle different elements
-            if (/H[1-6]/.test(node.nodeName)) {
-                // Headings (H1-H6)
-                let level = parseInt(node.nodeName.charAt(1));
-                prefix = '\n' + '#'.repeat(level) + ' ';
-                suffix = '\n';
-            } else if (node.nodeName === 'P') {
-                prefix = '\n';
-                suffix = '\n';
-            } else if (node.nodeName === 'BR') {
-                return '\n';
-            } else if (node.nodeName === 'A') {
-                return `[${node.textContent}](${node.href})`;
-            } else if (node.nodeName === 'LI') {
-                prefix = '- ';
-                suffix = '\n';
-            } else if (node.nodeName === 'UL' || node.nodeName === 'OL') {
-                prefix = '\n';
-                suffix = '\n';
-            } else if (node.nodeName === 'DIV') {
-                prefix = '\n';
-                suffix = '\n';
-            }
-
-            for (let child of node.childNodes) {
-                text += getTextWithLinks(child);
-            }
-
-            return prefix + text.trim() + suffix;
+        try
+        {
+            await page.WaitForSelectorAsync("body, pre, code", new WaitForSelectorOptions { Timeout = timeout });
         }
-        return '';
-    };
+        catch (Exception ex)
+        {
+            logger.LogWarning($"No body/pre/code selector before timeout for {page.Url}: {ex.Message}");
+        }
 
-    // Target the main content area (article, main)
-    const mainContent = document.querySelector('article, main');
-    if (mainContent) {
-        return getTextWithLinks(mainContent);
+        var structuredPayload = await TryExtractStructuredPayloadFromPageAsync(page);
+        var likelyJson = IsLikelyJsonContentType(responseContentType);
+        var likelyXml = IsLikelyXmlContentType(responseContentType);
+
+        // Prefer JSON first, then XML, then HTML fallback.
+        if ((likelyJson || LooksLikeJsonPayload(structuredPayload))
+            && TryPrettyPrintJson(structuredPayload, out var prettyJson))
+        {
+            logger.LogInformation("Detected JSON/API response and returned formatted JSON content.");
+            return new TResultObj<string>
+            {
+                Success = true,
+                Data = prettyJson,
+                Message = "JSON content extracted successfully."
+            };
+        }
+
+        if ((likelyXml || LooksLikeXmlPayload(structuredPayload))
+            && TryPrettyPrintXml(structuredPayload, out var prettyXml))
+        {
+            logger.LogInformation("Detected XML/API response and returned formatted XML content.");
+            return new TResultObj<string>
+            {
+                Success = true,
+                Data = prettyXml,
+                Message = "XML content extracted successfully."
+            };
+        }
+
+        logger.LogInformation("Extracting page text and links...");
+        var extracted = await page.EvaluateFunctionAsync<string>(@"() => {
+    const normalize = (s) => (s || '')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+
+    const root = document.querySelector('article, main, [role=""main""]') || document.body || document.documentElement;
+    const mainText = normalize(root ? (root.innerText || root.textContent || '') : '');
+
+    const codeText = Array.from(document.querySelectorAll('pre, code'))
+        .map(el => normalize(el.textContent || '').trim())
+        .filter(Boolean)
+        .slice(0, 30)
+        .join('\n\n');
+
+    const links = Array.from(document.querySelectorAll('a[href]'))
+        .map(a => {
+            const href = (a.href || '').trim();
+            if (!href) return '';
+            const label = normalize(a.textContent || '').replace(/\s+/g, ' ').trim();
+            return label ? `[${label}](${href})` : href;
+        })
+        .filter(Boolean);
+
+    const uniqueLinks = [...new Set(links)].slice(0, 200);
+    const parts = [];
+
+    if (mainText.trim().length > 0) {
+        parts.push(mainText);
     }
 
-    // Fallback to body if main content not found
-    return getTextWithLinks(document.body);
+    if (codeText.length > 0) {
+        parts.push(codeText);
+    }
+
+    if (uniqueLinks.length > 0) {
+        parts.push('Links:\n' + uniqueLinks.join('\n'));
+    }
+
+    return parts.join('\n\n');
 }");
 
-        // Check if the extracted content is valid
+        var content = NormalizeExtractedContent(extracted);
         if (string.IsNullOrWhiteSpace(content))
         {
-            logger.LogWarning("Page content is empty.");
+            var fallback = await page.EvaluateFunctionAsync<string>(
+                "() => (document.documentElement?.textContent || document.body?.textContent || '').trim()");
+            content = NormalizeExtractedContent(fallback);
+        }
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            logger.LogWarning("Page content is empty after extraction and fallback.");
             return new TResultObj<string>
             {
                 Success = false,
                 Message = "No page content found."
-            };
-        }
-        else if (content.Split(' ').Length < 50)
-        {
-            logger.LogWarning("Less than 50 words of content.");
-            return new TResultObj<string>
-            {
-                Success = false,
-                Message = "No useful content found; page content too short."
             };
         }
 
@@ -549,18 +559,39 @@ public class CrawlHelper
         try
         {
             logger.LogInformation($"Navigating to {url}");
-            await page.GoToAsync(url, new NavigationOptions { Timeout = timeout });
-            await WaitNetIdle(page, timeout, logger);
+            var response = await page.GoToAsync(url, new NavigationOptions
+            {
+                Timeout = timeout,
+                WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
+            });
+            var responseContentType = GetHeaderValueIgnoreCase(response?.Headers, "content-type");
+
+            var isStructuredResponse = IsLikelyJsonContentType(responseContentType) || IsLikelyXmlContentType(responseContentType);
+
+            if (!isStructuredResponse)
+            {
+                await WaitNetIdle(page, timeout, logger);
+            }
             // Store the URL before handling cookie consent
             var initialUrl = page.Url;
 
-            // Handle cookie consent once
-            await HandleCookieConsent(page, logger, timeout);
+            // Handle cookie consent once for HTML pages only.
+            if (!isStructuredResponse)
+            {
+                await HandleCookieConsent(page, logger, timeout);
+            }
+            else
+            {
+                logger.LogInformation("Skipping cookie-consent handling for likely JSON/XML API response.");
+            }
 
             if (page.Url != initialUrl) // Check if the page URL changed after handling consent
             {
                 logger.LogInformation("Page navigated after handling cookie consent.");
-                await WaitNetIdle(page, timeout, logger);
+                if (!isStructuredResponse)
+                {
+                    await WaitNetIdle(page, timeout, logger);
+                }
             }
             else
             {
@@ -568,7 +599,7 @@ public class CrawlHelper
             }
 
             // Call the existing ExtractContent method
-            return await ExtractContent(page, logger, timeout);
+            return await ExtractContent(page, logger, timeout, responseContentType);
 
         }
         catch (Exception e)
@@ -576,6 +607,202 @@ public class CrawlHelper
             return new TResultObj<string>() { Success = false, Message = $" Error : when navigating page {url} . Error was : {e.Message}" };
         }
 
+    }
+
+    private static string? GetHeaderValueIgnoreCase(Dictionary<string, string>? headers, string key)
+    {
+        if (headers == null || headers.Count == 0 || string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        foreach (var kvp in headers)
+        {
+            if (string.Equals(kvp.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                return kvp.Value;
+            }
+        }
+        return null;
+    }
+
+    private static bool IsLikelyJsonContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return false;
+        }
+
+        var normalized = contentType.Trim().ToLowerInvariant();
+        return normalized.Contains("/json") || normalized.Contains("+json");
+    }
+
+    private static bool IsLikelyXmlContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return false;
+        }
+
+        var normalized = contentType.Trim().ToLowerInvariant();
+        if (normalized.Contains("html"))
+        {
+            return false;
+        }
+
+        return normalized.Contains("/xml") || normalized.Contains("+xml");
+    }
+
+    private static bool LooksLikeJsonPayload(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        var t = raw.Trim();
+        return (t.StartsWith('{') && t.EndsWith('}')) || (t.StartsWith('[') && t.EndsWith(']'));
+    }
+
+    private static bool LooksLikeXmlPayload(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        var t = raw.Trim().TrimStart('\uFEFF');
+        if (!t.StartsWith("<", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (t.StartsWith("<!doctype html", StringComparison.OrdinalIgnoreCase) ||
+            t.StartsWith("<html", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static async Task<string> TryExtractStructuredPayloadFromPageAsync(IPage page)
+    {
+        try
+        {
+            return await page.EvaluateFunctionAsync<string>(@"() => {
+    const candidates = [];
+    const pre = document.querySelector('pre');
+    if (pre && pre.textContent) candidates.push(pre.textContent.trim());
+    if (document.body && document.body.innerText) candidates.push(document.body.innerText.trim());
+    if (document.body && document.body.textContent) candidates.push(document.body.textContent.trim());
+    if (document.documentElement && document.documentElement.textContent) candidates.push(document.documentElement.textContent.trim());
+
+    for (const raw of candidates) {
+        if (!raw) continue;
+        const t = raw.trim();
+        if ((t.startsWith('{') && t.endsWith('}')) ||
+            (t.startsWith('[') && t.endsWith(']')) ||
+            (t.startsWith('<') && t.endsWith('>'))) {
+            return t;
+        }
+    }
+    return '';
+}");
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static bool TryPrettyPrintJson(string? raw, out string pretty)
+    {
+        pretty = string.Empty;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var json = JsonDocument.Parse(raw);
+            pretty = JsonSerializer.Serialize(
+                json.RootElement,
+                new JsonSerializerOptions { WriteIndented = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryPrettyPrintXml(string? raw, out string pretty)
+    {
+        pretty = string.Empty;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        var candidate = raw.Trim().TrimStart('\uFEFF');
+        if (!candidate.StartsWith("<", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            var doc = XDocument.Parse(candidate);
+            var rootName = doc.Root?.Name.LocalName ?? string.Empty;
+            if (string.Equals(rootName, "html", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            pretty = doc.ToString(SaveOptions.None);
+            return !string.IsNullOrWhiteSpace(pretty);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string NormalizeExtractedContent(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        var lines = input
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Split('\n');
+
+        var sb = new StringBuilder();
+        var wroteBlank = false;
+
+        foreach (var rawLine in lines)
+        {
+            var line = Regex.Replace(rawLine, @"\s+", " ").Trim();
+            if (line.Length == 0)
+            {
+                if (!wroteBlank && sb.Length > 0)
+                {
+                    sb.AppendLine();
+                    wroteBlank = true;
+                }
+                continue;
+            }
+
+            sb.AppendLine(line);
+            wroteBlank = false;
+        }
+
+        return sb.ToString().Trim();
     }
 
 
