@@ -107,6 +107,7 @@ namespace NetworkMonitor.Connection
         private bool _isChatMode = false;
         private int _maxRetries = 3;
         private string _serviceDomain = AppConstants.AppDomain;
+        private string _osPlatform = "linux";
         private bool _isRestrictedPublishPerm = true;
         private List<string> _endpointTypes = new List<string>();
         private List<string> _disabledEndpointTypes = new List<string>();
@@ -179,6 +180,11 @@ namespace NetworkMonitor.Connection
         public string LoadServer { get => _loadServer; set => _loadServer = value; }
 
         public string ServiceDomain { get => _serviceDomain; set => _serviceDomain = value; }
+        public string OSPlatform
+        {
+            get => _osPlatform;
+            set => SetProperty(ref _osPlatform, string.IsNullOrWhiteSpace(value) ? "linux" : value.Trim().ToLowerInvariant());
+        }
         public string ServiceServer { get => _serviceServer; set => _serviceServer = value; }
         public bool IsRestrictedPublishPerm { get => _isRestrictedPublishPerm; set => _isRestrictedPublishPerm = value; }
         public string OpensslVersion { get => _opensslVersion; set => _opensslVersion = value; }
@@ -317,6 +323,7 @@ namespace NetworkMonitor.Connection
                 DisabledCommands = config.GetSection("DisabledCommands").Get<List<string>>() ?? new List<string>();
 
                 EndpointTypes = EndPointTypeFactory.GetEnabledEndPoints(DisabledEndpointTypes);
+                OSPlatform = config["OSPlatform"] ?? "linux";
                 DefaultEndpointType = config["DefaultEndpointType"] ?? "icmp";
                 UseDefaultEndpointType = bool.TryParse(config["UseDefaultEndpointType"], out bool useDefaultEndpointType) ? useDefaultEndpointType : false;
                 ServiceDomain = config["ServiceDomain"] ?? AppConstants.AppDomain;

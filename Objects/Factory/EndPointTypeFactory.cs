@@ -32,6 +32,26 @@ namespace NetworkMonitor.Objects.Factory
     }
     public static class EndPointTypeFactory
     {
+        private static readonly string[] AndroidPuppeteerEndpointTypes =
+        {
+            "httpfull",
+            "sitehash",
+            "crawlsite",
+            "dailycrawl",
+            "dailyhugkeepalive",
+            "hugwake"
+        };
+
+        private static readonly string[] AndroidPuppeteerCommands =
+        {
+            "searchweb",
+            "searchengage",
+            "crawlpage",
+            "crawlsite",
+            "hugspacewake",
+            "hugspacekeepalive"
+        };
+
 
         private static readonly List<EndpointType> _endpointTypes = new List<EndpointType>
         {
@@ -193,6 +213,55 @@ namespace NetworkMonitor.Objects.Factory
                 .ToList();
 
             return enabledEndpoints;
+        }
+
+        /// <summary>
+        /// Applies platform capability restrictions to config before auth/bootstrap so unsupported
+        /// web-automation features are announced as disabled.
+        /// The caller must provide the platform key (for example: "android").
+        /// </summary>
+        public static bool ApplyPlatformCapabilityPolicy(NetConnectConfig config, string? platform, ILogger? logger = null)
+        {
+            ArgumentNullException.ThrowIfNull(config);
+
+            bool isAndroid = string.Equals(platform, "android", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAndroid)
+            {
+                return false;
+            }
+
+            config.DisabledEndpointTypes ??= new List<string>();
+            config.DisabledCommands ??= new List<string>();
+
+            bool changed = false;
+            changed |= AddMissing(config.DisabledEndpointTypes, AndroidPuppeteerEndpointTypes);
+            changed |= AddMissing(config.DisabledCommands, AndroidPuppeteerCommands);
+
+            if (changed)
+            {
+                config.EndpointTypes = GetEnabledEndPoints(config.DisabledEndpointTypes);
+                logger?.LogInformation("Applied Android platform capability policy for browser automation features.");
+            }
+
+            return changed;
+        }
+
+        private static bool AddMissing(List<string> target, IEnumerable<string> values)
+        {
+            var existing = new HashSet<string>(target, StringComparer.OrdinalIgnoreCase);
+            bool changed = false;
+
+            foreach (var value in values)
+            {
+                if (existing.Add(value))
+                {
+                    target.Add(value);
+                    changed = true;
+                }
+            }
+
+            return changed;
         }
 
 

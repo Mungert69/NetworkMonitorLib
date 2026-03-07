@@ -9,7 +9,6 @@ using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Connection;
-using System.Runtime.InteropServices;
 using System.Linq;
 using System.Text;
 
@@ -155,8 +154,9 @@ By providing arguments to this processor, you can execute a wide range of Metasp
             string msfPath="";
             _cmdProcessorStates.CmdName="msfconsole";
             string output = "";
+            bool isWindows = string.Equals(_netConfig.OSPlatform, "windows", StringComparison.OrdinalIgnoreCase);
             // Use 'where' command to locate the executable in the system's PATH
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (isWindows)
             {
                 msfDir = await FindExecutableDirectoryInPath(_cmdProcessorStates.CmdName, "where");
                 msfPath = Path.Combine(msfDir, _cmdProcessorStates.CmdName) + ".bat";

@@ -9,7 +9,6 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -168,7 +167,8 @@ Examples:
 
             if (!string.IsNullOrWhiteSpace(_netConfig.CommandPath))
             {
-                string fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "ffmpeg.exe" : "ffmpeg";
+                bool isWindows = string.Equals(_netConfig.OSPlatform, "windows", StringComparison.OrdinalIgnoreCase);
+                string fileName = isWindows ? "ffmpeg.exe" : "ffmpeg";
                 string candidate = Path.Combine(_netConfig.CommandPath, fileName);
                 if (File.Exists(candidate))
                 {

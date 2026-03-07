@@ -80,8 +80,11 @@ namespace NetworkMonitor.Connection
 
                 }
 
+                bool isWindows = string.Equals(_netConfig.OSPlatform, "windows", StringComparison.OrdinalIgnoreCase);
+                bool isAndroid = string.Equals(_netConfig.OSPlatform, "android", StringComparison.OrdinalIgnoreCase);
+
 #if ANDROID
-                if (OperatingSystem.IsAndroid())
+                if (isAndroid)
                 {
                     string workingDirectory = _netConfig.CommandPath;
                     if (string.IsNullOrWhiteSpace(workingDirectory))
@@ -115,7 +118,7 @@ namespace NetworkMonitor.Connection
 
                 using (var process = new Process())
                 {
-                    if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                    if (isWindows)
                     {
                         // Windows environment - Use cmd.exe
                         process.StartInfo.FileName = "cmd.exe";
@@ -131,10 +134,10 @@ namespace NetworkMonitor.Connection
                             process.StartInfo.Arguments = $"/C {_netConfig.CommandPath + _cmdProcessorStates.CmdName} {arguments}";
                         }
                     }
-                    else if (Environment.OSVersion.Platform == PlatformID.Unix)
+                    else
                     {
                         // Linux/Unix or Android environment
-                        string shell = Environment.OSVersion.VersionString.Contains("Android") ? "/system/bin/sh" : "/bin/sh";
+                        string shell = isAndroid ? "/system/bin/sh" : "/bin/sh";
 
                         // Check if the command starts with "sh" or "sh -c"
                         if (arguments.TrimStart().StartsWith("sh") || arguments.TrimStart().StartsWith("sh -c"))

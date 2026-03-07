@@ -217,7 +217,7 @@ namespace NetworkMonitor.Connection
                 rawPayload,
                 cancellationToken);
 #else
-            if (OperatingSystem.IsLinux())
+            if (string.Equals(_netConfig.OSPlatform, "linux", StringComparison.OrdinalIgnoreCase))
             {
                 return await RunLinuxAsync(
                     normalizedAddress,
@@ -253,7 +253,7 @@ namespace NetworkMonitor.Connection
             string rawPayload,
             CancellationToken cancellationToken)
         {
-            if (!OperatingSystem.IsAndroid())
+            if (!string.Equals(_netConfig.OSPlatform, "android", StringComparison.OrdinalIgnoreCase))
             {
                 return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows." };
             }
@@ -674,7 +674,7 @@ namespace NetworkMonitor.Connection
             string rawPayload,
             CancellationToken cancellationToken)
         {
-            if (!OperatingSystem.IsWindows())
+            if (!string.Equals(_netConfig.OSPlatform, "windows", StringComparison.OrdinalIgnoreCase))
             {
                 return new ResultObj { Success = false, Message = "BLE broadcast processor is only available on Android or Windows." };
             }
