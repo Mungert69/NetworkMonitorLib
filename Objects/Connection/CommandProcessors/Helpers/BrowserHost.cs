@@ -54,9 +54,8 @@ namespace NetworkMonitor.Connection
             catch (Exception ex)
             {
                 try { _logger.LogError(ex, "GetBrowserAsync failed: {Message}", ex.Message); } catch { }
-       
+                throw new InvalidOperationException("Chromium launch failed.", ex);
             }
-            return null!;
         }
 
         public async Task<T> RunWithPage<T>(Func<IPage, Task<T>> work, CancellationToken ct = default)

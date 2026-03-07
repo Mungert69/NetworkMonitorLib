@@ -106,13 +106,45 @@ namespace NetworkMonitor.Connection
         {
             var vpo = new ViewPortOptions { Width = 1920, Height = 1280 };
             commandPath = Path.GetFullPath(commandPath.Replace('/', Path.DirectorySeparatorChar));
-            var downloadPath = Path.Combine(commandPath, "chrome-bin");
+            var platform = ResolvePuppeteerPlatform(logger);
+            var downloadPath = Path.Combine(commandPath, "chrome-bin", platform.ToString());
 
             if (!Directory.Exists(downloadPath))
                 Directory.CreateDirectory(downloadPath);
 
-            var bfo = new BrowserFetcherOptions { Path = downloadPath };
+            var bfo = new BrowserFetcherOptions
+            {
+                Path = downloadPath,
+                Platform = platform,
+                Browser = SupportedBrowser.Chrome
+            };
             logger?.LogInformation($"LaunchHelper Chromium path is {bfo.Path}");
+            logger?.LogInformation(
+                "Puppeteer download platform is {PuppeteerPlatform} (TARGETARCH={TargetArch}, OS={OSArch}, Process={ProcessArch})",
+                platform,
+                Environment.GetEnvironmentVariable("TARGETARCH"),
+                RuntimeInformation.OSArchitecture,
+                RuntimeInformation.ProcessArchitecture);
+
+            if (platform == Platform.LinuxArm64)
+            {
+                var arm64Executable = ResolveLinuxArm64Executable(logger);
+                if (string.IsNullOrEmpty(arm64Executable))
+                {
+                    throw new FileNotFoundException(
+                        "No native Linux arm64 Chromium executable was found. Install 'chromium' or set CHROME_EXECUTABLE_PATH to a native arm64 browser binary.");
+                }
+
+                if (!ValidateChromeExecutable(arm64Executable))
+                {
+                    throw new InvalidOperationException(
+                        $"Native Linux arm64 browser executable exists but failed validation: {arm64Executable}");
+                }
+
+                logger?.LogInformation("Using native Linux arm64 Chromium executable path {ExecutablePath}", arm64Executable);
+                return CreateLaunchOptions(vpo, useHeadless, arm64Executable);
+            }
+
             var browserFetcher = new BrowserFetcher(bfo);
 
             var chromiumPath = Path.Combine(bfo.Path, "Chrome");
@@ -164,27 +196,7 @@ namespace NetworkMonitor.Connection
                 throw new FileNotFoundException("Chrome executable not found");
 
             logger?.LogInformation($"Using Chrome executable path {chromeExecutable}");
-
-            var lo = new LaunchOptions
-            {
-                Headless = useHeadless,
-                DefaultViewport = vpo,
-                ExecutablePath = chromeExecutable,
-                Args = new[]
-                {
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-extensions",
-                    "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                    "--user-agent=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36\""
-
-                }
-            };
-
-            return lo;
+            return CreateLaunchOptions(vpo, useHeadless, chromeExecutable);
 
              string? FindChromeExecutable(string rootPath)
             {
@@ -201,6 +213,104 @@ namespace NetworkMonitor.Connection
                 }
                 catch { return null; }
             }
+        }
+
+        private static string? ResolveLinuxArm64Executable(ILogger? logger = null)
+        {
+            var configuredPath = Environment.GetEnvironmentVariable("CHROME_EXECUTABLE_PATH");
+            if (!string.IsNullOrWhiteSpace(configuredPath))
+            {
+                var normalizedPath = Path.GetFullPath(configuredPath.Trim());
+                if (File.Exists(normalizedPath))
+                    return normalizedPath;
+
+                logger?.LogWarning("CHROME_EXECUTABLE_PATH is set to {ConfiguredPath}, but the file was not found.", normalizedPath);
+            }
+
+            var candidates = new[]
+            {
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/snap/bin/chromium",
+                "/usr/bin/google-chrome-stable",
+                "/usr/bin/google-chrome"
+            };
+
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+
+            return null;
+        }
+
+        private static LaunchOptions CreateLaunchOptions(ViewPortOptions viewPortOptions, bool useHeadless, string chromeExecutable)
+        {
+            return new LaunchOptions
+            {
+                Headless = useHeadless,
+                DefaultViewport = viewPortOptions,
+                ExecutablePath = chromeExecutable,
+                Args = new[]
+                {
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-extensions",
+                    "--disable-gpu",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--user-agent=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36\""
+                }
+            };
+        }
+
+        private static Platform ResolvePuppeteerPlatform(ILogger? logger = null)
+        {
+            var targetArch = Environment.GetEnvironmentVariable("TARGETARCH")?.Trim().ToLowerInvariant();
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                var runtimePlatform = RuntimeInformation.OSArchitecture == Architecture.Arm64
+                    ? Platform.LinuxArm64
+                    : Platform.Linux;
+
+                Platform? envPlatform = targetArch switch
+                {
+                    "arm64" or "aarch64" => Platform.LinuxArm64,
+                    "amd64" or "x64" or "x86_64" => Platform.Linux,
+                    _ => null
+                };
+
+                if (envPlatform.HasValue && envPlatform.Value != runtimePlatform)
+                {
+                    logger?.LogWarning(
+                        "Ignoring TARGETARCH={TargetArch}; runtime OS architecture is {OSArch}, using {RuntimePlatform}.",
+                        targetArch,
+                        RuntimeInformation.OSArchitecture,
+                        runtimePlatform);
+                }
+
+                return runtimePlatform;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return RuntimeInformation.OSArchitecture == Architecture.Arm64
+                    ? Platform.MacOSArm64
+                    : Platform.MacOS;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return RuntimeInformation.OSArchitecture == Architecture.X86
+                    ? Platform.Win32
+                    : Platform.Win64;
+            }
+
+            logger?.LogWarning("Unsupported OS for Puppeteer platform mapping; falling back to Linux platform.");
+            return Platform.Linux;
         }
 
         private async Task SafeDownloadChromiumAsync(
