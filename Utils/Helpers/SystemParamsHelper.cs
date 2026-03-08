@@ -463,6 +463,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.StartThisTestLLM = _config.GetValue<bool?>("StartThisTestLLM") ?? true;
             mlParams.NoNShot = _config.GetValue<bool?>("NoNShot") ?? false;
             mlParams.LlmUseInlineImageData = _config.GetValue<bool?>("LlmUseInlineImageData") ?? false;
+            mlParams.LlmAllowSystemMessagesAfterFirst = _config.GetValue<bool?>("LlmAllowSystemMessagesAfterFirst") ?? true;
             mlParams.LlmHfSupportsFunctionCalling = _config.GetValue<bool?>("LlmHfSupportsFunctionCalling") ?? true;
             mlParams.LlmUseToolRoleForFunctionResponses = _config.GetValue<bool?>("LlmUseToolRoleForFunctionResponses") ?? true;
             mlParams.LlmNoThink = _config.GetValue<bool?>("LlmNoThink") ?? false;
