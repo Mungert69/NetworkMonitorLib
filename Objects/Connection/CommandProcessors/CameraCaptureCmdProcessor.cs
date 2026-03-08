@@ -1028,7 +1028,11 @@ Examples:
 
                 var args = new List<string>
                 {
-                    "-y"
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-nostats"
                 };
 
                 if (isRtsp)
