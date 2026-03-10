@@ -2,7 +2,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using DotNetEnv;
 
 namespace NetworkMonitor.Utils.Helpers
 {
@@ -10,6 +12,9 @@ namespace NetworkMonitor.Utils.Helpers
     {
         private static IConfiguration? _config;
         private static ILogger? _logger;
+        private static readonly object _envLoadLock = new();
+        private static readonly HashSet<string> _loadedEnvFiles = new(StringComparer.Ordinal);
+        private static readonly HashSet<string> _missingEnvPaths = new(StringComparer.Ordinal);
 
         /// <summary>
         /// Call once at startup so you can use parameterless GetSection/GetConfigValue overloads.
@@ -79,6 +84,7 @@ namespace NetworkMonitor.Utils.Helpers
 
             if (string.Equals(value, ".env", StringComparison.Ordinal))
             {
+                EnsureEnvironmentLoaded(config, logger);
                 var envVar = Environment.GetEnvironmentVariable(key);
                 if (string.IsNullOrEmpty(envVar))
                 {
@@ -108,6 +114,7 @@ namespace NetworkMonitor.Utils.Helpers
             // Case 1: Section is a scalar and equals ".env" -> read ENV and synthesize
             if (string.Equals(section.Value, ".env", StringComparison.Ordinal))
             {
+                EnsureEnvironmentLoaded(config, logger);
                 var envVal = Environment.GetEnvironmentVariable(key);
                 if (string.IsNullOrWhiteSpace(envVal))
                 {
@@ -150,6 +157,7 @@ namespace NetworkMonitor.Utils.Helpers
                 {
                     if (string.Equals(child.Value, ".env", StringComparison.Ordinal))
                     {
+                        EnsureEnvironmentLoaded(config, logger);
                         changed = true;
                         // Child key ENV lookup uses the child’s full key path as the env name?
                         // Keeping behavior: look up ENV by child.Key (short key), which matches earlier code.
@@ -204,6 +212,61 @@ namespace NetworkMonitor.Utils.Helpers
         {
             if (_config is null)
                 throw new InvalidOperationException("GetConfigHelper.Initialize(config, logger) must be called before using parameterless methods.");
+        }
+
+        private static void EnsureEnvironmentLoaded(IConfiguration config, ILogger? logger)
+        {
+            var configuredEnvPath = config["EnvPath"];
+            var envPath = string.IsNullOrWhiteSpace(configuredEnvPath) ? ".env" : configuredEnvPath;
+            var candidates = BuildEnvPathCandidates(envPath).ToList();
+            var existingPath = candidates.FirstOrDefault(File.Exists);
+
+            lock (_envLoadLock)
+            {
+                if (string.IsNullOrWhiteSpace(existingPath))
+                {
+                    if (_missingEnvPaths.Add(envPath))
+                    {
+                        logger?.LogWarning("No .env file found for EnvPath '{EnvPath}'. Checked: {Candidates}", envPath, string.Join(", ", candidates));
+                    }
+                    return;
+                }
+
+                var fullPath = Path.GetFullPath(existingPath);
+                if (_loadedEnvFiles.Contains(fullPath))
+                {
+                    return;
+                }
+
+                try
+                {
+                    Env.Load(fullPath);
+                    _loadedEnvFiles.Add(fullPath);
+                    logger?.LogInformation("Loaded environment variables from: {EnvPath}", fullPath);
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogError(ex, "Failed to load environment variables from: {EnvPath}", fullPath);
+                }
+            }
+        }
+
+        private static IEnumerable<string> BuildEnvPathCandidates(string envPath)
+        {
+            if (Path.IsPathRooted(envPath))
+            {
+                yield return Path.GetFullPath(envPath);
+                yield break;
+            }
+
+            var currentDirectoryPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), envPath));
+            yield return currentDirectoryPath;
+
+            var appBasePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, envPath));
+            if (!string.Equals(currentDirectoryPath, appBasePath, StringComparison.Ordinal))
+            {
+                yield return appBasePath;
+            }
         }
     }
 }

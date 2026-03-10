@@ -23,8 +23,15 @@ internal static class TestUtilities
         var type = typeof(GetConfigHelper);
         var configField = type.GetField("_config", BindingFlags.Static | BindingFlags.NonPublic);
         var loggerField = type.GetField("_logger", BindingFlags.Static | BindingFlags.NonPublic);
+        var loadedEnvFilesField = type.GetField("_loadedEnvFiles", BindingFlags.Static | BindingFlags.NonPublic);
+        var missingEnvPathsField = type.GetField("_missingEnvPaths", BindingFlags.Static | BindingFlags.NonPublic);
         configField?.SetValue(null, null);
         loggerField?.SetValue(null, null);
+        var loadedEnvFiles = loadedEnvFilesField?.GetValue(null);
+        loadedEnvFiles?.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public)?.Invoke(loadedEnvFiles, null);
+
+        var missingEnvPaths = missingEnvPathsField?.GetValue(null);
+        missingEnvPaths?.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public)?.Invoke(missingEnvPaths, null);
     }
 
     internal static string CreateTempFile(string? content = "")

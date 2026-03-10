@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using NetworkMonitor.Utils.Helpers;
@@ -89,5 +90,36 @@ public class GetConfigHelperTests
         Assert.Equal("from-env", apiKey);
 
         Environment.SetEnvironmentVariable("ApiKey", null);
+    }
+
+    [Fact]
+    public void GetConfigValue_LoadsFromEnvFile_WhenConfiguredAsDotEnv()
+    {
+        var envFilePath = TestUtilities.CreateTempFile("PfxKey=from-env-file");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "EnvPath", envFilePath },
+                { "PfxKey", ".env" }
+            })
+            .Build();
+
+        Environment.SetEnvironmentVariable("PfxKey", null);
+        TestUtilities.ResetGetConfigHelper();
+        GetConfigHelper.Initialize(config);
+
+        try
+        {
+            var value = GetConfigHelper.GetConfigValue("PfxKey", "default");
+            Assert.Equal("from-env-file", value);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PfxKey", null);
+            if (File.Exists(envFilePath))
+            {
+                File.Delete(envFilePath);
+            }
+        }
     }
 }
