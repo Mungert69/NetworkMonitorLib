@@ -491,12 +491,88 @@ namespace NetworkMonitor.Objects.Repository
                 return true;
             }
 
+            string cloudEventType = string.Empty;
+            string cloudEventId = string.Empty;
+            string cloudEventSource = string.Empty;
+            string appId = string.Empty;
+            TryExtractCloudEventDiagnostics(@event, out cloudEventType, out cloudEventId, out cloudEventSource, out appId);
+
             _logger.LogWarning(
-                "Rabbit listener rejected message without validated user-id. Exchange={Exchange}, RoutingKey={RoutingKey}, DeliveryTag={DeliveryTag}",
+                "Rabbit listener rejected message without validated user-id. Exchange={Exchange}, RoutingKey={RoutingKey}, DeliveryTag={DeliveryTag}, CloudEventType={CloudEventType}, CloudEventId={CloudEventId}, CloudEventSource={CloudEventSource}, AppID={AppID}",
                 @event.Exchange,
                 @event.RoutingKey,
-                @event.DeliveryTag);
+                @event.DeliveryTag,
+                cloudEventType,
+                cloudEventId,
+                cloudEventSource,
+                appId);
             return false;
+        }
+
+        private static void TryExtractCloudEventDiagnostics(
+            BasicDeliverEventArgs @event,
+            out string cloudEventType,
+            out string cloudEventId,
+            out string cloudEventSource,
+            out string appId)
+        {
+            cloudEventType = string.Empty;
+            cloudEventId = string.Empty;
+            cloudEventSource = string.Empty;
+            appId = string.Empty;
+
+            try
+            {
+                string json = Encoding.UTF8.GetString(@event.Body.ToArray());
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("type", out var typeEl) && typeEl.ValueKind == JsonValueKind.String)
+                {
+                    cloudEventType = typeEl.GetString() ?? string.Empty;
+                }
+
+                if (root.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String)
+                {
+                    cloudEventId = idEl.GetString() ?? string.Empty;
+                }
+
+                if (root.TryGetProperty("source", out var sourceEl) && sourceEl.ValueKind == JsonValueKind.String)
+                {
+                    cloudEventSource = sourceEl.GetString() ?? string.Empty;
+                }
+
+                if (!root.TryGetProperty("data", out var dataEl))
+                {
+                    return;
+                }
+
+                if (dataEl.ValueKind != JsonValueKind.Object)
+                {
+                    return;
+                }
+
+                if (dataEl.TryGetProperty("AppID", out var appIdEl) && appIdEl.ValueKind == JsonValueKind.String)
+                {
+                    appId = appIdEl.GetString() ?? string.Empty;
+                    return;
+                }
+
+                if (dataEl.TryGetProperty("appID", out var appIdLowerEl) && appIdLowerEl.ValueKind == JsonValueKind.String)
+                {
+                    appId = appIdLowerEl.GetString() ?? string.Empty;
+                    return;
+                }
+
+                if (dataEl.TryGetProperty("appId", out var appIdCamelEl) && appIdCamelEl.ValueKind == JsonValueKind.String)
+                {
+                    appId = appIdCamelEl.GetString() ?? string.Empty;
+                }
+            }
+            catch
+            {
+                // Diagnostics-only path: never throw from validation logging.
+            }
         }
 
         protected string GetPublisherUserId(BasicDeliverEventArgs @event)
