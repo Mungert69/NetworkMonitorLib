@@ -91,7 +91,11 @@ public class MLParams
     private Dictionary<string, string> _expertPromptProfileByToolsId = new(StringComparer.OrdinalIgnoreCase);
     private string _expertExtraPrompt = "";
     private Dictionary<string, string> _expertExtraPromptByToolsId = new(StringComparer.OrdinalIgnoreCase);
+    private string _cameraReferenceIdentityName = "";
+    private string _cameraReferenceIdentityImageUrl = "";
+    private string _cameraReferenceIdentityInstructions = "";
     private bool _llmUseInlineImageData = false;
+    private bool _llmUseCacheHttpImageUrls = false;
     private bool _llmAllowSystemMessagesAfterFirst = true;
 
     private Dictionary<string, string> _llmFunctionDic = new Dictionary<string, string>();
@@ -159,6 +163,9 @@ public class MLParams
     public Dictionary<string, string> ExpertPromptProfileByToolsId { get => _expertPromptProfileByToolsId; set => _expertPromptProfileByToolsId = value ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
     public string ExpertExtraPrompt { get => _expertExtraPrompt; set => _expertExtraPrompt = value ?? ""; }
     public Dictionary<string, string> ExpertExtraPromptByToolsId { get => _expertExtraPromptByToolsId; set => _expertExtraPromptByToolsId = value ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
+    public string CameraReferenceIdentityName { get => _cameraReferenceIdentityName; set => _cameraReferenceIdentityName = value ?? ""; }
+    public string CameraReferenceIdentityImageUrl { get => _cameraReferenceIdentityImageUrl; set => _cameraReferenceIdentityImageUrl = value ?? ""; }
+    public string CameraReferenceIdentityInstructions { get => _cameraReferenceIdentityInstructions; set => _cameraReferenceIdentityInstructions = value ?? ""; }
     public string DefaultAgentLocation { get => _defaultAgentLocation; set => _defaultAgentLocation = value; }
     public Dictionary<string, string> LlmAgentDic { get => _llmAgentDic; set => _llmAgentDic = value; }
     public bool EnableAgentFlow { get => _enableAgentFlow; set => _enableAgentFlow = value; }
@@ -195,6 +202,7 @@ public class MLParams
     public global::System.Int32 MaxFunctionCallsInARow { get => _maxFunctionCallsInARow; set => _maxFunctionCallsInARow = value; }
     public global::System.Boolean NoNShot { get => _noNShot; set => _noNShot = value; }
     public global::System.Boolean LlmUseInlineImageData { get => _llmUseInlineImageData; set => _llmUseInlineImageData = value; }
+    public global::System.Boolean LlmUseCacheHttpImageUrls { get => _llmUseCacheHttpImageUrls; set => _llmUseCacheHttpImageUrls = value; }
     public global::System.Boolean LlmAllowSystemMessagesAfterFirst { get => _llmAllowSystemMessagesAfterFirst; set => _llmAllowSystemMessagesAfterFirst = value; }
     public string GptModelVersion { get => _gptModelVersion; set => _gptModelVersion = value; }
     public global::System.Int32 HfRetryMaxAttempts { get => _hfRetryMaxAttempts; set => _hfRetryMaxAttempts = value; }

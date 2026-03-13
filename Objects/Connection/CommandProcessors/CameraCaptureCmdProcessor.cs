@@ -16,6 +16,9 @@ using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace NetworkMonitor.Connection
 {
@@ -24,6 +27,7 @@ namespace NetworkMonitor.Connection
         private const int DefaultLongEdge = 1024;
         private const int HighDetailLongEdge = 1280;
         private const int JpegQuality = 4; // ffmpeg scale where lower is better quality
+        private const int JpegEncodeQuality = 80;
 
         public CameraCaptureCmdProcessor(
             ILogger logger,
@@ -244,7 +248,7 @@ Examples:
                     return ffmpegResult;
                 }
 
-                var onvifFallbackResult = await CaptureStillFromHttpAsync(snapshotResult.Source, username, password, allowInsecureTls, cancellationToken);
+                var onvifFallbackResult = await CaptureStillFromHttpAsync(snapshotResult.Source, username, password, allowInsecureTls, longEdge, cancellationToken);
                 if (onvifFallbackResult.Success)
                 {
                     onvifFallbackResult.WarningMessage = "ffmpeg capture failed; used ONVIF HTTP snapshot fallback.";
@@ -272,7 +276,7 @@ Examples:
                 };
             }
 
-            var onvifRtspFallback = await CaptureStillFromHttpAsync(snapshotFallback.Source, username, password, allowInsecureTls, cancellationToken);
+            var onvifRtspFallback = await CaptureStillFromHttpAsync(snapshotFallback.Source, username, password, allowInsecureTls, longEdge, cancellationToken);
             if (onvifRtspFallback.Success)
             {
                 onvifRtspFallback.WarningMessage = "ffmpeg capture failed; used ONVIF HTTP snapshot fallback.";
@@ -1120,6 +1124,7 @@ Examples:
             string username,
             string password,
             bool allowInsecureTls,
+            int longEdge,
             CancellationToken cancellationToken)
         {
             try
@@ -1150,6 +1155,11 @@ Examples:
                     };
                 }
 
+                if (TryNormalizeImageBytes(bytes, longEdge, out var normalizedBytes))
+                {
+                    bytes = normalizedBytes;
+                }
+
                 return new CaptureResult
                 {
                     Success = true,
@@ -1164,6 +1174,54 @@ Examples:
                     Success = false,
                     ErrorMessage = $"HTTP snapshot fallback failed: {ex.Message}"
                 };
+            }
+        }
+
+        private static bool TryNormalizeImageBytes(byte[] sourceBytes, int longEdge, out byte[] normalizedBytes)
+        {
+            normalizedBytes = sourceBytes;
+            if (sourceBytes.Length == 0 || longEdge <= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                using var image = Image.Load(sourceBytes);
+                int width = image.Width;
+                int height = image.Height;
+                if (width <= 0 || height <= 0)
+                {
+                    return false;
+                }
+
+                int targetWidth;
+                int targetHeight;
+                if (width >= height)
+                {
+                    targetWidth = longEdge;
+                    targetHeight = Math.Max(1, (int)Math.Round(height * (longEdge / (double)width)));
+                }
+                else
+                {
+                    targetHeight = longEdge;
+                    targetWidth = Math.Max(1, (int)Math.Round(width * (longEdge / (double)height)));
+                }
+
+                if (targetWidth != width || targetHeight != height)
+                {
+                    image.Mutate(x => x.Resize(targetWidth, targetHeight));
+                }
+
+                using var output = new MemoryStream();
+                image.Save(output, new JpegEncoder { Quality = JpegEncodeQuality });
+                normalizedBytes = output.ToArray();
+                return normalizedBytes.Length > 0;
+            }
+            catch
+            {
+                normalizedBytes = sourceBytes;
+                return false;
             }
         }
 

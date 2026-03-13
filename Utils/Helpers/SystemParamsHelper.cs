@@ -443,6 +443,9 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.ExpertExtraPromptByToolsId = expertExtraPromptByToolsId == null
                 ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, string>(expertExtraPromptByToolsId, StringComparer.OrdinalIgnoreCase);
+            mlParams.CameraReferenceIdentityName = _config.GetValue<string>("CameraReferenceIdentityName") ?? "";
+            mlParams.CameraReferenceIdentityImageUrl = _config.GetValue<string>("CameraReferenceIdentityImageUrl") ?? "";
+            mlParams.CameraReferenceIdentityInstructions = _config.GetValue<string>("CameraReferenceIdentityInstructions") ?? "";
             var primaryMonitorRoleByRunner = _config.GetSection("PrimaryMonitorRoleByRunner")
                 .Get<Dictionary<string, string>>();
             mlParams.PrimaryMonitorRoleByRunner = primaryMonitorRoleByRunner == null
@@ -463,6 +466,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.StartThisTestLLM = _config.GetValue<bool?>("StartThisTestLLM") ?? true;
             mlParams.NoNShot = _config.GetValue<bool?>("NoNShot") ?? false;
             mlParams.LlmUseInlineImageData = _config.GetValue<bool?>("LlmUseInlineImageData") ?? false;
+            mlParams.LlmUseCacheHttpImageUrls = _config.GetValue<bool?>("LlmUseCacheHttpImageUrls") ?? false;
             mlParams.LlmAllowSystemMessagesAfterFirst = _config.GetValue<bool?>("LlmAllowSystemMessagesAfterFirst") ?? true;
             mlParams.LlmHfSupportsFunctionCalling = _config.GetValue<bool?>("LlmHfSupportsFunctionCalling") ?? true;
             mlParams.LlmUseToolRoleForFunctionResponses = _config.GetValue<bool?>("LlmUseToolRoleForFunctionResponses") ?? true;
@@ -509,7 +513,7 @@ namespace NetworkMonitor.Utils.Helpers
                 mlParams.RemoteCache.Enabled = remoteCacheSection.GetValue<bool>("Enabled");
                 mlParams.RemoteCache.Type = remoteCacheSection.GetValue<string>("Type") ?? "Http";
                 mlParams.RemoteCache.BaseUrl = remoteCacheSection.GetValue<string>("BaseUrl") ?? "";
-                mlParams.RemoteCache.ApiKey = remoteCacheSection.GetValue<string>("ApiKey", "");
+                mlParams.RemoteCache.ApiKey = GetConfigHelper.GetConfigValue(_logger, remoteCacheSection, "API_KEY", "");
                 mlParams.RemoteCache.TimeoutSeconds = remoteCacheSection.GetValue<int>("TimeoutSeconds", 30);
                 mlParams.RemoteCache.RetryAttempts = remoteCacheSection.GetValue<int>("RetryAttempts", 3);
             }
