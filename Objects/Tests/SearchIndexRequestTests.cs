@@ -14,6 +14,10 @@ public class SearchIndexRequestTests
         Assert.Equal(string.Empty, request.SessionId);
         Assert.Equal(0, request.TopK);
         Assert.False(request.IncludeToolTurns);
+        Assert.False(request.IncludeMetadata);
+        Assert.Equal(string.Empty, request.AnchorDocId);
+        Assert.Equal(string.Empty, request.AnchorChunkId);
+        Assert.Equal(0, request.NeighborWindow);
         Assert.Equal(VectorSearchMode.content, request.VectorSearchMode);
     }
 

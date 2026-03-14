@@ -59,6 +59,10 @@ public class QueryIndexRequest
     public string SessionId { get; set; } = "";
     public int TopK { get; set; } = 0;
     public bool IncludeToolTurns { get; set; } = false;
+    public bool IncludeMetadata { get; set; } = false;
+    public string AnchorDocId { get; set; } = "";
+    public string AnchorChunkId { get; set; } = "";
+    public int NeighborWindow { get; set; } = 0;
     public string AppID { get; set; } = "";
     public string AuthKey { get; set; } = "";
     public string MessageID { get; set; } = "";

@@ -137,11 +137,16 @@ namespace NetworkMonitor.Coordinator
         {
             var queryText=queryIndexRequest.QueryText;
             var messageId=queryIndexRequest.MessageID;
-            var hashKey = GetQueryHash(queryText);
+            var cacheKey = BuildQueryCacheKey(queryIndexRequest);
+            var hashKey = GetQueryHash(cacheKey);
             if (_queryCache.TryGetValue(hashKey, out var cached) &&
                 DateTime.UtcNow - cached.timestamp < _cacheTTL)
             {
-                _logger.LogInformation($"QueryCoordinator cache hit for query='{queryText}'. Returning cached result.");
+                _logger.LogInformation("QueryCoordinator cache hit for messageId={MessageId}, index={Index}, mode={Mode}, topK={TopK}.",
+                    messageId,
+                    queryIndexRequest.IndexName,
+                    queryIndexRequest.VectorSearchMode,
+                    queryIndexRequest.TopK);
                 return cached.result;
             }
             var tcs = new TaskCompletionSource<string>();
@@ -204,6 +209,25 @@ namespace NetworkMonitor.Coordinator
             // Compute hash and convert to int
             byte[] hashBytes = _hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes(normalizedQuery));
             return BitConverter.ToInt32(hashBytes, 0);
+        }
+
+        private static string BuildQueryCacheKey(QueryIndexRequest request)
+        {
+            static string N(string? value) =>
+                (value ?? string.Empty).Trim().ToLowerInvariant().Replace("\r", "").Replace("\n", " ");
+
+            return string.Join("|",
+                N(request.IndexName),
+                N(request.QueryText),
+                request.VectorSearchMode.ToString().ToLowerInvariant(),
+                request.TopK.ToString(),
+                request.IncludeToolTurns ? "1" : "0",
+                request.IncludeMetadata ? "1" : "0",
+                N(request.UserId),
+                N(request.SessionId),
+                N(request.AnchorDocId),
+                N(request.AnchorChunkId),
+                request.NeighborWindow.ToString());
         }
         public void ClearCache()
         {
