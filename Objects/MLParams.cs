@@ -44,6 +44,7 @@ public class MLParams
     private string _llmGptModel = "gpt-4o-mini";
     private string _llmHFModelID = "";
     private string _llmHFKey = "";
+    private string _llmEmbedKey = "";
     private string _llmHFUrl = "";
     private string _llmOpenAIUrl = "";
     private bool _llmUseHF;
@@ -133,6 +134,7 @@ public class MLParams
     public bool XmlFunctionParsing { get => _xmlFunctionParsing; set => _xmlFunctionParsing = value; }
     public string LlmHFModelID { get => _llmHFModelID; set => _llmHFModelID = value; }
     public string LlmHFKey { get => _llmHFKey; set => _llmHFKey = value; }
+    public string LlmEmbedKey { get => _llmEmbedKey; set => _llmEmbedKey = value; }
     public string LlmHFUrl { get => _llmHFUrl; set => _llmHFUrl = value; }
     public string LlmOpenAIUrl { get => _llmOpenAIUrl; set => _llmOpenAIUrl = value; }
     public bool LlmUseHF { get => _llmUseHF; set => _llmUseHF = value; }
