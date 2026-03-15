@@ -497,6 +497,31 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.OpenSearchUser = _config.GetValue<string>("OpenSearchUser") ?? "admin";
             mlParams.OpenSearchDefaultIndex = _config.GetValue<string>("OpenSearchDefaultIndex") ?? "documents";
             mlParams.OpenSearchUrl = _config.GetValue<string>("OpenSearchUrl") ?? "https://opensearch:9200";
+            mlParams.OpenSearchHttpTimeoutSeconds = int.TryParse(_config["OpenSearchHttpTimeoutSeconds"], out var openSearchHttpTimeoutSeconds)
+                ? openSearchHttpTimeoutSeconds
+                : 300;
+            var openSearchIndexTimeouts = _config.GetSection("OpenSearchIndexTimeoutSeconds")
+                .Get<Dictionary<string, int>>();
+            mlParams.OpenSearchIndexTimeoutSeconds = openSearchIndexTimeouts == null
+                ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, int>(openSearchIndexTimeouts, StringComparer.OrdinalIgnoreCase);
+            mlParams.OpenSearchHybridIndices = _config.GetSection("OpenSearchHybridIndices").Get<List<string>>() ?? new List<string>();
+            mlParams.OpenSearchHybridRerankEnabled = _config.GetValue<bool?>("OpenSearchHybridRerankEnabled") ?? true;
+            mlParams.OpenSearchHybridCandidateMultiplier = int.TryParse(_config["OpenSearchHybridCandidateMultiplier"], out var openSearchHybridCandidateMultiplier)
+                ? openSearchHybridCandidateMultiplier
+                : 4;
+            mlParams.OpenSearchHybridMinCandidates = int.TryParse(_config["OpenSearchHybridMinCandidates"], out var openSearchHybridMinCandidates)
+                ? openSearchHybridMinCandidates
+                : 12;
+            mlParams.OpenSearchHybridRrfK = int.TryParse(_config["OpenSearchHybridRrfK"], out var openSearchHybridRrfK)
+                ? openSearchHybridRrfK
+                : 60;
+            mlParams.OpenSearchHybridVectorWeight = float.TryParse(_config["OpenSearchHybridVectorWeight"], out var openSearchHybridVectorWeight)
+                ? openSearchHybridVectorWeight
+                : 1.0f;
+            mlParams.OpenSearchHybridLexicalWeight = float.TryParse(_config["OpenSearchHybridLexicalWeight"], out var openSearchHybridLexicalWeight)
+                ? openSearchHybridLexicalWeight
+                : 1.0f;
             mlParams.SetVectorSearchModeFromString(_config.GetValue<string>("VectorSearchMode") ?? "content");
             // Embedding provider config
             mlParams.EmbeddingProvider = _config.GetValue<string>("EmbeddingProvider") ?? "local";

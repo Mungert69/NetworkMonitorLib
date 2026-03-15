@@ -65,6 +65,13 @@ public class MLParams
     private string _hFToken = "";
     private int _openSearchHttpTimeoutSeconds = 300;
     private Dictionary<string, int> _openSearchIndexTimeoutSeconds = new(StringComparer.OrdinalIgnoreCase);
+    private List<string> _openSearchHybridIndices = new();
+    private bool _openSearchHybridRerankEnabled = true;
+    private int _openSearchHybridCandidateMultiplier = 4;
+    private int _openSearchHybridMinCandidates = 12;
+    private int _openSearchHybridRrfK = 60;
+    private float _openSearchHybridVectorWeight = 1.0f;
+    private float _openSearchHybridLexicalWeight = 1.0f;
     private bool _addSystemRag = false;
     private bool _addFunctionRag = false;
     private string _defaultAgentLocation = "";
@@ -153,6 +160,13 @@ public class MLParams
     public string OpenSearchUrl { get => _openSearchUrl; set => _openSearchUrl = value; }
     public int OpenSearchHttpTimeoutSeconds { get => _openSearchHttpTimeoutSeconds; set => _openSearchHttpTimeoutSeconds = value; }
     public Dictionary<string, int> OpenSearchIndexTimeoutSeconds { get => _openSearchIndexTimeoutSeconds; set => _openSearchIndexTimeoutSeconds = value ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase); }
+    public List<string> OpenSearchHybridIndices { get => _openSearchHybridIndices; set => _openSearchHybridIndices = value ?? new List<string>(); }
+    public bool OpenSearchHybridRerankEnabled { get => _openSearchHybridRerankEnabled; set => _openSearchHybridRerankEnabled = value; }
+    public int OpenSearchHybridCandidateMultiplier { get => _openSearchHybridCandidateMultiplier; set => _openSearchHybridCandidateMultiplier = value; }
+    public int OpenSearchHybridMinCandidates { get => _openSearchHybridMinCandidates; set => _openSearchHybridMinCandidates = value; }
+    public int OpenSearchHybridRrfK { get => _openSearchHybridRrfK; set => _openSearchHybridRrfK = value; }
+    public float OpenSearchHybridVectorWeight { get => _openSearchHybridVectorWeight; set => _openSearchHybridVectorWeight = value; }
+    public float OpenSearchHybridLexicalWeight { get => _openSearchHybridLexicalWeight; set => _openSearchHybridLexicalWeight = value; }
     public string OpenAIApiKey { get => _openAIApiKey; set => _openAIApiKey = value; }
     public string DataRepoId { get => _dataRepoId; set => _dataRepoId = value; }
     public string HFToken { get => _hFToken; set => _hFToken = value; }
