@@ -522,6 +522,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.OpenSearchHybridLexicalWeight = float.TryParse(_config["OpenSearchHybridLexicalWeight"], out var openSearchHybridLexicalWeight)
                 ? openSearchHybridLexicalWeight
                 : 1.0f;
+            mlParams.OpenSearchEnableAltQuestionFields = _config.GetValue<bool?>("OpenSearchEnableAltQuestionFields") ?? false;
             mlParams.SetVectorSearchModeFromString(_config.GetValue<string>("VectorSearchMode") ?? "content");
             // Embedding provider config
             mlParams.EmbeddingProvider = _config.GetValue<string>("EmbeddingProvider") ?? "local";

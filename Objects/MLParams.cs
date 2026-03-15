@@ -72,6 +72,7 @@ public class MLParams
     private int _openSearchHybridRrfK = 60;
     private float _openSearchHybridVectorWeight = 1.0f;
     private float _openSearchHybridLexicalWeight = 1.0f;
+    private bool _openSearchEnableAltQuestionFields = false;
     private bool _addSystemRag = false;
     private bool _addFunctionRag = false;
     private string _defaultAgentLocation = "";
@@ -167,6 +168,7 @@ public class MLParams
     public int OpenSearchHybridRrfK { get => _openSearchHybridRrfK; set => _openSearchHybridRrfK = value; }
     public float OpenSearchHybridVectorWeight { get => _openSearchHybridVectorWeight; set => _openSearchHybridVectorWeight = value; }
     public float OpenSearchHybridLexicalWeight { get => _openSearchHybridLexicalWeight; set => _openSearchHybridLexicalWeight = value; }
+    public bool OpenSearchEnableAltQuestionFields { get => _openSearchEnableAltQuestionFields; set => _openSearchEnableAltQuestionFields = value; }
     public string OpenAIApiKey { get => _openAIApiKey; set => _openAIApiKey = value; }
     public string DataRepoId { get => _dataRepoId; set => _dataRepoId = value; }
     public string HFToken { get => _hFToken; set => _hFToken = value; }
