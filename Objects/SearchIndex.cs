@@ -66,6 +66,7 @@ public class QueryIndexRequest
     public string FilterDocId { get; set; } = "";
     public string FilterChunkId { get; set; } = "";
     public string FilterSourceFile { get; set; } = "";
+    public string FilterSectionPath { get; set; } = "";
     public int FilterPageStart { get; set; } = 0;
     public int FilterPageEnd { get; set; } = 0;
     public int FilterChunkIndexMin { get; set; } = 0;

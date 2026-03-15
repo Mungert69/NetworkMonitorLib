@@ -231,6 +231,7 @@ namespace NetworkMonitor.Coordinator
                 N(request.FilterDocId),
                 N(request.FilterChunkId),
                 N(request.FilterSourceFile),
+                N(request.FilterSectionPath),
                 request.FilterPageStart.ToString(),
                 request.FilterPageEnd.ToString(),
                 request.FilterChunkIndexMin.ToString(),
