@@ -227,7 +227,14 @@ namespace NetworkMonitor.Coordinator
                 N(request.SessionId),
                 N(request.AnchorDocId),
                 N(request.AnchorChunkId),
-                request.NeighborWindow.ToString());
+                request.NeighborWindow.ToString(),
+                N(request.FilterDocId),
+                N(request.FilterChunkId),
+                N(request.FilterSourceFile),
+                request.FilterPageStart.ToString(),
+                request.FilterPageEnd.ToString(),
+                request.FilterChunkIndexMin.ToString(),
+                request.FilterChunkIndexMax.ToString());
         }
         public void ClearCache()
         {

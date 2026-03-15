@@ -18,6 +18,13 @@ public class SearchIndexRequestTests
         Assert.Equal(string.Empty, request.AnchorDocId);
         Assert.Equal(string.Empty, request.AnchorChunkId);
         Assert.Equal(0, request.NeighborWindow);
+        Assert.Equal(string.Empty, request.FilterDocId);
+        Assert.Equal(string.Empty, request.FilterChunkId);
+        Assert.Equal(string.Empty, request.FilterSourceFile);
+        Assert.Equal(0, request.FilterPageStart);
+        Assert.Equal(0, request.FilterPageEnd);
+        Assert.Equal(0, request.FilterChunkIndexMin);
+        Assert.Equal(0, request.FilterChunkIndexMax);
         Assert.Equal(VectorSearchMode.content, request.VectorSearchMode);
     }
 

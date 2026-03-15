@@ -63,6 +63,13 @@ public class QueryIndexRequest
     public string AnchorDocId { get; set; } = "";
     public string AnchorChunkId { get; set; } = "";
     public int NeighborWindow { get; set; } = 0;
+    public string FilterDocId { get; set; } = "";
+    public string FilterChunkId { get; set; } = "";
+    public string FilterSourceFile { get; set; } = "";
+    public int FilterPageStart { get; set; } = 0;
+    public int FilterPageEnd { get; set; } = 0;
+    public int FilterChunkIndexMin { get; set; } = 0;
+    public int FilterChunkIndexMax { get; set; } = 0;
     public string AppID { get; set; } = "";
     public string AuthKey { get; set; } = "";
     public string MessageID { get; set; } = "";

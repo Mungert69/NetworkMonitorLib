@@ -407,7 +407,8 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmProvider = _config.GetValue<string>("LlmProvider") ?? "OpenAI";
             mlParams.LlmToolCallIdLength = int.TryParse(_config["LlmToolCallIdLength"], out int toolCallIdLength) ? toolCallIdLength : 26;
             mlParams.LlmToolCallIdPrefix = _config.GetValue<string>("LlmToolCallIdPrefix") ?? "call_";
-            mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmHFKey");
+            mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmHFKey") ?? "";
+            if (string.IsNullOrEmpty(mlParams.LlmHFKey)) mlParams.LlmHFKey = GetConfigHelper.GetConfigValue("LlmORKey") ?? "";
             mlParams.DataRepoId = _config.GetValue<string>("DataRepoId") ?? "";
             mlParams.HFToken = GetConfigHelper.GetConfigValue("HF_TOKEN");
             mlParams.OpenAIApiKey = GetConfigHelper.GetConfigValue("OpenAIApiKey");
