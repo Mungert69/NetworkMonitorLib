@@ -90,5 +90,10 @@ namespace NetworkMonitor.Objects
         public string DbPassword { get => _dbPassword; set => _dbPassword = value; }
         public string DataDir { get => _dataDir; set => _dataDir = value; }
         public List<global::System.String> AudioServiceUrls { get => _audioServiceUrls; set => _audioServiceUrls = value; }
+
+        public override string ToString()
+        {
+            return $"SystemParams(SystemUrls={SystemUrls?.Count ?? 0}, ThisSystemUrl={ThisSystemUrl}, IsSingleSystem={IsSingleSystem}, SystemUser={SystemUser}, SystemEmail={SystemEmail}, MailServer={MailServer}, MailServerPort={MailServerPort}, MailServerUseSSL={MailServerUseSSL}, PublicIPAddress={PublicIPAddress}, DefaultRegion={DefaultRegion}, EnabledRegions={EnabledRegions?.Count ?? 0}, DataDir={DataDir}, RedisUrl={RedisUrl}, RabbitRoutingKey={RabbitRoutingKey}, RabbitExchangeType={RabbitExchangeType}, ServiceID={ServiceID}, UserFacingServiceId={UserFacingServiceId}, SendTrustPilot={SendTrustPilot}, SendReportsTimeSpan={SendReportsTimeSpan}, GivenAgentPort={GivenAgentPort}, Secrets=<redacted>)";
+        }
     }
 }

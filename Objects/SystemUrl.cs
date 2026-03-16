@@ -24,5 +24,10 @@ namespace NetworkMonitor.Objects
         public string LegacyIntermediateUrl { get; set; } = DefaultLegacyIntermediateUrl;
 
         private const string DefaultLegacyIntermediateUrl = "https://certs.readyforquantum.com/.well-known/le/chain.pem";
+
+        public override string ToString()
+        {
+            return $"SystemUrl(ExternalUrl={ExternalUrl}, IPAddress={IPAddress}, RabbitHostName={RabbitHostName}, RabbitPort={RabbitPort}, RabbitInstanceName={RabbitInstanceName}, RabbitUserName={RabbitUserName}, RabbitPassword=<redacted>, RabbitVHost={RabbitVHost}, UseTls={UseTls}, Country={Country}, Region={Region})";
+        }
     }
 }

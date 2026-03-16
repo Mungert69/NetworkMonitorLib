@@ -235,6 +235,11 @@ public class MLParams
     {
         _vectorSearchMode = VectorSearchModeHelper.Parse(value);
     }
+
+    public override string ToString()
+    {
+        return $"MLParams(ModelSelection={ModelSelection}, PrimaryModelSelection={PrimaryModelSelection}, SecondaryModelSelection={SecondaryModelSelection}, LlmRunnerType={LlmRunnerType}, LlmProvider={LlmProvider}, LlmGptModel={LlmGptModel}, EmbeddingProvider={EmbeddingProvider}, EmbeddingModelDir={EmbeddingModelDir}, EmbeddingModelVecDim={EmbeddingModelVecDim}, OpenSearchUrl={OpenSearchUrl}, OpenSearchDefaultIndex={OpenSearchDefaultIndex}, OpenSearchUser={OpenSearchUser}, LlmThreads={LlmThreads}, MaxTokenLengthCap={MaxTokenLengthCap}, MinTokenLengthCap={MinTokenLengthCap}, PredictWindow={PredictWindow}, VectorSearchMode={VectorSearchModeStr}, Keys=<redacted>)";
+    }
 }
 
 public class ModelParameterSet
