@@ -269,10 +269,8 @@ namespace NetworkMonitor.Connection
                 AppID = config["AppID"] ?? "";
                 BaseFusionAuthURL = config["BaseFusionAuthURL"] ?? "";
                 ClientId = config["ClientId"] ?? "";
-                string rabbitPassword = rabbitPassword = config["LocalSystemUrl:RabbitPassword"] ?? "";
-
-                if (rabbitPassword == ".env") rabbitPassword = GetConfigHelper.GetEnv("RabbitPassword", "");
-                else if (string.IsNullOrEmpty(rabbitPassword))
+                var rabbitPassword = GetConfigHelper.GetConfigValue(config, "LocalSystemUrl:RabbitPassword", "");
+                if (string.IsNullOrWhiteSpace(rabbitPassword))
                 {
                     rabbitPassword = GetConfigHelper.GetConfigValue(config, "RabbitPassword", "");
                 }
