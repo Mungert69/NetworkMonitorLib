@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -27,7 +28,7 @@ public class ProtectedConfigManagerTests
         var fileRepoMock = new Mock<IFileRepo>();
         fileRepoMock.Setup(repo => repo.CheckFileExists(It.IsAny<string>(), It.IsAny<ILogger>()));
         fileRepoMock
-            .Setup(repo => repo.SaveStateJsonAsync("appsettings.json", It.IsAny<NetConnectConfig>()))
+            .Setup(repo => repo.SaveStateStringAsync("appsettings.json", It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         var logger = Mock.Of<ILogger<ProtectedConfigManager>>();
@@ -38,7 +39,7 @@ public class ProtectedConfigManagerTests
     }
 
     [Fact]
-    public async Task SynchronizeSensitiveValuesAsync_MigratesPlaintextValues()
+    public async Task PersistAndSaveAsync_WritesProtectedValuesToEnvAndPlaceholdersToConfig()
     {
         var configData = new Dictionary<string, string?>
         {
@@ -58,15 +59,16 @@ public class ProtectedConfigManagerTests
         string? savedRabbitPassword = null;
 
         fileRepoMock
-            .Setup(repo => repo.SaveStateJsonAsync("appsettings.json", It.IsAny<NetConnectConfig>()))
+            .Setup(repo => repo.SaveStateStringAsync("appsettings.json", It.IsAny<string>()))
             .Returns(Task.CompletedTask)
-            .Callback<string, NetConnectConfig>((_, cfg) =>
+            .Callback<string, string>((_, json) =>
             {
-                savedAuthKey = cfg.AuthKey;
-                savedRabbitPassword = cfg.RabbitPassword;
+                using var doc = JsonDocument.Parse(json);
+                savedAuthKey = doc.RootElement.GetProperty("AuthKey").GetString();
+                savedRabbitPassword = doc.RootElement.GetProperty("RabbitPassword").GetString();
             });
 
-        await manager.SynchronizeSensitiveValuesAsync(
+        await manager.PersistAndSaveAsync(
             netConfig,
             ProtectedConfigurationParameters.All,
             CancellationToken.None);
@@ -79,7 +81,7 @@ public class ProtectedConfigManagerTests
             Times.Once());
 
         fileRepoMock.Verify(
-            repo => repo.SaveStateJsonAsync("appsettings.json", It.IsAny<NetConnectConfig>()),
+            repo => repo.SaveStateStringAsync("appsettings.json", It.IsAny<string>()),
             Times.Once());
 
         Assert.Equal(".env", savedAuthKey);
@@ -89,7 +91,7 @@ public class ProtectedConfigManagerTests
     }
 
     [Fact]
-    public async Task SynchronizeSensitiveValuesAsync_PopulatesMissingEnvironmentFromRuntime()
+    public async Task PersistAndSaveAsync_UsesRuntimeValuesWhenConfigUsesPlaceholders()
     {
         var configData = new Dictionary<string, string?>
         {
@@ -108,7 +110,7 @@ public class ProtectedConfigManagerTests
         netConfig.AuthKey = "runtime-auth";
         netConfig.RabbitPassword = "runtime-rabbit";
 
-        await manager.SynchronizeSensitiveValuesAsync(
+        await manager.PersistAndSaveAsync(
             netConfig,
             ProtectedConfigurationParameters.All,
             CancellationToken.None);
@@ -121,8 +123,8 @@ public class ProtectedConfigManagerTests
             Times.Once());
 
         fileRepoMock.Verify(
-            repo => repo.SaveStateJsonAsync("appsettings.json", It.IsAny<NetConnectConfig>()),
-            Times.Never());
+            repo => repo.SaveStateStringAsync("appsettings.json", It.IsAny<string>()),
+            Times.Once());
 
         Assert.Equal("runtime-auth", netConfig.AuthKey);
         Assert.Equal("runtime-rabbit", netConfig.RabbitPassword);
