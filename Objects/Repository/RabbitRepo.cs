@@ -48,6 +48,8 @@ namespace NetworkMonitor.Objects.Repository
         private readonly object _isRunningLock = new();
         private bool _isReconnecting = false;
         private readonly object _reconnectLock = new();
+        private readonly object _connectTaskLock = new();
+        private Task<ResultObj>? _connectAndSetupTask;
         private readonly Dictionary<string, string> _exchangeTypes= new Dictionary<string, string>();
 
 
@@ -190,7 +192,22 @@ namespace NetworkMonitor.Objects.Repository
             return result;
 
         }
-        public async Task<ResultObj> ConnectAndSetUp()
+        public Task<ResultObj> ConnectAndSetUp()
+        {
+            lock (_connectTaskLock)
+            {
+                if (_connectAndSetupTask != null && !_connectAndSetupTask.IsCompleted)
+                {
+                    _logger.LogInformation(" RabbitRepo connect/setup is already running; reusing existing attempt.");
+                    return _connectAndSetupTask;
+                }
+
+                _connectAndSetupTask = ConnectAndSetUpCore();
+                return _connectAndSetupTask;
+            }
+        }
+
+        private async Task<ResultObj> ConnectAndSetUpCore()
         {
             var result = new ResultObj();
             result.Message = " RabbitRepo : ConnectAndSetUp : ";
@@ -255,7 +272,10 @@ namespace NetworkMonitor.Objects.Repository
             }
             finally
             {
-
+                lock (_connectTaskLock)
+                {
+                    _connectAndSetupTask = null;
+                }
             }
 
 

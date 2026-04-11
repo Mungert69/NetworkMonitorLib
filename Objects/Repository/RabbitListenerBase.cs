@@ -31,6 +31,8 @@ namespace NetworkMonitor.Objects.Repository
 
         protected IRabbitListenerState _state;
         private readonly AsyncLocal<string?> _currentPublisherUserId = new AsyncLocal<string?>();
+        private readonly object _setupTaskLock = new();
+        private Task<ResultObj>? _setupTask;
 
         public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null)
         {
@@ -94,7 +96,22 @@ namespace NetworkMonitor.Objects.Repository
         }
 #pragma warning restore CS1998 // Restore warning
         // Inside RabbitListenerBase class
-        public async Task<ResultObj> Setup()
+        public Task<ResultObj> Setup()
+        {
+            lock (_setupTaskLock)
+            {
+                if (_setupTask != null && !_setupTask.IsCompleted)
+                {
+                    _logger.LogInformation(" RabbitListener setup is already running; reusing existing attempt.");
+                    return _setupTask;
+                }
+
+                _setupTask = SetupCore();
+                return _setupTask;
+            }
+        }
+
+        private async Task<ResultObj> SetupCore()
         {
             if (_rabbitMQObjs.Count > 0 || _connection != null)
             {
@@ -179,9 +196,6 @@ namespace NetworkMonitor.Objects.Repository
                 // Handle partial setup or cleanup if necessary
                 throw; // Optionally rethrow or handle as needed
             }
-
-            await Task.WhenAll(channelTasks);
-
 
             var results = new List<ResultObj>();
             results.Add(await DeclareQueues());
