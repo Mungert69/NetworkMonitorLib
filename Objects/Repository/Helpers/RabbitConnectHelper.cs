@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace NetworkMonitor.Objects.Repository
 {
@@ -28,7 +29,13 @@ namespace NetworkMonitor.Objects.Repository
                 .Select(k => k.Trim())
                 .Distinct();
         }
-        public static async Task<(bool success, IConnection? connection)> TryConnectAsync(string rabbitType, ConnectionFactory factory, ILogger logger, int maxRetries = MaxRetries, int retryDelayMilliseconds = RetryDelayMilliseconds)
+        public static async Task<(bool success, IConnection? connection)> TryConnectAsync(
+            string rabbitType,
+            ConnectionFactory factory,
+            ILogger logger,
+            int maxRetries = MaxRetries,
+            int retryDelayMilliseconds = RetryDelayMilliseconds,
+            CancellationToken cancellationToken = default)
         {
             int retryCount = 0;
             while (maxRetries == -1 || retryCount < maxRetries)
@@ -43,6 +50,7 @@ namespace NetworkMonitor.Objects.Repository
                     var attempt = retryCount + 1;
                     object maxDisplay = maxRetries == -1 ? "infinite" : maxRetries;
                     var endpointDetails = SummarizeExceptionChain(ex);
+                    var shouldRetry = IsRetryable(ex);
 
                     if (!string.IsNullOrEmpty(endpointDetails))
                     {
@@ -57,12 +65,80 @@ namespace NetworkMonitor.Objects.Repository
                             rabbitType, factory.HostName, factory.Port, attempt, maxDisplay);
                     }
 
+                    if (!shouldRetry)
+                    {
+                        logger.LogCritical(
+                            "{RabbitType} connection failed with non-retryable error at {Host}:{Port}. Stopping retries on attempt {Attempt}.",
+                            rabbitType, factory.HostName, factory.Port, attempt);
+                        return (false, null);
+                    }
+
                     retryCount++;
-                    // Use await with Task.Delay for async delay
+                    if (maxRetries != -1 && retryCount >= maxRetries)
+                    {
+                        break;
+                    }
                 }
-                await Task.Delay(retryDelayMilliseconds);
+
+                var delayMs = ComputeRetryDelayMs(retryCount, retryDelayMilliseconds);
+                await Task.Delay(delayMs, cancellationToken);
             }
             return (false, null); // Connection failed after max retries
+        }
+
+        private static bool IsRetryable(Exception ex)
+        {
+            // Authentication/authorization errors are configuration issues and will not recover by waiting.
+            if (ContainsType<AuthenticationFailureException>(ex)) return false;
+            if (ContainsMessage(ex, "ACCESS_REFUSED")) return false;
+            if (ContainsMessage(ex, "NOT_ALLOWED")) return false;
+            if (ContainsMessage(ex, "authentication")) return false;
+            if (ContainsMessage(ex, "vhost")) return false;
+            return true;
+        }
+
+        private static bool ContainsType<TException>(Exception ex) where TException : Exception
+        {
+            if (ex is TException) return true;
+            if (ex is AggregateException agg)
+            {
+                foreach (var inner in agg.InnerExceptions)
+                {
+                    if (ContainsType<TException>(inner)) return true;
+                }
+            }
+
+            return ex.InnerException != null && ContainsType<TException>(ex.InnerException);
+        }
+
+        private static bool ContainsMessage(Exception ex, string phrase)
+        {
+            if (!string.IsNullOrWhiteSpace(ex.Message) &&
+                ex.Message.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (ex is AggregateException agg)
+            {
+                foreach (var inner in agg.InnerExceptions)
+                {
+                    if (ContainsMessage(inner, phrase)) return true;
+                }
+            }
+
+            return ex.InnerException != null && ContainsMessage(ex.InnerException, phrase);
+        }
+
+        private static int ComputeRetryDelayMs(int retryCount, int baseDelayMs)
+        {
+            // Exponential backoff capped at 60s with +-20% jitter to avoid thundering herd.
+            var safeBase = Math.Max(250, baseDelayMs);
+            var exponent = Math.Min(retryCount, 6); // cap multiplier growth at 64x
+            var scaled = safeBase * Math.Pow(2, exponent);
+            var capped = Math.Min(60000, scaled);
+            var jitterFactor = 0.8 + (Random.Shared.NextDouble() * 0.4);
+            return (int)Math.Max(250, capped * jitterFactor);
         }
 
         private static string SummarizeExceptionChain(Exception ex)
