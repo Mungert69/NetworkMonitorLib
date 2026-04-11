@@ -112,6 +112,8 @@ namespace NetworkMonitor.Objects.Repository
                 TopologyRecoveryEnabled = true,
                 Port = _systemUrl.RabbitPort,
                 RequestedHeartbeat = TimeSpan.FromSeconds(30),
+                HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
+   
                 Ssl = BuildSslOption()
             };
             _state.IsRabbitConnected = false;

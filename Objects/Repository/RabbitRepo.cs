@@ -207,6 +207,8 @@ namespace NetworkMonitor.Objects.Repository
                     TopologyRecoveryEnabled = true,
                     Port = _systemUrl.RabbitPort,
                     RequestedHeartbeat = TimeSpan.FromSeconds(30),
+                    HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
+   
                     Ssl = BuildSslOption()
                 };
                 var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, _maxRetries, _retryDelayMilliseconds);
