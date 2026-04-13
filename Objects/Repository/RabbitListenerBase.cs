@@ -128,7 +128,7 @@ namespace NetworkMonitor.Objects.Repository
                 AutomaticRecoveryEnabled = true,
                 TopologyRecoveryEnabled = true,
                 Port = _systemUrl.RabbitPort,
-                RequestedHeartbeat = TimeSpan.FromSeconds(60),
+                RequestedHeartbeat = TimeSpan.FromSeconds(120),
                 HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
    
                 Ssl = BuildSslOption()

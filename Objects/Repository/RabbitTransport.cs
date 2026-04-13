@@ -174,7 +174,7 @@ namespace NetworkMonitor.Objects.Repository
                 VirtualHost = sys.RabbitVHost,
                 AutomaticRecoveryEnabled = true,
                 TopologyRecoveryEnabled = true,
-                RequestedHeartbeat = TimeSpan.FromSeconds(30)
+                RequestedHeartbeat = TimeSpan.FromSeconds(120)
                 // DispatchConsumersAsync is gone; AsyncEventingBasicConsumer works without it
             };
 
