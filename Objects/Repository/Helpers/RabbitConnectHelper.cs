@@ -12,7 +12,7 @@ namespace NetworkMonitor.Objects.Repository
 {
     public class RabbitConnectHelper
     {
-        private const int MaxRetries = 100; // Maximum number of retries
+        private const int MaxRetries = -1; // Maximum number of retries
         private const int RetryDelayMilliseconds = 5000; // Time to wait between retries
 
         public static string GetRoutingKey(string llmType, Dictionary<string, string> llmRunnerRoutingKeys)
@@ -42,8 +42,15 @@ namespace NetworkMonitor.Objects.Repository
             {
                 try
                 {
-                    var connection = await factory.CreateConnectionAsync();
+                    var connection = await factory.CreateConnectionAsync(cancellationToken);
                     if (connection.IsOpen) return (connection.IsOpen, connection); // Connection successful
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogInformation(
+                        "{RabbitType} connection attempt to RabbitMQ server at {Host}:{Port} was cancelled.",
+                        rabbitType, factory.HostName, factory.Port);
+                    throw;
                 }
                 catch (Exception ex)
                 {

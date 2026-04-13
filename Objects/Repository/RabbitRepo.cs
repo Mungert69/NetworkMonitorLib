@@ -11,6 +11,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using NetworkMonitor.Connection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Threading;
 using System.Net.Security;
 using NetworkMonitor.Objects.Repository.Helpers;
 namespace NetworkMonitor.Objects.Repository
@@ -25,6 +26,7 @@ namespace NetworkMonitor.Objects.Repository
         Task<string> PublishJsonZAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class;
         Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class;
         Task<ResultObj> ConnectAndSetUp();
+        Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken);
         Task<ResultObj> ShutdownRepo();
     }
     public class RabbitRepo : IRabbitRepo
@@ -51,6 +53,8 @@ namespace NetworkMonitor.Objects.Repository
         private readonly object _connectTaskLock = new();
         private Task<ResultObj>? _connectAndSetupTask;
         private readonly Dictionary<string, string> _exchangeTypes= new Dictionary<string, string>();
+        private readonly CancellationTokenSource _shutdownCts = new();
+        private volatile bool _isShuttingDown = false;
 
 
         public bool IsRunning
@@ -171,6 +175,8 @@ namespace NetworkMonitor.Objects.Repository
         public async Task<ResultObj> ShutdownRepo()
         {
             var result = new ResultObj();
+            _isShuttingDown = true;
+            _shutdownCts.Cancel();
 
             try
             {
@@ -194,6 +200,11 @@ namespace NetworkMonitor.Objects.Repository
         }
         public Task<ResultObj> ConnectAndSetUp()
         {
+            return ConnectAndSetUp(CancellationToken.None);
+        }
+
+        public Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken)
+        {
             lock (_connectTaskLock)
             {
                 if (_connectAndSetupTask != null && !_connectAndSetupTask.IsCompleted)
@@ -202,18 +213,25 @@ namespace NetworkMonitor.Objects.Repository
                     return _connectAndSetupTask;
                 }
 
-                _connectAndSetupTask = ConnectAndSetUpCore();
+                _connectAndSetupTask = ConnectAndSetUpWithCancellation(cancellationToken);
                 return _connectAndSetupTask;
             }
         }
 
-        private async Task<ResultObj> ConnectAndSetUpCore()
+        private async Task<ResultObj> ConnectAndSetUpWithCancellation(CancellationToken cancellationToken)
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdownCts.Token);
+            return await ConnectAndSetUpCore(linkedCts.Token);
+        }
+
+        private async Task<ResultObj> ConnectAndSetUpCore(CancellationToken cancellationToken)
         {
             var result = new ResultObj();
             result.Message = " RabbitRepo : ConnectAndSetUp : ";
             IsRunning = false;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _factory = new ConnectionFactory
                 {
                     HostName = _systemUrl.RabbitHostName,
@@ -228,7 +246,7 @@ namespace NetworkMonitor.Objects.Repository
    
                     Ssl = BuildSslOption()
                 };
-                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, _maxRetries, _retryDelayMilliseconds);
+                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, _maxRetries, _retryDelayMilliseconds, cancellationToken);
                 if (success)
                 {
                     _connection = connection;
@@ -245,8 +263,9 @@ namespace NetworkMonitor.Objects.Repository
 
                 if (_connection != null)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     _connection.ConnectionShutdownAsync += OnConnectionShutdown;
-                    _publishChannel = await _connection.CreateChannelAsync();
+                    _publishChannel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
                     result.Success = true;
                     result.Message += $" Success : RabbitRepo Connected to RabbitMQ server {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}";
                     _logger.LogInformation(result.Message);
@@ -262,6 +281,13 @@ namespace NetworkMonitor.Objects.Repository
                     return result;
                 }
 
+            }
+            catch (OperationCanceledException)
+            {
+                result.Message += " Cancelled : RabbitRepo setup was cancelled.";
+                result.Success = false;
+                _logger.LogInformation(result.Message);
+                return result;
             }
             catch (Exception e)
             {
@@ -302,6 +328,12 @@ namespace NetworkMonitor.Objects.Repository
             _logger.LogWarning($"Connection shutdown. Reason: {e.ReplyText}");
             IsRunning = false;
 
+            if (_isShuttingDown || _shutdownCts.IsCancellationRequested)
+            {
+                _logger.LogInformation("RabbitRepo shutdown is in progress; skipping reconnect.");
+                return;
+            }
+
             lock (_reconnectLock)
             {
                 if (_isReconnecting)
@@ -315,14 +347,18 @@ namespace NetworkMonitor.Objects.Repository
             try
             {
                 // Wait for automatic recovery to kick in
-                await Task.Delay(RetryDelayMilliseconds);
+                await Task.Delay(_retryDelayMilliseconds, _shutdownCts.Token);
 
                 // If automatic recovery hasn't restored the connection, trigger manual reconnection
                 if (_connection == null || !_connection.IsOpen)
                 {
                     _logger.LogWarning("Automatic recovery failed. Attempting manual reconnection...");
-                    await ConnectAndSetUp();
+                    await ConnectAndSetUp(_shutdownCts.Token);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("RabbitRepo reconnect was cancelled.");
             }
             catch (Exception ex)
             {
@@ -382,11 +418,12 @@ namespace NetworkMonitor.Objects.Repository
 
             while (!IsRunning || _connection == null || !_connection.IsOpen)
             {
+                _shutdownCts.Token.ThrowIfCancellationRequested();
                 // Check elapsed time in ms
                 if ((DateTime.UtcNow - startTime).TotalMilliseconds > finalTimeoutMs)
                 {
                     _logger.LogWarning("Automatic recovery is taking too long. Triggering manual reconnection...");
-                    await ConnectAndSetUp();
+                    await ConnectAndSetUp(_shutdownCts.Token);
                     // Introduce randomness into the multiplication factor
                     // For example, multiply the delay by a random factor between 1.5 and 3.0:
                     double randomMultiplier = 1.5 + (rand.NextDouble() * 1.5); // range: 1.5 to 3.0
@@ -397,7 +434,7 @@ namespace NetworkMonitor.Objects.Repository
                     $"Waiting for connection to be ready for {exchangeName}... " +
                     $"(Timeout: {finalTimeoutMs} ms, Current Delay: {timerDelayMs} ms)");
 
-                await Task.Delay(timerDelayMs);
+                await Task.Delay(timerDelayMs, _shutdownCts.Token);
             }
             return;
         }
@@ -681,6 +718,8 @@ namespace NetworkMonitor.Objects.Repository
 
         public async Task Shutdown()
         {
+            _isShuttingDown = true;
+            _shutdownCts.Cancel();
             try
             {
                 if (_connection != null)

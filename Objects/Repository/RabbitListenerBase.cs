@@ -33,6 +33,8 @@ namespace NetworkMonitor.Objects.Repository
         private readonly AsyncLocal<string?> _currentPublisherUserId = new AsyncLocal<string?>();
         private readonly object _setupTaskLock = new();
         private Task<ResultObj>? _setupTask;
+        private readonly CancellationTokenSource _shutdownCts = new();
+        private volatile bool _isShuttingDown = false;
 
         public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null)
         {
@@ -48,6 +50,13 @@ namespace NetworkMonitor.Objects.Repository
 
 #pragma warning disable CS1998 // Disable warning about async method not containing await
         public async Task Shutdown()
+        {
+            _isShuttingDown = true;
+            _shutdownCts.Cancel();
+            await CloseResourcesAsync();
+        }
+
+        private async Task CloseResourcesAsync()
         {
             try
             {
@@ -98,6 +107,11 @@ namespace NetworkMonitor.Objects.Repository
         // Inside RabbitListenerBase class
         public Task<ResultObj> Setup()
         {
+            return Setup(CancellationToken.None);
+        }
+
+        public Task<ResultObj> Setup(CancellationToken cancellationToken)
+        {
             lock (_setupTaskLock)
             {
                 if (_setupTask != null && !_setupTask.IsCompleted)
@@ -106,19 +120,26 @@ namespace NetworkMonitor.Objects.Repository
                     return _setupTask;
                 }
 
-                _setupTask = SetupCore();
+                _setupTask = SetupWithCancellation(cancellationToken);
                 return _setupTask;
             }
         }
 
-        private async Task<ResultObj> SetupCore()
+        private async Task<ResultObj> SetupWithCancellation(CancellationToken cancellationToken)
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdownCts.Token);
+            return await SetupCore(linkedCts.Token);
+        }
+
+        private async Task<ResultObj> SetupCore(CancellationToken cancellationToken)
         {
             if (_rabbitMQObjs.Count > 0 || _connection != null)
             {
-                await Shutdown();
+                await CloseResourcesAsync();
                 _rabbitMQObjs.Clear();
             }
             _instanceName = _systemUrl.RabbitInstanceName;
+            cancellationToken.ThrowIfCancellationRequested();
             _factory = new ConnectionFactory
             {
                 HostName = _systemUrl.RabbitHostName,
@@ -138,27 +159,39 @@ namespace NetworkMonitor.Objects.Repository
             result.Message = " Rabbit Setup : ";
             result.Success = false;
             InitRabbitMQObjs();
-            var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger);
-            if (success)
+            try
             {
-                _connection = connection;
-            }
-            else
-            {
-                result.Message += ($" Error : Rabbit Listener failed to establish connection to RabbitMQ server running at {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}.");
-                _logger.LogCritical(result.Message);
-                _state.IsRabbitConnected = result.Success;
-                _state.RabbitSetupMessage = result.Message;
-                return result; // Exit if connection fails after max retries
-            }
+                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger, cancellationToken: cancellationToken);
+                if (success)
+                {
+                    _connection = connection;
+                }
+                else
+                {
+                    result.Message += ($" Error : Rabbit Listener failed to establish connection to RabbitMQ server running at {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}.");
+                    _logger.LogCritical(result.Message);
+                    _state.IsRabbitConnected = result.Success;
+                    _state.RabbitSetupMessage = result.Message;
+                    return result; // Exit if connection fails after max retries
+                }
 
-            if (_connection == null)
+                if (_connection == null)
+                {
+                    result.Message += "Failed to establish connection to RabbitMQ after maximum retries.";
+                    _logger.LogCritical(result.Message);
+                    _state.IsRabbitConnected = result.Success;
+                    _state.RabbitSetupMessage = result.Message;
+                    return result; // Exit if connection fails after max retries
+                }
+            }
+            catch (OperationCanceledException)
             {
-                result.Message += "Failed to establish connection to RabbitMQ after maximum retries.";
-                _logger.LogCritical(result.Message);
+                result.Message += " Cancelled : RabbitListener setup was cancelled.";
+                result.Success = false;
+                _logger.LogInformation(result.Message);
                 _state.IsRabbitConnected = result.Success;
                 _state.RabbitSetupMessage = result.Message;
-                return result; // Exit if connection fails after max retries
+                return result;
             }
             // _connection.ConnectionShutdownAsync += OnConnectionShutdown;
 
@@ -168,7 +201,7 @@ namespace NetworkMonitor.Objects.Repository
             {
                 try
                 {
-                    rabbitMQObj.ConnectChannel = await _connection.CreateChannelAsync();
+                    rabbitMQObj.ConnectChannel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -239,9 +272,18 @@ namespace NetworkMonitor.Objects.Repository
         {
             //_isRunning = false;
             _logger.LogWarning($" Warning : RabbitListner connection shutdown. Reason: {e.ReplyText}");
+            if (_isShuttingDown || _shutdownCts.IsCancellationRequested)
+            {
+                _logger.LogInformation("RabbitListener shutdown is in progress; skipping reconnect.");
+                return;
+            }
             try
             {
-                await Setup();
+                await Setup(_shutdownCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("RabbitListener reconnect was cancelled.");
             }
             catch (Exception ex)
             {
@@ -268,7 +310,7 @@ namespace NetworkMonitor.Objects.Repository
             }
 
             // Re-setup the connection and other components
-            await Setup();
+            await Setup(_shutdownCts.Token);
         }
 
         protected async Task<ResultObj> DeclareQueues()

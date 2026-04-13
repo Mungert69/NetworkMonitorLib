@@ -9,6 +9,7 @@ using System;
 using System.Text;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using NetworkMonitor.Utils;
@@ -23,6 +24,7 @@ namespace NetworkMonitor.Objects.Repository
         Task<ResultObj> FullProcessorList(List<ProcessorObj>? processorObjs);
         Task Shutdown();
         Task<ResultObj> Setup();
+        Task<ResultObj> Setup(CancellationToken cancellationToken);
 
     }
 
