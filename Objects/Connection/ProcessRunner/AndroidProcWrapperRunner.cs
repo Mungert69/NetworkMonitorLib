@@ -101,12 +101,16 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         string launchPath = exeFullPath;
         string[] launchArgv = NetworkMonitor.Utils.Argv.Tokenize(arguments);
 
-        if (_useLegacyShellWrap && exeFullPath.EndsWith(".so", System.StringComparison.OrdinalIgnoreCase))
+        if (exeFullPath.EndsWith(".so", System.StringComparison.OrdinalIgnoreCase))
         {
             launchPath = "/system/bin/sh";
-            var shellCommand = BuildLegacyShellCommand(exeFullPath, launchArgv);
+            var shellCommand = BuildShellCommand(exeFullPath, launchArgv, envVars);
             launchArgv = new[] { "-lc", shellCommand };
-            _logger.LogInformation("Legacy shell wrap enabled: sh -lc {Cmd}", shellCommand);
+            _logger.LogInformation(
+                _useLegacyShellWrap
+                    ? "Legacy shell wrap enabled: sh -lc {Cmd}"
+                    : "Shell wrap enabled for .so executable to preserve env vars: sh -lc {Cmd}",
+                shellCommand);
         }
 
         _logger.LogInformation("Android(procwrapper) exec: {Exe} {Args}", launchPath, NetworkMonitor.Utils.Argv.ForLog(launchArgv));
@@ -333,7 +337,10 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
             System.Environment.SetEnvironmentVariable("LD_LIBRARY_PATH", string.Join(':', ordered));
     }
 
-    private string BuildLegacyShellCommand(string exeFullPath, string[] argumentVector)
+    private string BuildShellCommand(
+        string exeFullPath,
+        string[] argumentVector,
+        IDictionary<string, string>? envVars)
     {
         var sb = new StringBuilder();
         bool first = true;
@@ -346,11 +353,26 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
             first = false;
         }
 
-        if (!string.IsNullOrEmpty(_nativeDir))
+        // Inline env assignments are critical when procwrapper does not inherit
+        // managed process env vars reliably across all Android builds.
+        void AppendEnvFromProcess(string key)
         {
-            AppendWithSpace($"LD_LIBRARY_PATH={ShellQuote(_nativeDir)}");
-            AppendWithSpace($"OPENSSL_MODULES={ShellQuote(_nativeDir)}");
+            var val = System.Environment.GetEnvironmentVariable(key);
+            if (!string.IsNullOrWhiteSpace(val))
+                AppendWithSpace($"{key}={ShellQuote(val)}");
         }
+
+        if (envVars is not null)
+        {
+            foreach (var kv in envVars)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key)) continue;
+                AppendWithSpace($"{kv.Key}={ShellQuote(kv.Value ?? string.Empty)}");
+            }
+        }
+        AppendEnvFromProcess("LD_LIBRARY_PATH");
+        AppendEnvFromProcess("OPENSSL_MODULES");
+        AppendEnvFromProcess("LUA_CPATH");
 
         AppendWithSpace(ShellQuote(exeFullPath));
         foreach (var arg in argumentVector)
