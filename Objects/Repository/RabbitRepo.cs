@@ -53,7 +53,7 @@ namespace NetworkMonitor.Objects.Repository
         private readonly object _connectTaskLock = new();
         private Task<ResultObj>? _connectAndSetupTask;
         private readonly Dictionary<string, string> _exchangeTypes= new Dictionary<string, string>();
-        private readonly CancellationTokenSource _shutdownCts = new();
+        private CancellationTokenSource _shutdownCts = new();
         private volatile bool _isShuttingDown = false;
 
 
@@ -211,6 +211,15 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     _logger.LogInformation(" RabbitRepo connect/setup is already running; reusing existing attempt.");
                     return _connectAndSetupTask;
+                }
+
+                if (_shutdownCts.IsCancellationRequested)
+                {
+                    _shutdownCts.Dispose();
+                    _shutdownCts = new CancellationTokenSource();
+                    _isShuttingDown = false;
+                    _isReconnecting = false;
+                    _logger.LogInformation(" RabbitRepo connect/setup is resetting after a previous shutdown.");
                 }
 
                 _connectAndSetupTask = ConnectAndSetUpWithCancellation(cancellationToken);
