@@ -92,59 +92,31 @@ namespace NetworkMonitor.Objects.Repository
                         switch (rabbitMQObj.FuncName)
                         {
                             case "addProcessor":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                await RegisterConsumerHandlerAsync(rabbitMQObj, 10, "addProcessor", async (model, ea) =>
                                 {
                                     var tResult = await AddProcessor(ConvertToObject<ProcessorObj>(model, ea));
                                     result.Success = tResult.Success;
                                     result.Message = tResult.Message;
                                     result.Data = tResult.Data;
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.addProcessor " + ex.Message);
-                                }
-                            };
+                                });
                                 break;
                             case "updateProcessor":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                await RegisterConsumerHandlerAsync(rabbitMQObj, 10, "updateProcessor", async (model, ea) =>
                                 {
                                     var tResult = await UpdateProcessor(ConvertToObject<ProcessorObj>(model, ea));
                                     result.Success = tResult.Success;
                                     result.Message = tResult.Message;
                                     result.Data = tResult.Data;
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.addProcessor " + ex.Message);
-                                }
-                            };
+                                });
                                 break;
                             case "fullProcessorList":
-                                await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false);
-                                rabbitMQObj.Consumer.ReceivedAsync += async (model, ea) =>
-                            {
-                                try
+                                await RegisterConsumerHandlerAsync(rabbitMQObj, 10, "fullProcessorList", async (model, ea) =>
                                 {
                                     var tResult = await FullProcessorList(ConvertToList<List<ProcessorObj>>(model, ea));
                                     result.Success = tResult.Success;
                                     result.Message = tResult.Message;
                                     result.Data = tResult.Data;
-                                    await rabbitMQObj.ConnectChannel.BasicAckAsync(ea.DeliveryTag, false);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(" Error : RabbitListener.DeclareConsumers.addProcessor " + ex.Message);
-                                }
-                            };
+                                });
                                 break;
 
                         }

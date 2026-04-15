@@ -193,8 +193,6 @@ namespace NetworkMonitor.Objects.Repository
                 _state.RabbitSetupMessage = result.Message;
                 return result;
             }
-            // _connection.ConnectionShutdownAsync += OnConnectionShutdown;
-
             //_connection = _factory.CreateConnection();
             //_publishChannel = _connection.CreateModel();
             var channelTasks = _rabbitMQObjs.Select(async rabbitMQObj =>
@@ -311,6 +309,60 @@ namespace NetworkMonitor.Objects.Repository
 
             // Re-setup the connection and other components
             await Setup(_shutdownCts.Token);
+        }
+
+        protected async Task RegisterConsumerHandlerAsync(
+            RabbitMQObj rabbitMQObj,
+            ushort prefetchCount,
+            string handlerName,
+            Func<object?, BasicDeliverEventArgs, Task> onMessage)
+        {
+            if (rabbitMQObj.ConnectChannel == null)
+            {
+                throw new InvalidOperationException($"RabbitMQ channel was null while registering handler '{handlerName}'.");
+            }
+
+            await rabbitMQObj.ConnectChannel.BasicQosAsync(prefetchSize: 0, prefetchCount: prefetchCount, global: false);
+            rabbitMQObj.Consumer!.ReceivedAsync += async (model, ea) =>
+            {
+                await ExecuteWithAutoAckAsync(rabbitMQObj, ea, handlerName, () => onMessage(model, ea));
+            };
+        }
+
+        protected async Task ExecuteWithAutoAckAsync(
+            RabbitMQObj rabbitMQObj,
+            BasicDeliverEventArgs deliveryArgs,
+            string handlerName,
+            Func<Task> handler)
+        {
+            try
+            {
+                await handler();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, " Error : RabbitListener handler failed for {HandlerName}", handlerName);
+            }
+            finally
+            {
+                try
+                {
+                    if (rabbitMQObj.ConnectChannel != null && rabbitMQObj.ConnectChannel.IsOpen)
+                    {
+                        await rabbitMQObj.ConnectChannel.BasicAckAsync(deliveryArgs.DeliveryTag, multiple: false);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            " Warning : RabbitListener could not ack message for {HandlerName} because channel is closed.",
+                            handlerName);
+                    }
+                }
+                catch (Exception ackEx)
+                {
+                    _logger.LogError(ackEx, " Error : RabbitListener ack failed for {HandlerName}", handlerName);
+                }
+            }
         }
 
         protected async Task<ResultObj> DeclareQueues()
