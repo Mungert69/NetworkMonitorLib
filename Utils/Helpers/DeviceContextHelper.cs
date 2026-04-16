@@ -48,17 +48,7 @@ namespace NetworkMonitor.Utils.Helpers
                     continue;
                 }
                 var ip4 = props.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork);
-                string gateway = string.Empty;
-                try
-                {
-                    gateway = props.GatewayAddresses
-                        .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
-                        ?.Address.ToString() ?? string.Empty;
-                }
-                catch
-                {
-                    gateway = string.Empty;
-                }
+                var gateway = GetGatewayAddress(props);
                 var mask = ip4?.IPv4Mask?.ToString() ?? string.Empty;
                 var ip = ip4?.Address?.ToString() ?? string.Empty;
                 var isUp = nic.OperationalStatus == OperationalStatus.Up;
@@ -88,18 +78,7 @@ namespace NetworkMonitor.Utils.Helpers
 
             if (primary.nic != null)
             {
-                string gateway = string.Empty;
-                try
-                {
-                    var props = primary.nic.GetIPProperties();
-                    gateway = props.GatewayAddresses
-                        .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
-                        ?.Address.ToString() ?? string.Empty;
-                }
-                catch
-                {
-                    gateway = string.Empty;
-                }
+                var gateway = GetGatewayAddress(primary.nic.GetIPProperties());
 
                 context.PrimaryInterface = primary.nic.Name;
                 context.PrimaryIPv4 = primary.ip.Address.ToString();
@@ -290,8 +269,33 @@ namespace NetworkMonitor.Utils.Helpers
         private static string NormalizeNoComma(string value)
             => (value ?? string.Empty).Replace(",", " ").Trim();
 
+        private static string GetGatewayAddress(IPInterfaceProperties? props)
+        {
+            if (props == null)
+            {
+                return string.Empty;
+            }
+#if ANDROID
+            return string.Empty;
+#else
+            try
+            {
+                return props.GatewayAddresses
+                    .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
+                    ?.Address.ToString() ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+#endif
+        }
+
         private static bool HasGatewayAddress(NetworkInterface nic)
         {
+#if ANDROID
+            return false;
+#else
             try
             {
                 var props = nic.GetIPProperties();
@@ -301,6 +305,7 @@ namespace NetworkMonitor.Utils.Helpers
             {
                 return false;
             }
+#endif
         }
     }
 }

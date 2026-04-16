@@ -359,6 +359,10 @@ namespace NetworkMonitor.Connection
             var settings = new ScanSettings.Builder()
                 .SetScanMode(Android.Bluetooth.LE.ScanMode.LowLatency)
                 .Build();
+            if (settings == null)
+            {
+                throw new InvalidOperationException("Unable to create BLE scan settings.");
+            }
 
             var filters = BuildFilters(address, serviceUuid);
             scanner.StartScan(filters, settings, callback);
@@ -400,7 +404,11 @@ namespace NetworkMonitor.Connection
 
             if (hasFilter)
             {
-                filters.Add(builder.Build());
+                var filter = builder.Build();
+                if (filter != null)
+                {
+                    filters.Add(filter);
+                }
             }
 
             return filters;

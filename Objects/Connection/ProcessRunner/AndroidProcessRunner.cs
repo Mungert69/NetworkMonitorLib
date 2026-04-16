@@ -58,7 +58,17 @@ public class AndroidProcessRunner : IPlatformProcessRunner
             // Execute process
             _logger.LogDebug("Starting process in working directory: {Dir}", workingDirectory);
             var runtime = Java.Lang.Runtime.GetRuntime();
+            if (runtime == null)
+            {
+                _logger.LogError("Java runtime is unavailable.");
+                return "Java runtime is unavailable.";
+            }
             var process = runtime.Exec(cmd, mergedEnv.ToArray(), new Java.IO.File(workingDirectory));
+            if (process == null)
+            {
+                _logger.LogError("Failed to start Android process.");
+                return "Failed to start Android process.";
+            }
             _logger.LogInformation("Process started successfully.");
 
             // Cancellation token handling
@@ -75,7 +85,13 @@ public class AndroidProcessRunner : IPlatformProcessRunner
             {
                 try
                 {
-                    using var reader = new BufferedReader(new InputStreamReader(process.InputStream));
+                    var inputStream = process.InputStream;
+                    if (inputStream == null)
+                    {
+                        return;
+                    }
+
+                    using var reader = new BufferedReader(new InputStreamReader(inputStream));
                     string? line;
                     while ((line = reader.ReadLine()) != null)
                     {
@@ -95,7 +111,13 @@ public class AndroidProcessRunner : IPlatformProcessRunner
             {
                 try
                 {
-                    using var reader = new BufferedReader(new InputStreamReader(process.ErrorStream));
+                    var errorStream = process.ErrorStream;
+                    if (errorStream == null)
+                    {
+                        return;
+                    }
+
+                    using var reader = new BufferedReader(new InputStreamReader(errorStream));
                     string? line;
                     while ((line = reader.ReadLine()) != null)
                     {
@@ -118,7 +140,7 @@ public class AndroidProcessRunner : IPlatformProcessRunner
         catch (Java.IO.IOException ex)
         {
             _logger.LogError(ex, "Failed to start Android process: {Path}", executablePath);
-            return ex.Message;
+            return ex.Message ?? "Failed to start Android process.";
         }
         catch (OperationCanceledException)
         {
@@ -128,7 +150,7 @@ public class AndroidProcessRunner : IPlatformProcessRunner
         catch (System.Exception ex)
         {
             _logger.LogError(ex, "Android process failed: {Path}", executablePath);
-            return ex.Message;
+            return ex.Message ?? "Android process failed.";
         }
 
         _logger.LogInformation("Process finished. Returning combined output.");
