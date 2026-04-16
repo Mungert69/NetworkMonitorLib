@@ -32,7 +32,9 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
         _nativeDir = string.IsNullOrWhiteSpace(nativeDir)
             ? Application.Context.ApplicationInfo!.NativeLibraryDir!
             : nativeDir!;
+#pragma warning disable CA1416
         _useLegacyShellWrap = (int)Build.VERSION.SdkInt <= (int)BuildVersionCodes.M;
+#pragma warning restore CA1416
     }
 
     public async Task<string> RunAsync(

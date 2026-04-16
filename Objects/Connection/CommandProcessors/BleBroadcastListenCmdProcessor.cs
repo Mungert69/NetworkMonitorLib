@@ -356,13 +356,11 @@ namespace NetworkMonitor.Connection
                 tcs,
                 _logger);
 
+#pragma warning disable CS8602
             var settings = new ScanSettings.Builder()
                 .SetScanMode(Android.Bluetooth.LE.ScanMode.LowLatency)
                 .Build();
-            if (settings == null)
-            {
-                throw new InvalidOperationException("Unable to create BLE scan settings.");
-            }
+#pragma warning restore CS8602
 
             var filters = BuildFilters(address, serviceUuid);
             scanner.StartScan(filters, settings, callback);
