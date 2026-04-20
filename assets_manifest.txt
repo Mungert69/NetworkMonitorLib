@@ -54,6 +54,7 @@
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.IdentityModel.JsonWebTokens.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.IdentityModel.Logging.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.IdentityModel.Tokens.dll
+./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.IO.RecyclableMemoryStream.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.TestPlatform.CommunicationUtilities.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.TestPlatform.CoreUtilities.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.TestPlatform.CrossPlatEngine.dll
@@ -83,6 +84,7 @@
 ./bin/Debug/net10.0-windows10.0.19041.0/PuppeteerSharp.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/RabbitMQ.Client.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/RestSharp.dll
+./bin/Debug/net10.0-windows10.0.19041.0/SixLabors.ImageSharp.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Sprache.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/System.Diagnostics.EventLog.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/System.IdentityModel.Tokens.Jwt.dll
@@ -230,6 +232,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.IdentityModel.JsonWebTokens.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.IdentityModel.Logging.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.IdentityModel.Tokens.dll
+./bin/Release/net10.0-windows10.0.19041.0/Microsoft.IO.RecyclableMemoryStream.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.TestPlatform.CommunicationUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.TestPlatform.CoreUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.TestPlatform.CrossPlatEngine.dll
@@ -259,12 +262,14 @@
 ./bin/Release/net10.0-windows10.0.19041.0/PuppeteerSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/RabbitMQ.Client.dll
 ./bin/Release/net10.0-windows10.0.19041.0/RestSharp.dll
+./bin/Release/net10.0-windows10.0.19041.0/SixLabors.ImageSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Sprache.dll
 ./bin/Release/net10.0-windows10.0.19041.0/System.Diagnostics.EventLog.dll
 ./bin/Release/net10.0-windows10.0.19041.0/System.IdentityModel.Tokens.Jwt.dll
 ./bin/Release/net10.0-windows10.0.19041.0/System.Threading.RateLimiting.dll
 ./bin/Release/net10.0-windows10.0.19041.0/testhost.dll
 ./bin/Release/net10.0-windows10.0.19041.0/testhost.exe
+./bin/Release/net10.0-windows10.0.19041.0/WebDriverBiDi.dll
 ./bin/Release/net10.0-windows10.0.19041.0/WinRT.Runtime.dll
 ./bin/Release/net10.0-windows10.0.19041.0/xunit.abstractions.dll
 ./bin/Release/net10.0-windows10.0.19041.0/xunit.assert.dll
@@ -382,6 +387,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.IdentityModel.JsonWebTokens.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.IdentityModel.Logging.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.IdentityModel.Tokens.dll
+./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.IO.RecyclableMemoryStream.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.TestPlatform.CommunicationUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.TestPlatform.CoreUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.TestPlatform.CrossPlatEngine.dll
@@ -415,6 +421,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/PuppeteerSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/RabbitMQ.Client.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/RestSharp.dll
+./bin/Release/net10.0-windows10.0.19041.0/publish/SixLabors.ImageSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Sprache.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.Diagnostics.EventLog.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.IdentityModel.Tokens.Jwt.dll
@@ -424,6 +431,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/testhost.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/testhost.exe
 ./bin/Release/net10.0-windows10.0.19041.0/publish/ThirdPartyNotices.txt
+./bin/Release/net10.0-windows10.0.19041.0/publish/WebDriverBiDi.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/WinRT.Runtime.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/xunit.abstractions.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/xunit.assert.dll
@@ -642,6 +650,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.IdentityModel.JsonWebTokens.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.IdentityModel.Logging.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.IdentityModel.Tokens.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.IO.RecyclableMemoryStream.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.TestPlatform.CommunicationUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.TestPlatform.CoreUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.TestPlatform.CrossPlatEngine.dll
@@ -657,7 +666,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.Windows.SDK.NET.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Moq.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/mscordaccore.dll
-./bin/Release/net10.0-windows10.0.19041.0/win-x64/mscordaccore_amd64_amd64_10.0.125.57005.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/mscordaccore_amd64_amd64_10.0.526.15411.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/mscordbi.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/mscorlib.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/mscorrc.dll
@@ -682,6 +691,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/PuppeteerSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/RabbitMQ.Client.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/RestSharp.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/SixLabors.ImageSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Sprache.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.AppContext.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.Buffers.dll
@@ -983,6 +993,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.IdentityModel.JsonWebTokens.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.IdentityModel.Logging.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.IdentityModel.Tokens.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.IO.RecyclableMemoryStream.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.TestPlatform.CommunicationUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.TestPlatform.CoreUtilities.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.TestPlatform.CrossPlatEngine.dll
@@ -1002,7 +1013,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Mono.Cecil.Rocks.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Moq.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/mscordaccore.dll
-./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/mscordaccore_amd64_amd64_10.0.125.57005.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/mscordaccore_amd64_amd64_10.0.526.15411.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/mscordbi.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/mscorlib.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/mscorrc.dll
@@ -1027,6 +1038,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/PuppeteerSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/RabbitMQ.Client.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/RestSharp.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/SixLabors.ImageSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Sprache.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.AppContext.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.Buffers.dll
@@ -1478,6 +1490,7 @@
 ./Objects/ExcludeEndPointTypeList.cs
 ./Objects/FunctionCallData.cs
 ./Objects/GenericEmailObj.cs
+./Objects/HistoryStore.cs
 ./Objects/HostReportObj.cs
 ./Objects/HuggingFaceRequest.cs
 ./Objects/ImageObjs.cs
@@ -1489,6 +1502,7 @@
 ./Objects/LocalProcessorStates.cs
 ./Objects/Logo.cs
 ./Objects/ManagementToken.cs
+./Objects/MemoryQuery.cs
 ./Objects/Messages.cs
 ./Objects/MLParams.cs
 ./Objects/MonitorIP.cs
@@ -1550,6 +1564,7 @@
 ./Objects/Connection/ConnectFactory.cs
 ./Objects/Connection/CrawlSiteCmdConnect.cs
 ./Objects/Connection/CSVParser.cs
+./Objects/Connection/DeviceContext.cs
 ./Objects/Connection/DNSConnect.cs
 ./Objects/Connection/HTTPConnect.cs
 ./Objects/Connection/HugSpaceKeepAliveConnect.cs
@@ -1571,6 +1586,7 @@
 ./Objects/Connection/CommandProcessors/BleBroadcastCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/BleBroadcastListenCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/BusyboxCmdProcessor.cs
+./Objects/Connection/CommandProcessors/CameraCaptureCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/CmdProcessor.cs
 ./Objects/Connection/CommandProcessors/CmdProcessorCompiler.cs
 ./Objects/Connection/CommandProcessors/CmdProcessorProvider.cs
@@ -1603,6 +1619,7 @@
 ./Objects/Connection/CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/BleBroadcastListenCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/CmdProcessorTest.cs
+./Objects/Connection/CommandProcessors/Tests/PlatformAwareCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/QuantumPortScannerCmdProcessorTests.cs
 ./Objects/Connection/Connects/ConnectCompiler.cs
 ./Objects/Connection/Connects/ConnectProvider.cs
@@ -1623,6 +1640,7 @@
 ./Objects/Connection/Tests/BleBroadcastListenConnectTest.cs
 ./Objects/Connection/Tests/ConnectFactoryTest.cs
 ./Objects/Connection/Tests/ConnectHelperTests.cs
+./Objects/Connection/Tests/CrawlHelperTests.cs
 ./Objects/Connection/Tests/CrawlSiteCmdConnectTest.cs
 ./Objects/Connection/Tests/CSVParserTest.cs
 ./Objects/Connection/Tests/DNSConnectTest.cs
@@ -1640,6 +1658,7 @@
 ./Objects/Connection/Tests/SiteHashConnectTest.cs
 ./Objects/Connection/Tests/SMTPConnectTest.cs
 ./Objects/Connection/Tests/SocketConnectTest.cs
+./Objects/Coordinator/MemoryQueryCoordinator.cs
 ./Objects/Coordinator/QueryCoordinator.cs
 ./Objects/Coordinator/README.md
 ./Objects/DTOs/CircleDistributer.cs
@@ -1653,6 +1672,8 @@
 ./Objects/Factory/EndPointTypeFactory.cs
 ./Objects/Factory/LoggerFactory.cs
 ./Objects/Factory/README.md
+./Objects/Factory/Tests/AccountTypeFactoryTests.cs
+./Objects/Factory/Tests/EndPointTypeFactoryPlatformPolicyTests.cs
 ./Objects/Factory/Tests/EndPointTypeFactoryTest.cs
 ./Objects/Repository/FileRepo.cs
 ./Objects/Repository/ProcessorState.cs
@@ -1696,8 +1717,12 @@
 ./Objects/ServiceMessage/ProcessorScanDataObj.cs
 ./Objects/ServiceMessage/ProcessorUserEventObj.cs
 ./Objects/ServiceMessage/ReadyHealthCheck .cs
+./Objects/ServiceMessage/RefreshAuthKeyObj.cs
 ./Objects/ServiceMessage/TaskQueue.cs
 ./Objects/ServiceMessage/UpdateProductObj.cs
+./Objects/ServiceMessage/Tests/ProcessorScanDataObjTests.cs
+./Objects/Tests/MemoryQueryRequestTests.cs
+./Objects/Tests/SearchIndexRequestTests.cs
 ./Utils/Argv.cs
 ./Utils/BleCryptoHelper.cs
 ./Utils/BleCryptoOptions.cs
@@ -1721,6 +1746,7 @@
 ./Utils/TypeConverters.cs
 ./Utils/Helpers/APIHelper.cs
 ./Utils/Helpers/CountryRegionMapper.cs
+./Utils/Helpers/DeviceContextHelper.cs
 ./Utils/Helpers/EmailHelper.cs
 ./Utils/Helpers/ExceptionHelper.cs
 ./Utils/Helpers/GetConfigHelper.cs
