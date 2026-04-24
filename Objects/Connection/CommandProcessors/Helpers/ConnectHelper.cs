@@ -38,7 +38,19 @@ namespace NetworkMonitor.Connection
         /// </summary>
         /// <param name="netConfig">The network configuration containing the paths to provider assets and command binaries.</param>
         /// <returns>A list of AlgorithmInfo objects with enabled/disabled status.</returns>
-        public static List<AlgorithmInfo> GetAlgorithmInfoList(NetConnectConfig netConfig, ILogger? logger = null)
+        public static List<AlgorithmInfo> GetAlgorithmInfoList(NetConnectConfig netConfig)
+        {
+            return GetAlgorithmInfoList(netConfig, null);
+        }
+
+        /// <summary>
+        /// Loads algorithm information from a CSV file and enables algorithms based on runtime supported groups,
+        /// with fallback to the curves file.
+        /// </summary>
+        /// <param name="netConfig">The network configuration containing the paths to provider assets and command binaries.</param>
+        /// <param name="logger">Optional logger used by platform runners.</param>
+        /// <returns>A list of AlgorithmInfo objects with enabled/disabled status.</returns>
+        public static List<AlgorithmInfo> GetAlgorithmInfoList(NetConnectConfig netConfig, ILogger? logger)
         {
             // Load algorithm information from the CSV file
             string csvFilePath = Path.Combine(netConfig.OqsProviderPath, "AlgoTable.csv");
