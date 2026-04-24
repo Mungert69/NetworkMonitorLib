@@ -150,13 +150,12 @@ namespace NetworkMonitor.Connection
             string output;
             try
             {
-                output = runner
-                    .RunAsync(
+                output = Task.Run(() => runner.RunAsync(
                         opensslPath,
                         $"list {listFlag} -provider-path \"{providerPath}\" -provider {providerName} -provider default",
                         workingDirectory,
                         envVars,
-                        cts.Token)
+                        cts.Token))
                     .GetAwaiter()
                     .GetResult();
             }

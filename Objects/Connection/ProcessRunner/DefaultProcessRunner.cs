@@ -56,7 +56,7 @@ public class DefaultProcessRunner : IPlatformProcessRunner
 
         await Task.WhenAll(
             ReadStreamAsync(proc.StandardOutput, output, token),
-            ReadStreamAsync(proc.StandardError, error, token));
+            ReadStreamAsync(proc.StandardError, error, token)).ConfigureAwait(false);
 
         proc.WaitForExit();
         _logger.LogDebug($"Output: {error} : {output}");
@@ -66,7 +66,7 @@ public class DefaultProcessRunner : IPlatformProcessRunner
     private static async Task ReadStreamAsync(StreamReader reader, StringBuilder sb, CancellationToken ct)
     {
         string? line;
-        while ((line = await reader.ReadLineAsync()) != null)
+        while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
         {
             ct.ThrowIfCancellationRequested();
             sb.AppendLine(line);

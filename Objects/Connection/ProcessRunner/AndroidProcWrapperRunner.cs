@@ -141,8 +141,8 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
             try { System.Environment.CurrentDirectory = previousDir; } catch { /* ignore */ }
         }
 
-        var exit = await ps.WaitForExitAsync(50, token);
-        await ps.WaitForDrainAsync();
+        var exit = await ps.WaitForExitAsync(50, token).ConfigureAwait(false);
+        await ps.WaitForDrainAsync().ConfigureAwait(false);
         string stderrText;
         lock (stderr) stderrText = stderr.ToString();
         string stdoutText;
