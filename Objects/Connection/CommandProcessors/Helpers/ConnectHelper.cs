@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NetworkMonitor.Objects;
 
 namespace NetworkMonitor.Connection
@@ -37,14 +38,14 @@ namespace NetworkMonitor.Connection
         /// </summary>
         /// <param name="netConfig">The network configuration containing the paths to provider assets and command binaries.</param>
         /// <returns>A list of AlgorithmInfo objects with enabled/disabled status.</returns>
-        public static List<AlgorithmInfo> GetAlgorithmInfoList(NetConnectConfig netConfig)
+        public static List<AlgorithmInfo> GetAlgorithmInfoList(NetConnectConfig netConfig, ILogger? logger = null)
         {
             // Load algorithm information from the CSV file
             string csvFilePath = Path.Combine(netConfig.OqsProviderPath, "AlgoTable.csv");
             var algorithmInfoList = CsvParser.ParseAlgorithmInfoCsv(csvFilePath);
 
             // Prefer runtime capability discovery; fall back to the static curves file for compatibility.
-            var groups = ResolveSupportedGroups(netConfig);
+            var groups = ResolveSupportedGroups(netConfig, logger ?? NullLogger.Instance);
 
             // Enable algorithms that are in the curves file
             foreach (AlgorithmInfo algoInfo in algorithmInfoList)
@@ -55,9 +56,9 @@ namespace NetworkMonitor.Connection
             return algorithmInfoList;
         }
 
-        private static HashSet<string> ResolveSupportedGroups(NetConnectConfig netConfig)
+        private static HashSet<string> ResolveSupportedGroups(NetConnectConfig netConfig, ILogger logger)
         {
-            var runtimeGroups = TryGetRuntimeSupportedGroups(netConfig);
+            var runtimeGroups = TryGetRuntimeSupportedGroups(netConfig, logger);
             if (runtimeGroups.Count > 0)
             {
                 return runtimeGroups;
@@ -78,7 +79,7 @@ namespace NetworkMonitor.Connection
             return ParseGroupTokens(content);
         }
 
-        private static HashSet<string> TryGetRuntimeSupportedGroups(NetConnectConfig netConfig)
+        private static HashSet<string> TryGetRuntimeSupportedGroups(NetConnectConfig netConfig, ILogger logger)
         {
             try
             {
@@ -100,13 +101,14 @@ namespace NetworkMonitor.Connection
                     return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 }
 
-                var allGroups = RunOpenSslList(opensslPath, workingDirectory, providerPath, providerName, "-all-tls-groups");
+                var runner = CreateRunner(logger);
+                var allGroups = RunOpenSslList(runner, opensslPath, workingDirectory, providerPath, providerName, "-all-tls-groups");
                 if (allGroups.Count > 0)
                 {
                     return allGroups;
                 }
 
-                return RunOpenSslList(opensslPath, workingDirectory, providerPath, providerName, "-tls-groups");
+                return RunOpenSslList(runner, opensslPath, workingDirectory, providerPath, providerName, "-tls-groups");
             }
             catch
             {
@@ -114,56 +116,60 @@ namespace NetworkMonitor.Connection
             }
         }
 
+        private static IPlatformProcessRunner CreateRunner(ILogger logger)
+        {
+#if ANDROID
+            return new AndroidProcWrapperRunner(logger);
+#else
+            return new DefaultProcessRunner(logger);
+#endif
+        }
+
         private static HashSet<string> RunOpenSslList(
+            IPlatformProcessRunner runner,
             string opensslPath,
             string workingDirectory,
             string providerPath,
             string providerName,
             string listFlag)
         {
-            var startInfo = new ProcessStartInfo
+            var envVars = new Dictionary<string, string>
             {
-                FileName = opensslPath,
-                Arguments = $"list {listFlag} -provider-path \"{providerPath}\" -provider {providerName} -provider default",
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
+                ["NM_CLOSE_STDIN"] = "true",
+                ["OPENSSL_MODULES"] = providerPath
             };
-
-            startInfo.Environment["NM_CLOSE_STDIN"] = "true";
-            startInfo.Environment["OPENSSL_MODULES"] = providerPath;
 
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                startInfo.Environment["LD_LIBRARY_PATH"] = $"{providerPath}:{workingDirectory}";
+                envVars["LD_LIBRARY_PATH"] = $"{providerPath}:{workingDirectory}";
             }
 
-            using var process = Process.Start(startInfo);
-            if (process == null)
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            string output;
+            try
+            {
+                output = runner
+                    .RunAsync(
+                        opensslPath,
+                        $"list {listFlag} -provider-path \"{providerPath}\" -provider {providerName} -provider default",
+                        workingDirectory,
+                        envVars,
+                        cts.Token)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch
             {
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-
-            if (!process.WaitForExit(5000))
-            {
-                try { process.Kill(entireProcessTree: true); } catch { }
-                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            }
-
-            Task.WaitAll(stdoutTask, stderrTask);
-            var stdout = stdoutTask.Result ?? string.Empty;
-
-            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(stdout))
+            if (string.IsNullOrWhiteSpace(output))
             {
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
-            return ParseGroupTokens(stdout);
+            return ParseGroupTokens(output);
         }
 
         private static HashSet<string> ParseGroupTokens(string rawText)

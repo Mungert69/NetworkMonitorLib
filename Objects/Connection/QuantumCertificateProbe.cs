@@ -25,7 +25,7 @@ namespace NetworkMonitor.Connection
             _commandPath = netConfig.CommandPath;
             _nativeLibDir = netConfig.NativeLibDir;
             _logger = logger;
-            _algorithms = ConnectHelper.GetAlgorithmInfoList(netConfig);
+            _algorithms = ConnectHelper.GetAlgorithmInfoList(netConfig, logger);
             _certOidNames = ConnectHelper.GetCertificateOidNameMap(netConfig.OqsProviderPath);
 
 #if ANDROID

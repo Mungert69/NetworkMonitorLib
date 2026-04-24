@@ -114,7 +114,7 @@ namespace NetworkMonitor.Connection
 
             if (netConfig != null && netConfig.OqsProviderPath != null)
             {
-                _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig);
+                _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig, _logger);
             }
             else
             {

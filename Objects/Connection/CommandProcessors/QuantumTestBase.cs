@@ -31,7 +31,7 @@ public abstract class QuantumTestBase : CmdProcessor
         int queueLength = 5)
         : base(logger, cmdProcessorStates, rabbitRepo, netConfig, queueLength)
     {
-        _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig);
+        _algorithmInfoList = ConnectHelper.GetAlgorithmInfoList(netConfig, logger);
         _quantumConnect = new QuantumConnect(_algorithmInfoList, netConfig.OqsProviderPath, netConfig.CommandPath, logger, netConfig.NativeLibDir);
 
         _cmdProcessorStates.CmdName = commandName;
