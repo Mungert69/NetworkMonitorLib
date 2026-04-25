@@ -107,10 +107,15 @@ namespace NetworkMonitor.Objects.Repository
         // Inside RabbitListenerBase class
         public Task<ResultObj> Setup()
         {
-            return Setup(CancellationToken.None);
+            return Setup(CancellationToken.None, null);
         }
 
         public Task<ResultObj> Setup(CancellationToken cancellationToken)
+        {
+            return Setup(cancellationToken, null);
+        }
+
+        public Task<ResultObj> Setup(CancellationToken cancellationToken, int? maxRetriesOverride)
         {
             lock (_setupTaskLock)
             {
@@ -120,18 +125,18 @@ namespace NetworkMonitor.Objects.Repository
                     return _setupTask;
                 }
 
-                _setupTask = SetupWithCancellation(cancellationToken);
+                _setupTask = SetupWithCancellation(cancellationToken, maxRetriesOverride);
                 return _setupTask;
             }
         }
 
-        private async Task<ResultObj> SetupWithCancellation(CancellationToken cancellationToken)
+        private async Task<ResultObj> SetupWithCancellation(CancellationToken cancellationToken, int? maxRetriesOverride)
         {
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdownCts.Token);
-            return await SetupCore(linkedCts.Token);
+            return await SetupCore(linkedCts.Token, maxRetriesOverride);
         }
 
-        private async Task<ResultObj> SetupCore(CancellationToken cancellationToken)
+        private async Task<ResultObj> SetupCore(CancellationToken cancellationToken, int? maxRetriesOverride)
         {
             if (_rabbitMQObjs.Count > 0 || _connection != null)
             {
@@ -161,7 +166,8 @@ namespace NetworkMonitor.Objects.Repository
             InitRabbitMQObjs();
             try
             {
-                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger, cancellationToken: cancellationToken);
+                var effectiveMaxRetries = maxRetriesOverride ?? -1;
+                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger, effectiveMaxRetries, cancellationToken: cancellationToken);
                 if (success)
                 {
                     _connection = connection;

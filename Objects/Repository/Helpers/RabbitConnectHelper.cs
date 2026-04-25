@@ -139,11 +139,11 @@ namespace NetworkMonitor.Objects.Repository
 
         private static int ComputeRetryDelayMs(int retryCount, int baseDelayMs)
         {
-            // Exponential backoff capped at 60s with +-20% jitter to avoid thundering herd.
+            // Exponential backoff capped at 10 minutes with +-20% jitter to avoid thundering herd.
             var safeBase = Math.Max(250, baseDelayMs);
             var exponent = Math.Min(retryCount, 6); // cap multiplier growth at 64x
             var scaled = safeBase * Math.Pow(2, exponent);
-            var capped = Math.Min(60000, scaled);
+            var capped = Math.Min(600000, scaled);
             var jitterFactor = 0.8 + (Random.Shared.NextDouble() * 0.4);
             return (int)Math.Max(250, capped * jitterFactor);
         }

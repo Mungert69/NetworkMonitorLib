@@ -27,11 +27,11 @@ namespace NetworkMonitor.Objects.Repository
         Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class;
         Task<ResultObj> ConnectAndSetUp();
         Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken);
+        Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken, int? maxRetriesOverride);
         Task<ResultObj> ShutdownRepo();
     }
     public class RabbitRepo : IRabbitRepo
     {
-        private const int MaxRetries = -1; // Maximum number of retries
         private const int RetryDelayMilliseconds = 10000; // Time to wait between retries (60 seconds)
 
         //protected string _instanceName;
@@ -44,7 +44,6 @@ namespace NetworkMonitor.Objects.Repository
         private bool _isRunning = false;
         private bool _isTls = false;
         private bool _isRestrictedPublishPerm = false;
-        private int _maxRetries; // Maximum number of retries
         private int _retryDelayMilliseconds;
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _exchangeLocks = new();
         private readonly object _isRunningLock = new();
@@ -55,6 +54,7 @@ namespace NetworkMonitor.Objects.Repository
         private readonly Dictionary<string, string> _exchangeTypes= new Dictionary<string, string>();
         private CancellationTokenSource _shutdownCts = new();
         private volatile bool _isShuttingDown = false;
+        private volatile bool _hasConnectedOnce = false;
 
 
         public bool IsRunning
@@ -110,7 +110,6 @@ namespace NetworkMonitor.Objects.Repository
                 _isTls = _systemUrl.UseTls;
                 _logger?.LogInformation($" Use Tls in RabbitRepo NetConnectConfig ctor {_isTls}");
                 
-                _maxRetries = _netConfig.MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = _netConfig.RetryDelayMilliseconds;
                 //ConnectAndSetUp();
                 //_instanceName = _systemUrl.RabbitInstanceName;
@@ -131,7 +130,6 @@ namespace NetworkMonitor.Objects.Repository
                 _systemUrl = systemUrl;
                 _isTls = systemUrl.UseTls;
                 _logger?.LogInformation($" Use Tls in RabbitRepo SystemUrl ctor {_isTls}");
-                _maxRetries = MaxRetries; // Maximum number of retries
                 _retryDelayMilliseconds = RetryDelayMilliseconds;
                 // _instanceName = _systemUrl.RabbitInstanceName;
             }
@@ -200,10 +198,15 @@ namespace NetworkMonitor.Objects.Repository
         }
         public Task<ResultObj> ConnectAndSetUp()
         {
-            return ConnectAndSetUp(CancellationToken.None);
+            return ConnectAndSetUp(CancellationToken.None, null);
         }
 
         public Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken)
+        {
+            return ConnectAndSetUp(cancellationToken, null);
+        }
+
+        public Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken, int? maxRetriesOverride)
         {
             lock (_connectTaskLock)
             {
@@ -222,22 +225,23 @@ namespace NetworkMonitor.Objects.Repository
                     _logger.LogInformation(" RabbitRepo connect/setup is resetting after a previous shutdown.");
                 }
 
-                _connectAndSetupTask = ConnectAndSetUpWithCancellation(cancellationToken);
+                _connectAndSetupTask = ConnectAndSetUpWithCancellation(cancellationToken, maxRetriesOverride);
                 return _connectAndSetupTask;
             }
         }
 
-        private async Task<ResultObj> ConnectAndSetUpWithCancellation(CancellationToken cancellationToken)
+        private async Task<ResultObj> ConnectAndSetUpWithCancellation(CancellationToken cancellationToken, int? maxRetriesOverride)
         {
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdownCts.Token);
-            return await ConnectAndSetUpCore(linkedCts.Token);
+            return await ConnectAndSetUpCore(linkedCts.Token, maxRetriesOverride);
         }
 
-        private async Task<ResultObj> ConnectAndSetUpCore(CancellationToken cancellationToken)
+        private async Task<ResultObj> ConnectAndSetUpCore(CancellationToken cancellationToken, int? maxRetriesOverride)
         {
             var result = new ResultObj();
             result.Message = " RabbitRepo : ConnectAndSetUp : ";
             IsRunning = false;
+            var effectiveMaxRetries = _hasConnectedOnce ? -1 : (maxRetriesOverride ?? -1);
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -255,14 +259,15 @@ namespace NetworkMonitor.Objects.Repository
    
                     Ssl = BuildSslOption()
                 };
-                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, _maxRetries, _retryDelayMilliseconds, cancellationToken);
+                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, effectiveMaxRetries, _retryDelayMilliseconds, cancellationToken);
                 if (success)
                 {
                     _connection = connection;
                 }
                 else
                 {
-                    result.Message += ($" Error : Rabbot Repo failed to establish connection to RabbitMQ server running at {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort} after {_maxRetries} retries.");
+                    var maxRetriesDisplay = effectiveMaxRetries == -1 ? "infinite" : effectiveMaxRetries.ToString();
+                    result.Message += ($" Error : Rabbot Repo failed to establish connection to RabbitMQ server running at {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort} after {maxRetriesDisplay} retries.");
                     result.Success = false;
                     _logger.LogCritical(result.Message);
                     return result;
@@ -279,6 +284,7 @@ namespace NetworkMonitor.Objects.Repository
                     result.Message += $" Success : RabbitRepo Connected to RabbitMQ server {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}";
                     _logger.LogInformation(result.Message);
                     IsRunning = true;
+                    _hasConnectedOnce = true;
 
                     return result;
                 }
