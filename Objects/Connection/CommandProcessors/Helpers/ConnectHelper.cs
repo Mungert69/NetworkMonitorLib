@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetworkMonitor.Objects;
@@ -13,6 +15,9 @@ namespace NetworkMonitor.Connection
 {
     public class ConnectHelper
     {
+        private static readonly ConcurrentDictionary<string, Lazy<HashSet<string>>> SupportedGroupsCache =
+            new(StringComparer.Ordinal);
+
         /// <summary>
         /// Loads algorithm information from a JSON file and returns it as a dictionary.
         /// </summary>
@@ -59,6 +64,34 @@ namespace NetworkMonitor.Connection
 
         private static HashSet<string> ResolveSupportedGroups(NetConnectConfig netConfig, ILogger logger)
         {
+            var cacheKey = BuildSupportedGroupsCacheKey(netConfig);
+            if (SupportedGroupsCache.TryGetValue(cacheKey, out var cachedLazy))
+            {
+                logger.LogDebug("Using cached runtime TLS groups for key {CacheKey}.", cacheKey);
+                return cachedLazy.Value;
+            }
+
+            var newLazy = new Lazy<HashSet<string>>(
+                () => ResolveSupportedGroupsCore(netConfig, logger),
+                LazyThreadSafetyMode.ExecutionAndPublication);
+
+            var lazy = SupportedGroupsCache.GetOrAdd(cacheKey, newLazy);
+            var groups = lazy.Value;
+
+            if (ReferenceEquals(lazy, newLazy))
+            {
+                logger.LogInformation("Cached runtime TLS groups for key {CacheKey}. Group count: {Count}.", cacheKey, groups.Count);
+            }
+            else
+            {
+                logger.LogDebug("Another thread populated TLS group cache for key {CacheKey}. Reusing cached value.", cacheKey);
+            }
+
+            return groups;
+        }
+
+        private static HashSet<string> ResolveSupportedGroupsCore(NetConnectConfig netConfig, ILogger logger)
+        {
             var runtimeGroups = TryGetRuntimeSupportedGroups(netConfig, logger);
             if (runtimeGroups.Count > 0)
             {
@@ -66,6 +99,29 @@ namespace NetworkMonitor.Connection
             }
 
             return LoadGroupsFromCurvesFile(netConfig);
+        }
+
+        private static string BuildSupportedGroupsCacheKey(NetConnectConfig netConfig)
+        {
+            static string Normalize(string? value)
+            {
+                return (value ?? string.Empty).Trim().ToLowerInvariant();
+            }
+
+            var runtime = RuntimeInformation.FrameworkDescription.Trim();
+            var os = RuntimeInformation.OSDescription.Trim();
+            var arch = RuntimeInformation.ProcessArchitecture.ToString();
+
+            return string.Join("|", new[]
+            {
+                Normalize(netConfig.CommandPath),
+                Normalize(netConfig.OqsProviderPath),
+                Normalize(netConfig.NativeLibDir),
+                Normalize(netConfig.OpensslVersion),
+                runtime.ToLowerInvariant(),
+                os.ToLowerInvariant(),
+                arch.ToLowerInvariant()
+            });
         }
 
         private static HashSet<string> LoadGroupsFromCurvesFile(NetConnectConfig netConfig)
