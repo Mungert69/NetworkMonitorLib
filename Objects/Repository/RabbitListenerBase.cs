@@ -32,9 +32,11 @@ namespace NetworkMonitor.Objects.Repository
         protected IRabbitListenerState _state;
         private readonly AsyncLocal<string?> _currentPublisherUserId = new AsyncLocal<string?>();
         private readonly object _setupTaskLock = new();
+        private readonly object _recoveryMonitorLock = new();
         private Task<ResultObj>? _setupTask;
         private readonly CancellationTokenSource _shutdownCts = new();
         private volatile bool _isShuttingDown = false;
+        private volatile bool _isRecoveryMonitorRunning = false;
 
         public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null)
         {
@@ -86,6 +88,7 @@ namespace NetworkMonitor.Objects.Repository
                 {
                     try
                     {
+                        _connection.ConnectionShutdownAsync -= OnConnectionShutdown;
                         await _connection.CloseAsync();
                         _connection.Dispose();
                     }
@@ -171,6 +174,7 @@ namespace NetworkMonitor.Objects.Repository
                 if (success)
                 {
                     _connection = connection;
+                    _connection.ConnectionShutdownAsync += OnConnectionShutdown;
                 }
                 else
                 {
@@ -276,24 +280,62 @@ namespace NetworkMonitor.Objects.Repository
         {
             //_isRunning = false;
             _logger.LogWarning($" Warning : RabbitListner connection shutdown. Reason: {e.ReplyText}");
+            _state.IsRabbitConnected = false;
+            _state.RabbitSetupMessage = $" Rabbit Listener disconnected. Reason: {e.ReplyText}";
             if (_isShuttingDown || _shutdownCts.IsCancellationRequested)
             {
                 _logger.LogInformation("RabbitListener shutdown is in progress; skipping reconnect.");
                 return;
             }
-            try
-            {
-                await Setup(_shutdownCts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogInformation("RabbitListener reconnect was cancelled.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($" Error : RabbitListner unable to recreate connection . Error was : {ex.Message}. Attempting to recreate connection ...");
+            _logger.LogInformation("RabbitListener automatic recovery is enabled; waiting for client recovery.");
+            StartRecoveryStatusMonitor();
+            await Task.CompletedTask;
+        }
 
+        private void StartRecoveryStatusMonitor()
+        {
+            lock (_recoveryMonitorLock)
+            {
+                if (_isRecoveryMonitorRunning)
+                {
+                    return;
+                }
+                _isRecoveryMonitorRunning = true;
             }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    while (!_shutdownCts.IsCancellationRequested)
+                    {
+                        if (_connection != null && _connection.IsOpen)
+                        {
+                            _state.IsRabbitConnected = true;
+                            _state.RabbitSetupMessage = $" Rabbit Listener recovered connection to {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}.";
+                            _logger.LogInformation("RabbitListener auto-recovery succeeded and connection is open.");
+                            return;
+                        }
+
+                        await Task.Delay(TimeSpan.FromSeconds(5), _shutdownCts.Token);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore cancellation during shutdown.
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "RabbitListener recovery monitor stopped unexpectedly.");
+                }
+                finally
+                {
+                    lock (_recoveryMonitorLock)
+                    {
+                        _isRecoveryMonitorRunning = false;
+                    }
+                }
+            });
         }
 
         protected async Task Reconnect()
