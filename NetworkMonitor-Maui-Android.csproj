@@ -18,6 +18,16 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Tests/**" />
+    <Compile Remove="**/Tests/**" />
+    <Content Remove="Tests/**" />
+    <Content Remove="**/Tests/**" />
+    <None Remove="Tests/**" />
+    <None Remove="**/Tests/**" />
+    <MauiAsset Remove="Tests/**" />
+    <MauiAsset Remove="**/Tests/**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
       <PackageReference Include="FluentFTP" Version="54.1.2" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
