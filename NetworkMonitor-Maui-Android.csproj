@@ -29,7 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
-      <PackageReference Include="FluentFTP" Version="54.1.2" />
+      <PackageReference Include="FluentFTP" Version="54.2.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.2.6" />
@@ -44,7 +44,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.8" />
     <PackageReference Include="bouncycastle.cryptography" Version="2.6.2" />
     <PackageReference Include="MetroLog.Net6" Version="2.1.0" />
-    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.18.0" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.19.1" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
     <PackageReference Include="RestSharp" Version="114.0.0" />
