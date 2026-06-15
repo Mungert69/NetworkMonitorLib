@@ -46,14 +46,15 @@ namespace NetworkMonitor.Connection
                 string exePath = _netConfig.CommandPath;
                 string workingDirectory = _netConfig.CommandPath;
                 string opensslPath = Path.Combine(exePath, "openssl");
-                 string oqsProviderPath = _netConfig.OqsProviderPath;
-           
+                string libDir = _netConfig.OqsProviderPath;
+
                 if (_netConfig.NativeLibDir != string.Empty)
                 {
                     exePath = _netConfig.NativeLibDir;
                     workingDirectory = _netConfig.CommandPath;
                     LibraryHelper.SetLDLibraryPath(_netConfig.NativeLibDir);
                     opensslPath = Path.Combine(_netConfig.NativeLibDir, "libopenssl_exec.so");
+                    libDir = config.NativeLibDir;
                 }
                 using (var process = new Process())
                 {
@@ -62,7 +63,7 @@ namespace NetworkMonitor.Connection
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.RedirectStandardError = true; // Add this to capture standard error
-                    process.StartInfo.EnvironmentVariables["LD_LIBRARY_PATH"] = oqsProviderPath;
+                    process.StartInfo.EnvironmentVariables["LD_LIBRARY_PATH"] = libDir;
                     process.StartInfo.CreateNoWindow = true;
                     process.StartInfo.WorkingDirectory = workingDirectory;
 
