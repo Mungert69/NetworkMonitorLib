@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using System.Text;
 using NanoidDotNet;
@@ -433,19 +434,24 @@ public static class StringExtensions
     }
     public static string StripHttpProtocol(this string url)
     {
-        if (string.IsNullOrEmpty(url))
+        if (string.IsNullOrWhiteSpace(url))
             return url;
+
+        var trimmedUrl = url.Trim();
+
+        if (LooksLikeCidr(trimmedUrl))
+            return trimmedUrl;
 
         try
         {
             // Handle cases where the URL might not have a protocol
-            if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            if (!trimmedUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !trimmedUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
-                url = "http://" + url;
+                trimmedUrl = "http://" + trimmedUrl;
             }
 
-            var uri = new Uri(url);
+            var uri = new Uri(trimmedUrl);
 
             // Return the host and optionally the port if present
             return uri.IsDefaultPort
@@ -455,12 +461,31 @@ public static class StringExtensions
         catch (UriFormatException)
         {
             // Fallback to simple string manipulation if URI parsing fails
-            if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                return url.Substring(8);
-            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-                return url.Substring(7);
-            return url;
+            if (trimmedUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return trimmedUrl.Substring(8);
+            if (trimmedUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                return trimmedUrl.Substring(7);
+            return trimmedUrl;
         }
+    }
+
+    private static bool LooksLikeCidr(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var parts = value.Split('/');
+        if (parts.Length != 2)
+            return false;
+
+        if (!IPAddress.TryParse(parts[0], out var address))
+            return false;
+
+        if (!int.TryParse(parts[1], out var prefix))
+            return false;
+
+        var maxPrefix = address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128;
+        return prefix >= 0 && prefix <= maxPrefix;
     }
 }
 
