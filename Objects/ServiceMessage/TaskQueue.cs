@@ -27,7 +27,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task = taskGenerator(data);
             taskList.Add(task);
-            return await task;
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
@@ -45,7 +52,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task = taskGenerator(data);
             taskList.Add(task);
-            return await task;
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
@@ -64,7 +78,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task =  taskGenerator(data);
             taskList.Add(task);
-            return await task;
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
@@ -83,7 +104,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task = taskGenerator(data, monitorStatusAlerts);
             taskList.Add(task);
-            return await task;
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
@@ -101,7 +129,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task = taskGenerator(data, predictStatusAlerts);
             taskList.Add(task);
-            return await task;
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
@@ -120,7 +155,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task = taskGenerator();
             taskList.Add(task);
-            return await task;
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
@@ -138,7 +180,14 @@ namespace NetworkMonitorService.Objects.ServiceMessage
         {
             var task = taskGenerator();
             taskList.Add(task);
-            await task;
+            try
+            {
+                await task;
+            }
+            finally
+            {
+                taskList.Remove(task);
+            }
         }
         finally
         {
