@@ -215,7 +215,9 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
         public HostSkipState(int skipCycles)
         {
             SkipCycles = skipCycles;
-            RemainingSkips = skipCycles;
+            // A host-level override applies immediately. It then skips the configured
+            // number of following scheduler cycles.
+            RemainingSkips = 0;
         }
 
         public int SkipCycles { get; set; }
