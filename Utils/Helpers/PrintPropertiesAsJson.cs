@@ -180,6 +180,7 @@ public class PrintPropertiesAsJson
             output.Append("\"endpoint\" : \"").Append(monitorIP.EndPointType).Append("\", ");
             if (monitorIP.Port != 0) output.Append("\"port\" : ").Append(monitorIP.Port).Append(", ");
             output.Append("\"timeout\" : ").Append(monitorIP.Timeout).Append(", ");
+            if (monitorIP.SkipCycles.HasValue) output.Append("\"skip_cycles\" : ").Append(monitorIP.SkipCycles.Value).Append(", ");
             if (!monitorIP.Enabled) output.Append("\"enabled\" : ").Append(monitorIP.Enabled.ToString().ToLowerInvariant()).Append(", ");
             output.Append("\"agent_location\" : \"").Append(monitorIP.AgentLocation).Append("\", ");
             if (!string.IsNullOrEmpty(monitorIP.Username)) output.Append("\"username\" : \"").Append(monitorIP.Username).Append("\", ");

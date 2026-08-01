@@ -121,6 +121,7 @@ public class PrintPropertiesAsJsonTests
             EndPointType = "http",
             Port = 443,
             Timeout = 1000,
+            SkipCycles = 3,
             Enabled = false,
             AgentLocation = "Scanner - EU",
             UserID = "default",
@@ -138,6 +139,7 @@ public class PrintPropertiesAsJsonTests
         Assert.Contains("\"username\" : \"user1\"", json);
         Assert.Contains("\"password\" : \"****\"", json);
         Assert.Contains("\"args\" : \"--format victron\"", json);
+        Assert.Contains("\"skip_cycles\" : 3", json);
     }
 
     [Fact]
