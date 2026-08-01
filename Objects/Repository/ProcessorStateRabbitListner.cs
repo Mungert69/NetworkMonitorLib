@@ -229,10 +229,10 @@ namespace NetworkMonitor.Objects.Repository
                     }
                     else
                     {
-                        result.Success = false;
-                        result.Message += $" Error : Processor {processorObj.AppID} does not exsist ";
-                        _logger.LogError(result.Message);
-                        return result;
+                        _processorState.ConcurrentProcessorList.Add(processorObj);
+                        var resultStateChange = _processorState.AddAppIDStateChange(processorObj.AppID);
+                        if (resultStateChange.Success) result.Message += $" {resultStateChange.Message} : Success : Upserted missing ProcessorObj {processorObj.AppID}";
+                        result.Success = resultStateChange.Success;
                     }
 
                 }
