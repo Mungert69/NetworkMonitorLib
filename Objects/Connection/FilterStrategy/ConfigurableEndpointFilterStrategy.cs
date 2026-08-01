@@ -71,16 +71,17 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
         }
 
         var monitorIpId = netConnect.MpiStatic.MonitorIPID;
-        var state = _hostSkipStates.GetOrAdd(monitorIpId, _ => new HostSkipState(skipCycles));
+        var state = _hostSkipStates.GetOrAdd(
+            monitorIpId,
+            id => new HostSkipState(skipCycles, GetInitialHostSkips(id, skipCycles)));
         lock (state.SyncRoot)
         {
-            // A host setting can be changed while the processor is running. Reset its cycle so
-            // the new value applies immediately rather than inheriting stale skip state.
+            // Spread host overrides deterministically across their cadence. This avoids every
+            // overridden host running on agent startup while retaining a stable slot per host.
             if (state.SkipCycles != skipCycles)
             {
                 state.SkipCycles = skipCycles;
-                state.RemainingSkips = skipCycles;
-                return true;
+                state.RemainingSkips = GetInitialHostSkips(monitorIpId, skipCycles);
             }
 
             if (state.RemainingSkips <= 0)
@@ -92,6 +93,12 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
             state.RemainingSkips--;
             return false;
         }
+    }
+
+    private static int GetInitialHostSkips(int monitorIpId, int skipCycles)
+    {
+        var cycleLength = (uint)skipCycles + 1;
+        return (int)(unchecked((uint)monitorIpId) % cycleLength);
     }
 
     public void SetTotalEndpoints(List<INetConnect> netConnects)
@@ -212,12 +219,10 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
 
     private sealed class HostSkipState
     {
-        public HostSkipState(int skipCycles)
+        public HostSkipState(int skipCycles, int remainingSkips)
         {
             SkipCycles = skipCycles;
-            // A host-level override applies immediately. It then skips the configured
-            // number of following scheduler cycles.
-            RemainingSkips = 0;
+            RemainingSkips = remainingSkips;
         }
 
         public int SkipCycles { get; set; }

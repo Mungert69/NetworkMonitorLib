@@ -140,7 +140,7 @@ public class ConfigurableEndpointFilterStrategyTest
     }
 
     [Fact]
-    public void HostSkipCycles_OverridesEndpointStrategy_AndSkipsConfiguredCycles()
+    public void HostSkipCycles_OverridesEndpointStrategy_AndUsesStablePhase()
     {
         var strategy = new ConfigurableEndpointFilterStrategy(new[]
         {
@@ -151,13 +151,38 @@ public class ConfigurableEndpointFilterStrategyTest
                 FireInterval = new FilterIntervalConfig { Every = 100 }
             }
         });
-        var netConnect = new TestNetConnect(42, "smtp");
+        var netConnect = new TestNetConnect(43, "smtp");
         netConnect.MpiStatic.SkipCycles = 2;
 
+        Assert.False(strategy.ShouldInclude(netConnect));
         Assert.True(strategy.ShouldInclude(netConnect));
         Assert.False(strategy.ShouldInclude(netConnect));
         Assert.False(strategy.ShouldInclude(netConnect));
         Assert.True(strategy.ShouldInclude(netConnect));
+    }
+
+    [Fact]
+    public void HostSkipCycles_DistributesHostsAcrossTheirCadence()
+    {
+        var strategy = new ConfigurableEndpointFilterStrategy(Enumerable.Empty<FilterStrategyConfig>());
+        var first = new TestNetConnect(42, "http");
+        var second = new TestNetConnect(43, "http");
+        var third = new TestNetConnect(44, "http");
+        first.MpiStatic.SkipCycles = 2;
+        second.MpiStatic.SkipCycles = 2;
+        third.MpiStatic.SkipCycles = 2;
+
+        Assert.True(strategy.ShouldInclude(first));
+        Assert.False(strategy.ShouldInclude(second));
+        Assert.False(strategy.ShouldInclude(third));
+
+        Assert.False(strategy.ShouldInclude(first));
+        Assert.True(strategy.ShouldInclude(second));
+        Assert.False(strategy.ShouldInclude(third));
+
+        Assert.False(strategy.ShouldInclude(first));
+        Assert.False(strategy.ShouldInclude(second));
+        Assert.True(strategy.ShouldInclude(third));
     }
 
     [Fact]
@@ -180,14 +205,15 @@ public class ConfigurableEndpointFilterStrategyTest
     }
 
     [Fact]
-    public void HostSkipCycles_ChangedValueTakesEffectImmediately()
+    public void HostSkipCycles_ChangedValueUsesNewStablePhase()
     {
         var strategy = new ConfigurableEndpointFilterStrategy(Enumerable.Empty<FilterStrategyConfig>());
         var netConnect = new TestNetConnect(42, "http");
         netConnect.MpiStatic.SkipCycles = 3;
 
-        Assert.True(strategy.ShouldInclude(netConnect));
         Assert.False(strategy.ShouldInclude(netConnect));
+        Assert.False(strategy.ShouldInclude(netConnect));
+        Assert.True(strategy.ShouldInclude(netConnect));
 
         netConnect.MpiStatic.SkipCycles = 1;
         Assert.True(strategy.ShouldInclude(netConnect));
