@@ -27,6 +27,7 @@ namespace NetworkMonitor.Objects
                 MonitorIPID = monitorPingInfo.MonitorIPID;
                 EndPointType = monitorPingInfo.EndPointType;
                 Timeout = monitorPingInfo.Timeout;
+                SkipCycles = monitorPingInfo.SkipCycles;
                 Enabled = monitorPingInfo.Enabled;
                 SiteHash=monitorPingInfo.SiteHash;
             }
@@ -288,6 +289,34 @@ namespace NetworkMonitor.Objects
             }
         }
 
+        public int? SkipCycles
+        {
+            get
+            {
+                _rwLock.EnterReadLock();
+                try
+                {
+                    return _skipCycles;
+                }
+                finally
+                {
+                    _rwLock.ExitReadLock();
+                }
+            }
+            set
+            {
+                _rwLock.EnterWriteLock();
+                try
+                {
+                    _skipCycles = value;
+                }
+                finally
+                {
+                    _rwLock.ExitWriteLock();
+                }
+            }
+        }
+
         public bool Enabled
         {
             get
@@ -413,6 +442,7 @@ namespace NetworkMonitor.Objects
         private int _monitorIPID;
         private string _endPointType = "";
         private int _timeout;
+        private int? _skipCycles;
         private bool _enabled = false;
         private string? _siteHash = null; // New field
 

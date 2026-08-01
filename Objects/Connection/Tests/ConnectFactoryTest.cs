@@ -47,6 +47,7 @@ public class ConnectFactoryTest
             Enabled = true,
             Port = 80,
             Timeout = 1000,
+            SkipCycles = 3,
             Username = "user",
             Password = "pass",
             Args = "--metric pv_power"
@@ -59,6 +60,7 @@ public class ConnectFactoryTest
         Assert.Equal("http://example.com", nc.MpiStatic.Address);
         Assert.Equal(80, nc.MpiStatic.Port);
         Assert.Equal(1000, nc.MpiStatic.Timeout);
+        Assert.Equal(3, nc.MpiStatic.SkipCycles);
         Assert.Equal("user", nc.MpiStatic.Username);
         Assert.Equal("pass", nc.MpiStatic.Password);
         Assert.Equal("--metric pv_power", nc.MpiStatic.Args);
@@ -91,6 +93,7 @@ public class ConnectFactoryTest
         mpi.Enabled = false;
         mpi.Port = 8080;
         mpi.Timeout = 2000;
+        mpi.SkipCycles = 4;
         mpi.Username = "changeduser";
         mpi.Password = "changedpass";
         mpi.Args = "--metric battery_voltage";
@@ -101,6 +104,7 @@ public class ConnectFactoryTest
         Assert.False(nc.MpiStatic.Enabled);
         Assert.Equal(8080, nc.MpiStatic.Port);
         Assert.Equal(2000, nc.MpiStatic.Timeout);
+        Assert.Equal(4, nc.MpiStatic.SkipCycles);
         Assert.Equal("changeduser", nc.MpiStatic.Username);
         Assert.Equal("changedpass", nc.MpiStatic.Password);
         Assert.Equal("--metric battery_voltage", nc.MpiStatic.Args);

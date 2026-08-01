@@ -196,6 +196,7 @@ namespace NetworkMonitor.Connection
                 // netConnect.MpiStatic.ID = monitorPingInfo.ID;
                 netConnect.MpiStatic.Port = monitorPingInfo.Port;
                 netConnect.MpiStatic.Timeout = monitorPingInfo.Timeout;
+                netConnect.MpiStatic.SkipCycles = monitorPingInfo.SkipCycles;
                 // netConnect.MpiStatic.UserID = monitorPingInfo.UserID;
                 netConnect.MpiStatic.EndPointType = endPointType;
                 netConnect.MpiStatic.Username = monitorPingInfo.Username;

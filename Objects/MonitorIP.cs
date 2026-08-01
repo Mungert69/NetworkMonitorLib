@@ -27,6 +27,7 @@ namespace NetworkMonitor.Objects
             this.EndPointType = newMonIP.EndPointType;
             this.Port = newMonIP.Port;
             this.Timeout = newMonIP.Timeout;
+            this.SkipCycles = newMonIP.SkipCycles;
             this.UserInfoUserID = newMonIP.UserInfoUserID;
             this.UserID = newMonIP.UserID;
             this.Hidden = newMonIP.Hidden;
@@ -129,6 +130,12 @@ namespace NetworkMonitor.Objects
         /// </summary>
 
         public int Timeout { get; set; }
+
+        /// <summary>
+        /// Number of processor cycles to skip after this host is checked. A null value uses the
+        /// endpoint-type filter strategy configured on the processor; zero checks on every cycle.
+        /// </summary>
+        public int? SkipCycles { get; set; }
 
 
         [JsonIgnore]

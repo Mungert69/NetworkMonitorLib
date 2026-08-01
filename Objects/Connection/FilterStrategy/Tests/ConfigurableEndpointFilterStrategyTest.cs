@@ -139,6 +139,62 @@ public class ConfigurableEndpointFilterStrategyTest
         Assert.True(strategy.ShouldInclude(netConnect));
     }
 
+    [Fact]
+    public void HostSkipCycles_OverridesEndpointStrategy_AndSkipsConfiguredCycles()
+    {
+        var strategy = new ConfigurableEndpointFilterStrategy(new[]
+        {
+            new FilterStrategyConfig
+            {
+                StrategyName = "smtp",
+                EndpointTypeContains = new List<string> { "smtp" },
+                FireInterval = new FilterIntervalConfig { Every = 100 }
+            }
+        });
+        var netConnect = new TestNetConnect(42, "smtp");
+        netConnect.MpiStatic.SkipCycles = 2;
+
+        Assert.True(strategy.ShouldInclude(netConnect));
+        Assert.False(strategy.ShouldInclude(netConnect));
+        Assert.False(strategy.ShouldInclude(netConnect));
+        Assert.True(strategy.ShouldInclude(netConnect));
+    }
+
+    [Fact]
+    public void HostSkipCycles_ZeroRunsEveryCycle()
+    {
+        var strategy = new ConfigurableEndpointFilterStrategy(new[]
+        {
+            new FilterStrategyConfig
+            {
+                StrategyName = "smtp",
+                EndpointTypeContains = new List<string> { "smtp" },
+                FireInterval = new FilterIntervalConfig { Every = 100 }
+            }
+        });
+        var netConnect = new TestNetConnect(42, "smtp");
+        netConnect.MpiStatic.SkipCycles = 0;
+
+        Assert.True(strategy.ShouldInclude(netConnect));
+        Assert.True(strategy.ShouldInclude(netConnect));
+    }
+
+    [Fact]
+    public void HostSkipCycles_ChangedValueTakesEffectImmediately()
+    {
+        var strategy = new ConfigurableEndpointFilterStrategy(Enumerable.Empty<FilterStrategyConfig>());
+        var netConnect = new TestNetConnect(42, "http");
+        netConnect.MpiStatic.SkipCycles = 3;
+
+        Assert.True(strategy.ShouldInclude(netConnect));
+        Assert.False(strategy.ShouldInclude(netConnect));
+
+        netConnect.MpiStatic.SkipCycles = 1;
+        Assert.True(strategy.ShouldInclude(netConnect));
+        Assert.False(strategy.ShouldInclude(netConnect));
+        Assert.True(strategy.ShouldInclude(netConnect));
+    }
+
     private sealed class TestNetConnect : INetConnect
     {
         public TestNetConnect(int id, string endPointType, bool enabled = true)

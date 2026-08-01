@@ -31,6 +31,7 @@ namespace NetworkMonitor.Objects
             //DestinationUnreachable = copy.DestinationUnreachable;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            SkipCycles = copy.SkipCycles;
             //TimeOuts = copy.TimeOuts;
             Address = copy.Address;
             Port = copy.Port;
@@ -69,6 +70,7 @@ namespace NetworkMonitor.Objects
             //DestinationUnreachable = copy.DestinationUnreachable;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            SkipCycles = copy.SkipCycles;
             //TimeOuts = copy.TimeOuts;
             Address = copy.Address;
             Port = copy.Port;
@@ -106,6 +108,7 @@ namespace NetworkMonitor.Objects
             Status = copy.Status;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            SkipCycles = copy.SkipCycles;
             Address = copy.Address;
             Port = copy.Port;
             UserID = copy.UserID;
@@ -140,6 +143,7 @@ namespace NetworkMonitor.Objects
             //DestinationUnreachable = copy.DestinationUnreachable;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            SkipCycles = copy.SkipCycles;
             //TimeOuts = copy.TimeOuts;
             Address = copy.Address;
             Port = copy.Port;
@@ -200,6 +204,13 @@ namespace NetworkMonitor.Objects
 
         public int MonitorIPID { get; set; }
         public int Timeout { get; set; }
+
+        /// <summary>
+        /// Runtime host scheduling override received from <see cref="MonitorIP"/>.
+        /// This belongs to host configuration, not persisted monitoring data.
+        /// </summary>
+        [NotMapped]
+        public int? SkipCycles { get; set; }
 
         /// <summary>
         /// The host name. This is the same as the Address. 

@@ -26,6 +26,7 @@ namespace NetworkMonitor.Objects
             Hidden= m.Hidden;
             ID= m.ID;
             Timeout= m.Timeout;
+            SkipCycles = m.SkipCycles;
             UserID= m.UserID;
             Port= m.Port;
             AddUserEmail=m.AddUserEmail;

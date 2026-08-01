@@ -16,6 +16,7 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
     private readonly Dictionary<string, CounterState> _counterStates;
     private readonly ConcurrentDictionary<int, DateTime> _lastDailyRuns = new();
     private readonly ConcurrentDictionary<int, object> _dailyLocks = new();
+    private readonly ConcurrentDictionary<int, HostSkipState> _hostSkipStates = new();
     private static readonly ThreadLocal<Random> _random = new(() => new Random());
 
     public ConfigurableEndpointFilterStrategy(IEnumerable<FilterStrategyConfig> configs)
@@ -31,6 +32,11 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
 
     public bool ShouldInclude(INetConnect netConnect)
     {
+        if (HasHostSchedulingOverride(netConnect))
+        {
+            return EvaluateHostSkipCycles(netConnect);
+        }
+
         var matchingConfigs = _configs.Where(c => c.IsMatch(netConnect)).ToList();
         if (matchingConfigs.Count == 0) return true;
 
@@ -51,6 +57,41 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
         }
 
         return true;
+    }
+
+    private static bool HasHostSchedulingOverride(INetConnect netConnect) =>
+        netConnect?.MpiStatic?.SkipCycles.HasValue == true;
+
+    private bool EvaluateHostSkipCycles(INetConnect netConnect)
+    {
+        var skipCycles = netConnect.MpiStatic.SkipCycles!.Value;
+        if (skipCycles <= 0)
+        {
+            return true;
+        }
+
+        var monitorIpId = netConnect.MpiStatic.MonitorIPID;
+        var state = _hostSkipStates.GetOrAdd(monitorIpId, _ => new HostSkipState(skipCycles));
+        lock (state.SyncRoot)
+        {
+            // A host setting can be changed while the processor is running. Reset its cycle so
+            // the new value applies immediately rather than inheriting stale skip state.
+            if (state.SkipCycles != skipCycles)
+            {
+                state.SkipCycles = skipCycles;
+                state.RemainingSkips = skipCycles;
+                return true;
+            }
+
+            if (state.RemainingSkips <= 0)
+            {
+                state.RemainingSkips = skipCycles;
+                return true;
+            }
+
+            state.RemainingSkips--;
+            return false;
+        }
     }
 
     public void SetTotalEndpoints(List<INetConnect> netConnects)
@@ -166,6 +207,19 @@ public class ConfigurableEndpointFilterStrategy : INetConnectFilterStrategy, IEn
         public int Counter { get; set; }
         public int Offset { get; set; }
         public int TotalEndpoints { get; set; } = 1;
+        public object SyncRoot { get; } = new();
+    }
+
+    private sealed class HostSkipState
+    {
+        public HostSkipState(int skipCycles)
+        {
+            SkipCycles = skipCycles;
+            RemainingSkips = skipCycles;
+        }
+
+        public int SkipCycles { get; set; }
+        public int RemainingSkips { get; set; }
         public object SyncRoot { get; } = new();
     }
 }

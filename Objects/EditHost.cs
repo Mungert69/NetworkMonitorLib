@@ -57,6 +57,11 @@ namespace NetworkMonitor.Objects
         public int? SetTimeout { get; set; }
 
         /// <summary>
+        /// Number of processor cycles to skip after each check. Null restores the endpoint-type default.
+        /// </summary>
+        public int? SetSkipCycles { get; set; }
+
+        /// <summary>
         /// On editting set if the host is hidden. Setting this to true effectively deletes the host from future monitoring. Historic data will still be available on the web interface.
         /// </summary>
         public bool? SetHidden { get; set; } = false;
