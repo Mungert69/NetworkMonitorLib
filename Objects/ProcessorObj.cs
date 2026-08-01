@@ -260,6 +260,7 @@ public void SetAllFields(ProcessorObj other)
         /// The database Primary Key for the agent.
         /// </summary>
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int ID { get => _iD; set => _iD = value; }
         /// <summary>
         /// Is this agent enabled
