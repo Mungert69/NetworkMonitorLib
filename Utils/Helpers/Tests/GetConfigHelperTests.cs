@@ -52,6 +52,28 @@ public class GetConfigHelperTests
     }
 
     [Fact]
+    public void GetConfigValue_LoadsNamedEnvironmentVariable()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { { "LlmHFKey", ".env:PROVIDER_API_KEY" } })
+            .Build();
+
+        Environment.SetEnvironmentVariable("PROVIDER_API_KEY", "provider-key");
+        TestUtilities.ResetGetConfigHelper();
+        GetConfigHelper.Initialize(config);
+
+        try
+        {
+            var value = GetConfigHelper.GetConfigValue("LlmHFKey", "default");
+            Assert.Equal("provider-key", value);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PROVIDER_API_KEY", null);
+        }
+    }
+
+    [Fact]
     public void GetSection_LoadsValuesFromEnvironment()
     {
         var config = new ConfigurationBuilder()

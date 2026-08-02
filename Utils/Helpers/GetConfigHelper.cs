@@ -82,18 +82,29 @@ namespace NetworkMonitor.Utils.Helpers
         {
             var value = config.GetValue<string>(key) ?? defaultValue;
 
-            if (string.Equals(value, ".env", StringComparison.Ordinal))
+            if (string.Equals(value, ".env", StringComparison.Ordinal)
+                || value.StartsWith(".env:", StringComparison.OrdinalIgnoreCase))
             {
                 EnsureEnvironmentLoaded(config, logger);
-                var envVar = Environment.GetEnvironmentVariable(key);
+                var envName = string.Equals(value, ".env", StringComparison.Ordinal)
+                    ? key
+                    : value[".env:".Length..].Trim();
+
+                if (string.IsNullOrWhiteSpace(envName))
+                {
+                    logger?.LogError("Configuration key '{Key}' has an empty .env variable name.", key);
+                    return defaultValue;
+                }
+
+                var envVar = Environment.GetEnvironmentVariable(envName);
                 if (string.IsNullOrEmpty(envVar))
                 {
-                    logger?.LogError($"Environment variable '{key}' is not set. Using default value.");
+                    logger?.LogError("Environment variable '{EnvName}' for configuration key '{Key}' is not set. Using default value.", envName, key);
                     return defaultValue;
                 }
                 else
                 {
-                    logger?.LogInformation($"Environment variable '{key}' found; overriding from ENV.");
+                    logger?.LogInformation("Environment variable '{EnvName}' found for configuration key '{Key}'; overriding from ENV.", envName, key);
                     return envVar!;
                 }
             }
