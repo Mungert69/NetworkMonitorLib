@@ -119,6 +119,8 @@ public class SystemParamsHelperTests
             { "PredictWindow", "123" },
             { "SpikeDetectionThreshold", "7" },
             { "ChangeConfidence", "55" },
+            { "LlmThinking", "low" },
+            { "LlmOpenAIThinking", "none" },
             { "LlmRunnerRoutingKeys:TurboLLM", "execute.mock" }
         }, out var envPath);
 
@@ -129,6 +131,8 @@ public class SystemParamsHelperTests
             Assert.Equal(123, mlParams.PredictWindow);
             Assert.Equal(7, mlParams.SpikeDetectionThreshold);
             Assert.Equal(55, mlParams.ChangeConfidence);
+            Assert.Equal("low", mlParams.LlmThinking);
+            Assert.Equal("none", mlParams.LlmOpenAIThinking);
             Assert.Equal("execute.mock", mlParams.LlmRunnerRoutingKeys["TurboLLM"]);
         }
         finally

@@ -41,6 +41,7 @@ public class MLParams
     private bool _llmNoInitMessage = false;
     private bool _llmNoThink = false;
     private string _llmThinking = "";
+    private string _llmOpenAIThinking = "none";
     private bool _startThisTestLLM = true;
     private string _llmGptModel = "gpt-4o-mini";
     private string _llmHFModelID = "";
@@ -175,6 +176,7 @@ public class MLParams
     public string HFToken { get => _hFToken; set => _hFToken = value; }
     public bool LlmNoThink { get => _llmNoThink; set => _llmNoThink = value; }
     public string LlmThinking { get => _llmThinking; set => _llmThinking = value; }
+    public string LlmOpenAIThinking { get => _llmOpenAIThinking; set => _llmOpenAIThinking = value; }
     public Dictionary<string, string> LlmRunnerRoutingKeys { get => _llmRunnerRoutingKeys; set => _llmRunnerRoutingKeys = value; }
     public Dictionary<string, bool> SimpleMonitorPromptByRunner { get => _simpleMonitorPromptByRunner; set => _simpleMonitorPromptByRunner = value ?? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase); }
     public string PrimaryMonitorRole { get => _primaryMonitorRole; set => _primaryMonitorRole = value ?? ""; }

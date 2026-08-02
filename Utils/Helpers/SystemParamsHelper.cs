@@ -473,6 +473,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmUseToolRoleForFunctionResponses = _config.GetValue<bool?>("LlmUseToolRoleForFunctionResponses") ?? true;
             mlParams.LlmNoThink = _config.GetValue<bool?>("LlmNoThink") ?? false;
             mlParams.LlmThinking = _config.GetValue<string>("LlmThinking") ?? "";
+            mlParams.LlmOpenAIThinking = _config.GetValue<string>("LlmOpenAIThinking") ?? "none";
             mlParams.LlmPromptTokens = int.TryParse(_config["LlmPromptTokens"], out int llmPromptTokens) ? llmPromptTokens : 28000;
             mlParams.LlmGptModel = _config.GetValue<string>("LlmGptModel") ?? "gpt-4.1-mini";
             mlParams.GptModelVersion = _config.GetValue<string>("GptModelVersion") ?? "gpt";
