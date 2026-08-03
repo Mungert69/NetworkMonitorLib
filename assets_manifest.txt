@@ -13,6 +13,7 @@
 ./NetworkMonitor.csproj
 ./README.md
 ./script_debug.log
+./sixlabors.lic
 ./bin/Debug/net10.0-windows10.0.19041.0/Betalgo.Ranul.OpenAI.Contracts.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Betalgo.Ranul.OpenAI.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/BouncyCastle.Cryptography.dll
@@ -23,6 +24,7 @@
 ./bin/Debug/net10.0-windows10.0.19041.0/Markdig.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/MetroLog.Net6.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.Bcl.AsyncInterfaces.dll
+./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.Bcl.Cryptography.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.CodeAnalysis.CSharp.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.CodeAnalysis.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Microsoft.EntityFrameworkCore.Abstractions.dll
@@ -72,7 +74,6 @@
 ./bin/Debug/net10.0-windows10.0.19041.0/NetworkMonitor.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/NetworkMonitor.pdb
 ./bin/Debug/net10.0-windows10.0.19041.0/NetworkMonitor.runtimeconfig.json
-./bin/Debug/net10.0-windows10.0.19041.0/Newtonsoft.Json.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Nito.AsyncEx.Context.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Nito.AsyncEx.Coordination.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/Nito.AsyncEx.Interop.WaitHandles.dll
@@ -88,6 +89,7 @@
 ./bin/Debug/net10.0-windows10.0.19041.0/Superpower.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/System.Diagnostics.EventLog.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/System.IdentityModel.Tokens.Jwt.dll
+./bin/Debug/net10.0-windows10.0.19041.0/System.IO.Hashing.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/System.Threading.RateLimiting.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/testhost.dll
 ./bin/Debug/net10.0-windows10.0.19041.0/testhost.exe
@@ -201,6 +203,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/Markdig.dll
 ./bin/Release/net10.0-windows10.0.19041.0/MetroLog.Net6.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.Bcl.AsyncInterfaces.dll
+./bin/Release/net10.0-windows10.0.19041.0/Microsoft.Bcl.Cryptography.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.CodeAnalysis.CSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.CodeAnalysis.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.EntityFrameworkCore.Abstractions.dll
@@ -242,6 +245,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.VisualStudio.TestPlatform.Common.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.VisualStudio.TestPlatform.ObjectModel.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Microsoft.Windows.SDK.NET.dll
+./bin/Release/net10.0-windows10.0.19041.0/Microting.EntityFrameworkCore.MySql.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Moq.dll
 ./bin/Release/net10.0-windows10.0.19041.0/MySqlConnector.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Nanoid.dll
@@ -249,7 +253,6 @@
 ./bin/Release/net10.0-windows10.0.19041.0/NetworkMonitor.dll
 ./bin/Release/net10.0-windows10.0.19041.0/NetworkMonitor.pdb
 ./bin/Release/net10.0-windows10.0.19041.0/NetworkMonitor.runtimeconfig.json
-./bin/Release/net10.0-windows10.0.19041.0/Newtonsoft.Json.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Nito.AsyncEx.Context.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Nito.AsyncEx.Coordination.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Nito.AsyncEx.Interop.WaitHandles.dll
@@ -258,14 +261,14 @@
 ./bin/Release/net10.0-windows10.0.19041.0/Nito.Cancellation.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Nito.Collections.Deque.dll
 ./bin/Release/net10.0-windows10.0.19041.0/Nito.Disposables.dll
-./bin/Release/net10.0-windows10.0.19041.0/Pomelo.EntityFrameworkCore.MySql.dll
 ./bin/Release/net10.0-windows10.0.19041.0/PuppeteerSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/RabbitMQ.Client.dll
 ./bin/Release/net10.0-windows10.0.19041.0/RestSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/SixLabors.ImageSharp.dll
-./bin/Release/net10.0-windows10.0.19041.0/Sprache.dll
+./bin/Release/net10.0-windows10.0.19041.0/Superpower.dll
 ./bin/Release/net10.0-windows10.0.19041.0/System.Diagnostics.EventLog.dll
 ./bin/Release/net10.0-windows10.0.19041.0/System.IdentityModel.Tokens.Jwt.dll
+./bin/Release/net10.0-windows10.0.19041.0/System.IO.Hashing.dll
 ./bin/Release/net10.0-windows10.0.19041.0/System.Threading.RateLimiting.dll
 ./bin/Release/net10.0-windows10.0.19041.0/testhost.dll
 ./bin/Release/net10.0-windows10.0.19041.0/testhost.exe
@@ -349,6 +352,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Markdig.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/MetroLog.Net6.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.Bcl.AsyncInterfaces.dll
+./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.Bcl.Cryptography.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.CodeAnalysis.CSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.CodeAnalysis.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.CodeCoverage.Core.dll
@@ -398,6 +402,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.VisualStudio.TestPlatform.ObjectModel.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.VisualStudio.TraceDataCollector.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Microsoft.Windows.SDK.NET.dll
+./bin/Release/net10.0-windows10.0.19041.0/publish/Microting.EntityFrameworkCore.MySql.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Mono.Cecil.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Mono.Cecil.Pdb.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Mono.Cecil.Rocks.dll
@@ -408,7 +413,6 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/NetworkMonitor.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/NetworkMonitor.pdb
 ./bin/Release/net10.0-windows10.0.19041.0/publish/NetworkMonitor.runtimeconfig.json
-./bin/Release/net10.0-windows10.0.19041.0/publish/Newtonsoft.Json.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Nito.AsyncEx.Context.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Nito.AsyncEx.Coordination.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Nito.AsyncEx.Interop.WaitHandles.dll
@@ -417,14 +421,14 @@
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Nito.Cancellation.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Nito.Collections.Deque.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/Nito.Disposables.dll
-./bin/Release/net10.0-windows10.0.19041.0/publish/Pomelo.EntityFrameworkCore.MySql.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/PuppeteerSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/RabbitMQ.Client.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/RestSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/SixLabors.ImageSharp.dll
-./bin/Release/net10.0-windows10.0.19041.0/publish/Sprache.dll
+./bin/Release/net10.0-windows10.0.19041.0/publish/Superpower.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.Diagnostics.EventLog.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.IdentityModel.Tokens.Jwt.dll
+./bin/Release/net10.0-windows10.0.19041.0/publish/System.IO.Hashing.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.Memory.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.Text.Json.dll
 ./bin/Release/net10.0-windows10.0.19041.0/publish/System.Threading.RateLimiting.dll
@@ -617,6 +621,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Markdig.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/MetroLog.Net6.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.Bcl.AsyncInterfaces.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.Bcl.Cryptography.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.CodeAnalysis.CSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.CodeAnalysis.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Microsoft.CSharp.dll
@@ -679,7 +684,6 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/NetworkMonitor.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/NetworkMonitor.pdb
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/NetworkMonitor.runtimeconfig.json
-./bin/Release/net10.0-windows10.0.19041.0/win-x64/Newtonsoft.Json.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Nito.AsyncEx.Context.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Nito.AsyncEx.Coordination.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/Nito.AsyncEx.Interop.WaitHandles.dll
@@ -745,6 +749,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.FileSystem.DriveInfo.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.FileSystem.Primitives.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.FileSystem.Watcher.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.Hashing.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.IsolatedStorage.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.MemoryMappedFiles.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/System.IO.Pipelines.dll
@@ -953,6 +958,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Markdig.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/MetroLog.Net6.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.Bcl.AsyncInterfaces.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.Bcl.Cryptography.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.CodeAnalysis.CSharp.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.CodeAnalysis.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Microsoft.CodeCoverage.Core.dll
@@ -1026,7 +1032,6 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/NetworkMonitor.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/NetworkMonitor.pdb
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/NetworkMonitor.runtimeconfig.json
-./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Newtonsoft.Json.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Nito.AsyncEx.Context.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Nito.AsyncEx.Coordination.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/Nito.AsyncEx.Interop.WaitHandles.dll
@@ -1092,6 +1097,7 @@
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.FileSystem.DriveInfo.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.FileSystem.Primitives.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.FileSystem.Watcher.dll
+./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.Hashing.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.IsolatedStorage.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.MemoryMappedFiles.dll
 ./bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/System.IO.Pipelines.dll
