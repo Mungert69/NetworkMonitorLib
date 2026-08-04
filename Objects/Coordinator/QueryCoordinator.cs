@@ -117,11 +117,13 @@ namespace NetworkMonitor.Coordinator
                 return;
             }
 
-            // Find the first system message that contains RAG-related content
+            // The OpenAI runner can normalize a non-leading system message to a
+            // user message for strict chat templates (for example Qwen). Match
+            // RAG by its stable content prefix so it remains transient either way.
             var ragSystemMessage = localHistory.FirstOrDefault(m =>
-                m.Role == "system" &&
                 m.Content != null &&
-                m.Content.StartsWith(SystemRagMessage));
+                (m.Content.StartsWith(SystemRagMessage) ||
+                 m.Content.StartsWith("[Runtime guidance]\n" + SystemRagMessage)));
 
             if (ragSystemMessage != null)
             {
