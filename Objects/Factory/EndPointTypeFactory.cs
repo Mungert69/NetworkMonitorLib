@@ -68,6 +68,13 @@ namespace NetworkMonitor.Objects.Factory
                 "Load full website content using Puppeteer, hash the rendered HTML, and compare to a stored value for change detection.",
                 "loads and hashes rendered website content to detect changes"
             ),
+            new EndpointType(
+                "configintegrity",
+                "HashIcon",
+                "Configuration Integrity (local Debian)",
+                "Read the root-published Debian configuration-integrity status for this local monitoring agent.",
+                "checks the local Debian configuration-integrity result"
+            ),
             new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups", "DNS lookup"),
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP", "email server HELO message confirmation"),
             new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test"),
@@ -135,6 +142,7 @@ namespace NetworkMonitor.Objects.Factory
 
     // SiteHash (full page load with Puppeteer and hash check) - same thresholds as httpfull
     { "sitehash", new ResponseTimeThreshold(new ThresholdValues(2000, 4000, 8000), new ThresholdValues(2000, 4000, 8000)) },
+    { "configintegrity", new ResponseTimeThreshold(new ThresholdValues(100, 500, 2000), new ThresholdValues(100, 500, 2000)) },
     
     // DNS - DNS lookups are generally quick, with moderate thresholds
     { "dns", new ResponseTimeThreshold(new ThresholdValues(100, 300, 600), new ThresholdValues(100, 300, 600)) },
@@ -275,6 +283,7 @@ namespace NetworkMonitor.Objects.Factory
                 "httphtml" => new HTTPConnect(httpClient, true, false, commandPath),
                 "httpfull" => new HTTPConnect(httpClient, false, true, commandPath, browserHost),
                 "sitehash" => new SiteHashConnect(commandPath, browserHost), // New endpoint type
+                "configintegrity" => new ConfigIntegrityConnect(),
                 "dns" => new DNSConnect(),
                 "smtp" => new SMTPConnect(),
                 "quantum" => new QuantumConnect(algorithmInfoList, oqsProviderPath, commandPath, logger, nativeLibDir),
