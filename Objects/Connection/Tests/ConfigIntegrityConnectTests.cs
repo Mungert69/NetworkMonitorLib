@@ -38,7 +38,12 @@ public class ConfigIntegrityConnectTests : IDisposable
     public async Task Connect_DifferenceResult_ReportsDownWithFinding()
     {
         await WriteResultAsync(1, "integrity_differences", findings:
-        [new { state = "CHANGED", path = "/etc/nginx/nginx.conf", package = "nginx-common" }]);
+        [new { state = "CHANGED", path = "/etc/nginx/nginx.conf", package = "nginx-common" }],
+        guidance:
+        [
+            "Review the affected path before trusting it.",
+            "Only an administrator may run: sudo config-integrity update.",
+        ]);
         var connect = CreateConnect();
 
         await connect.Connect();
@@ -46,6 +51,9 @@ public class ConfigIntegrityConnectTests : IDisposable
         Assert.False(connect.MpiConnect.IsUp);
         Assert.Equal("Configuration integrity differences", connect.MpiConnect.PingInfo.Status);
         Assert.Contains("CHANGED /etc/nginx/nginx.conf [nginx-common]", connect.MpiConnect.Message);
+        Assert.Contains("LLM guidance:", connect.MpiConnect.Message);
+        Assert.Contains("Review the affected path before trusting it.", connect.MpiConnect.Message);
+        Assert.Contains("Only an administrator may run: sudo config-integrity update.", connect.MpiConnect.Message);
     }
 
     [Fact]
@@ -89,7 +97,12 @@ public class ConfigIntegrityConnectTests : IDisposable
         MpiStatic = new MPIStatic { Address = "localhost", Timeout = 5000, EndPointType = "configintegrity" },
     };
 
-    private Task WriteResultAsync(int exitCode, string status, object[] findings, string? error = null)
+    private Task WriteResultAsync(
+        int exitCode,
+        string status,
+        object[] findings,
+        string? error = null,
+        string[]? guidance = null)
     {
         var payload = new
         {
@@ -106,6 +119,7 @@ public class ConfigIntegrityConnectTests : IDisposable
             },
             findings,
             error,
+            consumer_guidance = guidance ?? [],
         };
         return File.WriteAllTextAsync(_resultPath, JsonSerializer.Serialize(payload));
     }

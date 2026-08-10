@@ -42,7 +42,8 @@ public sealed class ConfigIntegrityConnect : NetConnect
 
             var summary = FormatSummary(root);
             var findings = FormatFindings(root);
-            var detail = string.IsNullOrEmpty(findings) ? summary : $"{summary}\n{findings}";
+            var guidance = FormatConsumerGuidance(root);
+            var detail = CombineDetail(summary, findings, guidance);
             var elapsed = (ushort)Math.Min(Timer.ElapsedMilliseconds, ushort.MaxValue);
 
             switch (exitCode)
@@ -112,5 +113,44 @@ public sealed class ConfigIntegrityConnect : NetConnect
             if (!string.IsNullOrWhiteSpace(package)) lines.Append(" [").Append(package).Append(']');
         }
         return lines.ToString();
+    }
+
+    private static string FormatConsumerGuidance(JsonElement root)
+    {
+        if (!root.TryGetProperty("consumer_guidance", out var guidance) ||
+            guidance.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        var lines = new StringBuilder();
+        foreach (var item in guidance.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var instruction = item.GetString();
+            if (string.IsNullOrWhiteSpace(instruction))
+            {
+                continue;
+            }
+
+            if (lines.Length > 0)
+            {
+                lines.AppendLine();
+            }
+            lines.Append("- ").Append(instruction.Trim());
+        }
+
+        return lines.Length == 0 ? string.Empty : $"LLM guidance:\n{lines}";
+    }
+
+    private static string CombineDetail(string summary, string findings, string guidance)
+    {
+        var sections = new[] { summary, findings, guidance }
+            .Where(section => !string.IsNullOrWhiteSpace(section));
+        return string.Join("\n\n", sections);
     }
 }
