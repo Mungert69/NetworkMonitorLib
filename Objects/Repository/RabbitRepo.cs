@@ -242,6 +242,8 @@ namespace NetworkMonitor.Objects.Repository
             result.Message = " RabbitRepo : ConnectAndSetUp : ";
             IsRunning = false;
             var effectiveMaxRetries = _hasConnectedOnce ? -1 : (maxRetriesOverride ?? -1);
+            IConnection? replacementConnection = null;
+            IChannel? replacementPublishChannel = null;
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -260,11 +262,7 @@ namespace NetworkMonitor.Objects.Repository
                     Ssl = BuildSslOption()
                 };
                 var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, effectiveMaxRetries, _retryDelayMilliseconds, cancellationToken);
-                if (success)
-                {
-                    _connection = connection;
-                }
-                else
+                if (!success || connection == null)
                 {
                     var maxRetriesDisplay = effectiveMaxRetries == -1 ? "infinite" : effectiveMaxRetries.ToString();
                     result.Message += ($" Error : Rabbot Repo failed to establish connection to RabbitMQ server running at {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort} after {maxRetriesDisplay} retries.");
@@ -273,28 +271,21 @@ namespace NetworkMonitor.Objects.Repository
                     return result;
                 }
 
+                replacementConnection = connection;
+                cancellationToken.ThrowIfCancellationRequested();
+                replacementPublishChannel = await replacementConnection.CreateChannelAsync(cancellationToken: cancellationToken);
 
+                ActivateReplacementConnection(replacementConnection, replacementPublishChannel);
+                replacementConnection = null;
+                replacementPublishChannel = null;
 
-                if (_connection != null)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    _connection.ConnectionShutdownAsync += OnConnectionShutdown;
-                    _publishChannel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
-                    result.Success = true;
-                    result.Message += $" Success : RabbitRepo Connected to RabbitMQ server {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}";
-                    _logger.LogInformation(result.Message);
-                    IsRunning = true;
-                    _hasConnectedOnce = true;
+                result.Success = true;
+                result.Message += $" Success : RabbitRepo Connected to RabbitMQ server {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort}";
+                _logger.LogInformation(result.Message);
+                IsRunning = true;
+                _hasConnectedOnce = true;
 
-                    return result;
-                }
-                else
-                {
-                    result.Message += " Error : Connection object is null after trying to connect.";
-                    result.Success = false;
-                    _logger.LogCritical(result.Message);
-                    return result;
-                }
+                return result;
 
             }
             catch (OperationCanceledException)
@@ -313,6 +304,12 @@ namespace NetworkMonitor.Objects.Repository
             }
             finally
             {
+                if (replacementConnection != null)
+                {
+                    // The replacement never became active. Clean it up without
+                    // delaying the caller's failure path.
+                    _ = RetireConnectionAsync(replacementConnection, replacementPublishChannel);
+                }
                 lock (_connectTaskLock)
                 {
                     _connectAndSetupTask = null;
@@ -321,6 +318,65 @@ namespace NetworkMonitor.Objects.Repository
 
 
 
+        }
+
+        private void ActivateReplacementConnection(IConnection replacementConnection, IChannel replacementPublishChannel)
+        {
+            var previousConnection = _connection;
+            var previousPublishChannel = _publishChannel;
+
+            // Detach before closing the old connection so its shutdown event cannot
+            // mark this newly activated publisher as disconnected.
+            if (previousConnection != null)
+            {
+                previousConnection.ConnectionShutdownAsync -= OnConnectionShutdown;
+            }
+
+            replacementConnection.ConnectionShutdownAsync += OnConnectionShutdown;
+            _connection = replacementConnection;
+            _publishChannel = replacementPublishChannel;
+            _exchangeCache.Clear();
+
+            if (previousConnection != null && !ReferenceEquals(previousConnection, replacementConnection))
+            {
+                // Connection retirement is deliberately best-effort and not awaited:
+                // a slow broker close must never prevent a credential/endpoint handoff.
+                _ = RetireConnectionAsync(previousConnection, previousPublishChannel);
+            }
+        }
+
+        private async Task RetireConnectionAsync(IConnection connection, IChannel? publishChannel)
+        {
+            try
+            {
+                connection.ConnectionShutdownAsync -= OnConnectionShutdown;
+
+                if (publishChannel != null)
+                {
+                    try
+                    {
+                        if (publishChannel.IsOpen)
+                        {
+                            await publishChannel.CloseAsync();
+                        }
+                    }
+                    finally
+                    {
+                        publishChannel.Dispose();
+                    }
+                }
+
+                if (connection.IsOpen)
+                {
+                    await connection.CloseAsync();
+                }
+                connection.Dispose();
+                _logger.LogInformation("Retired superseded RabbitRepo publisher connection.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not fully retire superseded RabbitRepo publisher connection.");
+            }
         }
 
         private SslOption BuildSslOption()
