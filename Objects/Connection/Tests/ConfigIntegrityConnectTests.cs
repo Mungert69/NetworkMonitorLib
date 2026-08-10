@@ -32,6 +32,7 @@ public class ConfigIntegrityConnectTests : IDisposable
         Assert.True(connect.MpiConnect.IsUp);
         Assert.Equal("Configuration integrity clean", connect.MpiConnect.PingInfo.Status);
         Assert.Contains("Checked: 5", connect.MpiConnect.Message);
+        Assert.Contains("Result: clean (exit code 0)", connect.MpiConnect.Message);
     }
 
     [Fact]
@@ -49,8 +50,11 @@ public class ConfigIntegrityConnectTests : IDisposable
         await connect.Connect();
 
         Assert.False(connect.MpiConnect.IsUp);
-        Assert.Equal("Configuration integrity differences", connect.MpiConnect.PingInfo.Status);
+        Assert.Equal("Configuration integrity differences detected", connect.MpiConnect.PingInfo.Status);
+        Assert.StartsWith("CONFIGINTEGRITY: Configuration integrity differences detected", connect.MpiConnect.Message);
+        Assert.DoesNotContain("Failed to connect", connect.MpiConnect.Message);
         Assert.Contains("CHANGED /etc/nginx/nginx.conf [nginx-common]", connect.MpiConnect.Message);
+        Assert.Contains("Findings shown: 1 of 1.", connect.MpiConnect.Message);
         Assert.Contains("LLM guidance:", connect.MpiConnect.Message);
         Assert.Contains("Review the affected path before trusting it.", connect.MpiConnect.Message);
         Assert.Contains("Only an administrator may run: sudo config-integrity update.", connect.MpiConnect.Message);
@@ -90,6 +94,40 @@ public class ConfigIntegrityConnectTests : IDisposable
 
         Assert.False(connect.MpiConnect.IsUp);
         Assert.Equal("Configuration integrity result unavailable", connect.MpiConnect.PingInfo.Status);
+    }
+
+    [Fact]
+    public async Task Connect_ManyFindings_ShowsOnlyCompleteEntriesWithinStatusLimit()
+    {
+        var findings = Enumerable.Range(1, 80)
+            .Select(index => new
+            {
+                state = "CHANGED",
+                path = $"/etc/config-integrity-test-{index}-{new string('x', 80)}",
+                package = "example-package",
+            })
+            .Cast<object>()
+            .ToArray();
+        await WriteResultAsync(
+            1,
+            "integrity_differences",
+            findings,
+            guidance:
+            [
+                "Review every affected path before trusting a new baseline.",
+                "Only an administrator may run: sudo config-integrity update.",
+            ]);
+        var connect = CreateConnect();
+
+        await connect.Connect();
+
+        Assert.True(connect.MpiConnect.Message!.Length <= StatusObj.MessageMaxLength);
+        Assert.Contains("Findings shown:", connect.MpiConnect.Message);
+        Assert.Contains("additional finding(s) omitted", connect.MpiConnect.Message);
+        Assert.Contains("sudo config-integrity check --verbose", connect.MpiConnect.Message);
+        Assert.Contains("CHANGED /etc/config-integrity-test-1-", connect.MpiConnect.Message);
+        Assert.DoesNotContain("CHANGED /etc/config-integrity-test-80-", connect.MpiConnect.Message);
+        Assert.Contains("LLM guidance:", connect.MpiConnect.Message);
     }
 
     private ConfigIntegrityConnect CreateConnect() => new(_resultPath)
