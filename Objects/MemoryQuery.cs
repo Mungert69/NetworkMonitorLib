@@ -70,3 +70,32 @@ public class MemoryTurnWindowRequest
     public bool Success { get; set; }
     public string Message { get; set; } = "";
 }
+
+public class MemoryTurnRangeRequest
+{
+    public string SessionId { get; set; } = "";
+    public int StartTurnIndex { get; set; }
+    public int EndTurnIndex { get; set; }
+    public int Offset { get; set; }
+    public string UserId { get; set; } = "";
+
+    public string AppID { get; set; } = "";
+    public string AuthKey { get; set; } = "";
+    public string MessageID { get; set; } = "";
+    public string LLMRunnerType { get; set; } = "";
+    public string ResponseExchange { get; set; } = "";
+    public string RoutingKey { get; set; } = "";
+
+    public List<MemoryContextTurn> Turns { get; set; } = new();
+    public bool HasMore { get; set; }
+    public int? NextOffset { get; set; }
+    public bool Success { get; set; }
+    public string Message { get; set; } = "";
+}
+
+public class MemoryTurnRangeResult
+{
+    public List<MemoryContextTurn> Turns { get; set; } = new();
+    public bool HasMore { get; set; }
+    public int? NextOffset { get; set; }
+}

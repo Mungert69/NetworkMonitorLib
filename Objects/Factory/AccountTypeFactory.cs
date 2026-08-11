@@ -135,6 +135,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "Standard" => new List<string>
@@ -190,6 +191,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "Professional" => new List<string>
@@ -249,6 +251,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "Enterprise" => new List<string>
@@ -311,6 +314,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "God" => new List<string>
@@ -373,6 +377,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             _ => new List<string>
@@ -413,6 +418,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         }
         };
