@@ -38,6 +38,14 @@ namespace NetworkMonitor.Objects;
         public int Page {get; set; } = 1;
     }
 
+    public class RunAgentFlowRequest
+    {
+        public string FlowName { get; set; } = string.Empty;
+        public Dictionary<string, object> Arguments { get; set; } = new();
+        public string AgentLocation { get; set; } = string.Empty;
+        public string LLMRunnerType { get; set; } = string.Empty;
+    }
+
     public class DeleteCmdProcessorRequest
     {
         public string CmdProcessorType { get; set; }= string.Empty;
