@@ -76,11 +76,11 @@ namespace NetworkMonitor.Objects.ServiceMessage
             functionCallData = new FunctionCallData(other.functionCallData);
             userInfo = new UserInfo(other.userInfo);
             // Deep copy of the stacks
-            LlmStack = new Stack<string>(other.LlmStack);
-            FunctionCallIdStack = new Stack<string>(other.FunctionCallIdStack);
-            FunctionNameStack = new Stack<string>(other.FunctionNameStack);
-            MessageIDStack = new Stack<string>(other.MessageIDStack);
-            IsProcessedStack = new Stack<bool>(other.IsProcessedStack);
+            LlmStack = new Stack<string>(other.LlmStack.Reverse());
+            FunctionCallIdStack = new Stack<string>(other.FunctionCallIdStack.Reverse());
+            FunctionNameStack = new Stack<string>(other.FunctionNameStack.Reverse());
+            MessageIDStack = new Stack<string>(other.MessageIDStack.Reverse());
+            IsProcessedStack = new Stack<bool>(other.IsProcessedStack.Reverse());
             LlmSessionStartName = other.LlmSessionStartName;
             messageID = other.MessageID;
             StartTimeUTC = other.StartTimeUTC;
