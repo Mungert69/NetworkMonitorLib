@@ -656,7 +656,13 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
 
     private static string GetSessionKey(ProcessorScanDataObj? data)
     {
-        var userId = data?.LlmServiceObj?.UserInfo?.UserID ?? "unknown-user";
+        var userId = data?.LlmServiceObj?.UserInfo?.UserID;
+        if (string.IsNullOrWhiteSpace(userId)
+            || string.Equals(userId, "default", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "An authenticated, non-default UserID is required for a live Metasploit console.");
+        }
         var sessionId = data?.LlmServiceObj?.SessionId;
         if (string.IsNullOrWhiteSpace(sessionId))
         {
