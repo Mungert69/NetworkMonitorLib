@@ -249,11 +249,16 @@ internal sealed class LiveMetasploitSession : IDisposable
     private bool _busy;
     private bool _closed;
 
-    public LiveMetasploitSession(Process process, IMetasploitRpcClient rpcClient, string consoleId)
+    public LiveMetasploitSession(
+        Process process,
+        IMetasploitRpcClient rpcClient,
+        string consoleId,
+        Action<LiveMetasploitSession> processExited)
     {
         _process = process;
         _rpcClient = rpcClient;
         ConsoleId = consoleId;
+        _process.Exited += (_, _) => processExited(this);
     }
 
     public string ConsoleId { get; }
@@ -509,8 +514,14 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
                 return existing;
             }
             existing?.Dispose();
-            var created = await StartSessionAsync(cancellationToken);
+            var created = await StartSessionAsync(key, cancellationToken);
             _sessions[key] = created;
+            if (created.HasExited && _sessions.TryRemove(
+                    new KeyValuePair<string, LiveMetasploitSession>(key, created)))
+            {
+                created.Dispose();
+                throw new InvalidOperationException("The live msfconsole process exited during session startup.");
+            }
             return created;
         }
         finally
@@ -519,7 +530,9 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
         }
     }
 
-    private async Task<LiveMetasploitSession> StartSessionAsync(CancellationToken cancellationToken)
+    private async Task<LiveMetasploitSession> StartSessionAsync(
+        string key,
+        CancellationToken cancellationToken)
     {
         var msfPath = await FindMsfconsoleAsync(cancellationToken);
         var port = GetAvailableLoopbackPort();
@@ -573,7 +586,11 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
                     {
                         throw new InvalidOperationException("Metasploit RPC did not return a console ID.");
                     }
-                    return new LiveMetasploitSession(process, rpcClient, consoleId);
+                    return new LiveMetasploitSession(
+                        process,
+                        rpcClient,
+                        consoleId,
+                        session => RemoveExitedSession(key, session));
                 }
                 catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
                 {
@@ -627,6 +644,14 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
         return port;
+    }
+
+    private void RemoveExitedSession(string key, LiveMetasploitSession session)
+    {
+        if (_sessions.TryRemove(new KeyValuePair<string, LiveMetasploitSession>(key, session)))
+        {
+            _ = Task.Run(session.Dispose);
+        }
     }
 
     private static string GetSessionKey(ProcessorScanDataObj? data)
