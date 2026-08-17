@@ -633,8 +633,12 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
     {
         var userId = data?.LlmServiceObj?.UserInfo?.UserID ?? "unknown-user";
         var sessionId = data?.LlmServiceObj?.SessionId;
-        if (string.IsNullOrWhiteSpace(sessionId)) sessionId = data?.RootMessageID;
-        return $"{userId}:{sessionId ?? "unknown-session"}";
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new InvalidOperationException(
+                "A non-empty LLM SessionId is required for a live Metasploit console.");
+        }
+        return $"{userId}:{sessionId}";
     }
 
     public override void Dispose()
