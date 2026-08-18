@@ -141,8 +141,7 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
         using var httpResponse = await _httpClient.PostAsync("api", content, cancellationToken);
         httpResponse.EnsureSuccessStatusCode();
         var bytes = await httpResponse.Content.ReadAsByteArrayAsync(cancellationToken);
-        var reader = new MessagePackReader(bytes);
-        return ReadMap(ref reader);
+        return DecodeResponse(bytes);
     }
 
     private static void WriteValue(ref MessagePackWriter writer, object? value)
@@ -173,10 +172,28 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
         var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < count; index++)
         {
-            var key = reader.ReadString() ?? "";
+            var key = ReadText(ref reader);
             result[key] = ReadValue(ref reader);
         }
         return result;
+    }
+
+    private static string ReadText(ref MessagePackReader reader)
+    {
+        return reader.NextMessagePackType switch
+        {
+            MessagePackType.String => reader.ReadString() ?? "",
+            MessagePackType.Binary => Encoding.UTF8.GetString(
+                reader.ReadBytes()?.ToArray() ?? Array.Empty<byte>()),
+            _ => throw new InvalidDataException(
+                $"Expected MessagePack string or binary text, got {reader.NextMessagePackType}.")
+        };
+    }
+
+    internal static Dictionary<string, object?> DecodeResponse(ReadOnlyMemory<byte> bytes)
+    {
+        var reader = new MessagePackReader(bytes);
+        return ReadMap(ref reader);
     }
 
     private static object? ReadValue(ref MessagePackReader reader)
@@ -218,9 +235,9 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
 
     private static void ThrowIfRpcError(Dictionary<string, object?> response)
     {
-        if (response.TryGetValue("error", out var error)
-            && error != null
-            && !string.Equals(error.ToString(), "false", StringComparison.OrdinalIgnoreCase))
+        var error = GetString(response, "error");
+        if (!string.IsNullOrEmpty(error)
+            && !string.Equals(error, "false", StringComparison.OrdinalIgnoreCase))
         {
             var message = GetString(response, "error_message");
             throw new InvalidOperationException(
@@ -228,8 +245,20 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
         }
     }
 
-    internal static string GetString(Dictionary<string, object?> response, string key) =>
-        response.TryGetValue(key, out var value) ? value?.ToString() ?? "" : "";
+    internal static string GetString(Dictionary<string, object?> response, string key)
+    {
+        if (!response.TryGetValue(key, out var value) || value == null)
+        {
+            return "";
+        }
+
+        return value switch
+        {
+            string text => text,
+            byte[] bytes => Encoding.UTF8.GetString(bytes),
+            _ => value.ToString() ?? ""
+        };
+    }
 
     internal static bool GetBoolean(Dictionary<string, object?> response, string key) =>
         response.TryGetValue(key, out var value) && value is bool flag && flag;
@@ -562,7 +591,7 @@ public sealed class MetaLiveCmdProcessor : CmdProcessor
         process.BeginErrorReadLine();
         process.StandardInput.AutoFlush = true;
         await process.StandardInput.WriteLineAsync(
-            $"load msgrpc ServerHost=127.0.0.1 ServerPort={port} User={username} Pass={password} SSL=false TokenTimeout=300");
+            $"load msgrpc ServerHost=127.0.0.1 ServerPort={port} User={username} Pass={password} SSL=false");
 
         var rpcClient = new MetasploitRpcClient(port, username, password);
         try

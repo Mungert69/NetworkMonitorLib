@@ -171,7 +171,7 @@ namespace NetworkMonitor.Objects.Repository
             {
                 var effectiveMaxRetries = maxRetriesOverride ?? -1;
                 var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger, effectiveMaxRetries, cancellationToken: cancellationToken);
-                if (success)
+                if (success && connection != null)
                 {
                     _connection = connection;
                     _connection.ConnectionShutdownAsync += OnConnectionShutdown;
