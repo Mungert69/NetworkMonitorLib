@@ -15,8 +15,23 @@ function Log {
 
 # Publish NetworkMonitor for win-x64
 Log "Publishing NetworkMonitor for win-x64"
-$publishOutput = dotnet publish NetworkMonitor-Maui.csproj -c Release -r win-x64 --self-contained true 2>&1
+# Use project path relative to script so publish runs even when invoked from another cwd
+$projectPath = Join-Path -Path $PSScriptRoot -ChildPath 'NetworkMonitor-Maui.csproj'
+if (!(Test-Path $projectPath)) {
+    Log "ERROR: Project file not found at $projectPath"
+    exit 1
+}
+
+# Run dotnet publish and stop if it fails to avoid copying stale files
+Log "Running: dotnet publish \"$projectPath\" -c Release -r win-x64 --self-contained true"
+$publishOutput = & dotnet publish "$projectPath" -c Release -r win-x64 --self-contained true 2>&1
 $publishOutput | Out-File -Append $LOG_FILE
+if ($LASTEXITCODE -ne 0) {
+    Log "ERROR: dotnet publish failed with exit code $LASTEXITCODE"
+    Log "Publish output: $publishOutput"
+    exit 1
+}
+
 Log "Publish completed with output: $publishOutput"
 
 # Define source path
@@ -27,7 +42,7 @@ if (!(Test-Path $windowsSourcePath)) {
 }
 
 # Files to copy
-$filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "RestSharp.dll", "Nito*.dll", "Nanoid.dll", "mscorlib.dll", "netstandard.dll", "HtmlAgilityPack.dll", "FluentFTP.dll", "Betalgo.Ranul.OpenAI.dll", "BouncyCastle.Cryptography.dll", "Microsoft.Extensions*.dll", "Microsoft.IdentityModel*.dll", "Microsoft.Bcl.AsyncInterfaces.dll", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Microsoft.CSharp.dll", "Markdig.dll")
+$filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "RestSharp.dll", "Nito*.dll", "Nanoid.dll", "mscorlib.dll", "netstandard.dll", "HtmlAgilityPack.dll", "FluentFTP.dll", "Betalgo.Ranul.OpenAI.dll", "BouncyCastle.Cryptography.dll", "Microsoft.Extensions*.dll", "Microsoft.IdentityModel*.dll", "Microsoft.Bcl.AsyncInterfaces.dll", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Microsoft.CSharp.dll", "Markdig.dll", "MessagePack*.dll")
 
 # Windows DLL final destinations
 $windowsDestinations = @(
