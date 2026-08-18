@@ -1567,6 +1567,7 @@
 ./Objects/Connection/AddressFiler.cs
 ./Objects/Connection/BleBroadcastConnect.cs
 ./Objects/Connection/BleBroadcastListenConnect.cs
+./Objects/Connection/ConfigIntegrityConnect.cs
 ./Objects/Connection/ConnectFactory.cs
 ./Objects/Connection/CrawlSiteCmdConnect.cs
 ./Objects/Connection/CSVParser.cs
@@ -1603,6 +1604,7 @@
 ./Objects/Connection/CommandProcessors/HugSpaceKeepAliveCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/HugSpaceWakeCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/MetaCmdProcessor.cs
+./Objects/Connection/CommandProcessors/MetaLiveCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/NmapCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/OpensslCmdProcessor.cs
 ./Objects/Connection/CommandProcessors/PingCmdProcessor.cs
@@ -1625,6 +1627,7 @@
 ./Objects/Connection/CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/BleBroadcastListenCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/CmdProcessorTest.cs
+./Objects/Connection/CommandProcessors/Tests/MetaLiveCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/PlatformAwareCmdProcessorTests.cs
 ./Objects/Connection/CommandProcessors/Tests/QuantumPortScannerCmdProcessorTests.cs
 ./Objects/Connection/Connects/ConnectCompiler.cs
@@ -1644,6 +1647,7 @@
 ./Objects/Connection/Tests/AddressFilterTest.cs
 ./Objects/Connection/Tests/BleBroadcastConnectTest.cs
 ./Objects/Connection/Tests/BleBroadcastListenConnectTest.cs
+./Objects/Connection/Tests/ConfigIntegrityConnectTests.cs
 ./Objects/Connection/Tests/ConnectFactoryTest.cs
 ./Objects/Connection/Tests/ConnectHelperTests.cs
 ./Objects/Connection/Tests/CrawlHelperTests.cs
@@ -1726,6 +1730,7 @@
 ./Objects/ServiceMessage/RefreshAuthKeyObj.cs
 ./Objects/ServiceMessage/TaskQueue.cs
 ./Objects/ServiceMessage/UpdateProductObj.cs
+./Objects/ServiceMessage/Tests/LLMServiceObjTests.cs
 ./Objects/ServiceMessage/Tests/ProcessorScanDataObjTests.cs
 ./Objects/Tests/MemoryQueryRequestTests.cs
 ./Objects/Tests/SearchIndexRequestTests.cs
