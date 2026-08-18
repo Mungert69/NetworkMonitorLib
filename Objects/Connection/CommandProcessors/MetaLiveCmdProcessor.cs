@@ -270,6 +270,8 @@ internal sealed class LiveMetasploitSession : IDisposable
 {
     private const int MaxResponseCharacters = 32 * 1024;
     private const int MaxBufferedCharacters = 1024 * 1024;
+    private static readonly TimeSpan WriteObservationWindow = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan OutputSettleWindow = TimeSpan.FromMilliseconds(250);
     private readonly Process _process;
     private readonly IMetasploitRpcClient _rpcClient;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -329,15 +331,37 @@ internal sealed class LiveMetasploitSession : IDisposable
 
             var wait = TimeSpan.FromSeconds(Math.Clamp(request.WaitSeconds, 1, 60));
             var stopwatch = Stopwatch.StartNew();
+            var isWrite = control == "write" && !string.IsNullOrEmpty(request.Input);
+            var sawBusy = false;
+            var lastActivity = TimeSpan.Zero;
             do
             {
                 var read = await _rpcClient.ReadConsoleAsync(ConsoleId, cancellationToken);
-                AppendOutput(MetasploitRpcClient.GetString(read, "data"));
-                _prompt = MetasploitRpcClient.GetString(read, "prompt");
+                var output = MetasploitRpcClient.GetString(read, "data");
+                var prompt = MetasploitRpcClient.GetString(read, "prompt");
+                var promptChanged = !string.Equals(prompt, _prompt, StringComparison.Ordinal);
+                AppendOutput(output);
+                _prompt = prompt;
                 _busy = MetasploitRpcClient.GetBoolean(read, "busy");
-                if (!_busy)
+                sawBusy |= _busy;
+                if (!string.IsNullOrEmpty(output) || promptChanged)
+                {
+                    lastActivity = stopwatch.Elapsed;
+                }
+
+                if (!_busy && !isWrite)
                 {
                     break;
+                }
+
+                if (!_busy && isWrite)
+                {
+                    var observedLongEnough = stopwatch.Elapsed >= WriteObservationWindow;
+                    var activitySettled = stopwatch.Elapsed - lastActivity >= OutputSettleWindow;
+                    if ((sawBusy || observedLongEnough) && activitySettled)
+                    {
+                        break;
+                    }
                 }
                 await Task.Delay(250, cancellationToken);
             }
