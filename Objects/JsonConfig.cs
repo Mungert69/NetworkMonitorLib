@@ -66,6 +66,8 @@ namespace NetworkMonitor.Objects
   [JsonSerializable(typeof(QueryIndexRequest))]
   [JsonSerializable(typeof(MemoryQueryRequest))]
   [JsonSerializable(typeof(MemoryTurnWindowRequest))]
+  [JsonSerializable(typeof(MemoryTurnRangeRequest))]
+  [JsonSerializable(typeof(MemoryTurnRangeResult))]
   [JsonSerializable(typeof(MemoryQueryResult))]
   [JsonSerializable(typeof(MemoryContextTurn))]
   [JsonSerializable(typeof(List<MemoryQueryResult>))]

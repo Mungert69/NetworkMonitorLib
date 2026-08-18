@@ -47,6 +47,7 @@ public class EndPointTypeFactoryTest
         Assert.Contains(types, t => t.InternalType == "crawlsite");
         Assert.Contains(types, t => t.InternalType == "dailycrawl");
         Assert.Contains(types, t => t.InternalType == "sitehash");
+        Assert.Contains(types, t => t.InternalType == "configintegrity");
         Assert.Contains(types, t => t.InternalType == "dailyhugkeepalive");
         Assert.Contains(types, t => t.InternalType == "quantumcert");
         Assert.Contains(types, t => t.InternalType == "blebroadcast");
@@ -138,6 +139,7 @@ public class EndPointTypeFactoryTest
         Assert.IsType<BleBroadcastListenConnect>(EndPointTypeFactory.CreateNetConnect("blebroadcastlisten", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, mockProvider.Object));
         Assert.IsType<HugSpaceKeepAliveConnect>(EndPointTypeFactory.CreateNetConnect("dailyhugkeepalive", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, mockProvider.Object));
         Assert.IsType<SiteHashConnect>(EndPointTypeFactory.CreateNetConnect("sitehash", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger, browserHost: mockBrowser.Object));
+        Assert.IsType<ConfigIntegrityConnect>(EndPointTypeFactory.CreateNetConnect("configintegrity", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
 
         Assert.IsType<ICMPConnect>(EndPointTypeFactory.CreateNetConnect("notarealtype", httpClient, httpsClient, algoList, oqsProviderPath, commandPath, logger));
 

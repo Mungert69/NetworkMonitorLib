@@ -31,6 +31,7 @@ public class AccountTypeFactory
                 {
                     { "call_security_expert", "nmap" },
                     { "call_penetration_expert", "meta" },
+                    { "call_live_penetration_expert", "metalive" },
                     { "call_search_expert", "search" },
                     { "call_cmd_processor_expert", "cmdprocessor" },
                     { "call_connect_expert", "connect" },
@@ -47,6 +48,7 @@ public class AccountTypeFactory
                 {
                     { "call_security_expert", "nmap" },
                     { "call_penetration_expert", "meta" },
+                    { "call_live_penetration_expert", "metalive" },
                     { "call_search_expert", "search" },
                     { "call_cmd_processor_expert", "cmdprocessor" },
                     { "call_connect_expert", "connect" },
@@ -70,6 +72,7 @@ public class AccountTypeFactory
                     {"search_metasploit_modules", "meta" },
                     {"get_metasploit_module_info", "meta" },
                     {"run_metasploit", "meta" },
+                    {"interact_msfconsole", "metalive" },
                     {"call_cmd_processor_expert", "cmdprocessor" },
                     {"call_connect_expert", "connect" },
                     {"call_camera_expert", "camera" },
@@ -135,6 +138,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "Standard" => new List<string>
@@ -190,6 +194,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "Professional" => new List<string>
@@ -205,6 +210,7 @@ public class AccountTypeFactory
             "get_agents",
             "call_security_expert",
             "call_penetration_expert",
+            "call_live_penetration_expert",
             "call_cmd_processor_expert",
             "call_connect_expert",
             "call_monitor_sys",
@@ -222,6 +228,7 @@ public class AccountTypeFactory
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",
+            "interact_msfconsole",
             "run_cmd_processor",
             "add_cmd_processor",
             "update_cmd_processor",
@@ -249,6 +256,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "Enterprise" => new List<string>
@@ -264,6 +272,7 @@ public class AccountTypeFactory
             "get_agents",
             "call_security_expert",
             "call_penetration_expert",
+            "call_live_penetration_expert",
             "call_cmd_processor_expert",
             "call_connect_expert",
             "call_monitor_sys",
@@ -282,6 +291,7 @@ public class AccountTypeFactory
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",
+            "interact_msfconsole",
             "run_busybox_command",
             "add_cmd_processor",
             "update_cmd_processor",
@@ -311,6 +321,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             "God" => new List<string>
@@ -326,6 +337,7 @@ public class AccountTypeFactory
             "get_agents",
             "call_security_expert",
             "call_penetration_expert",
+            "call_live_penetration_expert",
             "call_cmd_processor_expert",
             "call_connect_expert",
             "call_monitor_sys",
@@ -344,6 +356,7 @@ public class AccountTypeFactory
             "search_metasploit_modules",
             "get_metasploit_module_info",
             "run_metasploit",
+            "interact_msfconsole",
             "run_busybox_command",
             "add_cmd_processor",
             "update_cmd_processor",
@@ -373,6 +386,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         },
             _ => new List<string>
@@ -413,6 +427,7 @@ public class AccountTypeFactory
             "run_agent_flow",
             "execute_query*",
             "get_memory_turn_window*",
+            "get_memory_turn_range*",
             "cp_*"
         }
         };
