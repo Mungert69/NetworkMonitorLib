@@ -35,6 +35,9 @@ internal sealed class LiveMetasploitResponse
     public bool Busy { get; set; }
     public bool Closed { get; set; }
     public bool HasMore { get; set; }
+    public bool OutputTruncated { get; set; }
+    public int OmittedCharacters { get; set; }
+    public bool CommandComplete { get; set; }
     public string? Error { get; set; }
 }
 
@@ -268,8 +271,10 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
 
 internal sealed class LiveMetasploitSession : IDisposable
 {
-    private const int MaxResponseCharacters = 32 * 1024;
+    private const int MaxResponseCharacters = 10 * 1024;
+    private const int ResponseHeadCharacters = 3 * 1024;
     private const int MaxBufferedCharacters = 1024 * 1024;
+    private const string TruncationMarker = "\n[... middle console output omitted ...]\n";
     private static readonly TimeSpan WriteObservationWindow = TimeSpan.FromMilliseconds(750);
     private static readonly TimeSpan OutputSettleWindow = TimeSpan.FromMilliseconds(250);
     private readonly Process _process;
@@ -434,16 +439,38 @@ internal sealed class LiveMetasploitSession : IDisposable
 
     private LiveMetasploitResponse BuildResponse()
     {
-        var take = Math.Min(MaxResponseCharacters, _pendingOutput.Length);
-        var output = take == 0 ? "" : _pendingOutput.ToString(0, take);
-        if (take > 0) _pendingOutput.Remove(0, take);
+        var totalCharacters = _pendingOutput.Length;
+        var outputTruncated = totalCharacters > MaxResponseCharacters;
+        var omittedCharacters = 0;
+        string output;
+
+        if (!outputTruncated)
+        {
+            output = totalCharacters == 0 ? "" : _pendingOutput.ToString();
+        }
+        else
+        {
+            var tailCharacters = MaxResponseCharacters
+                - ResponseHeadCharacters
+                - TruncationMarker.Length;
+            omittedCharacters = totalCharacters - ResponseHeadCharacters - tailCharacters;
+            output = string.Concat(
+                _pendingOutput.ToString(0, ResponseHeadCharacters),
+                TruncationMarker,
+                _pendingOutput.ToString(totalCharacters - tailCharacters, tailCharacters));
+        }
+
+        _pendingOutput.Clear();
         return new LiveMetasploitResponse
         {
             Output = output,
             Prompt = _prompt,
             Busy = _busy,
             Closed = _closed,
-            HasMore = _pendingOutput.Length > 0
+            HasMore = false,
+            OutputTruncated = outputTruncated,
+            OmittedCharacters = omittedCharacters,
+            CommandComplete = !_busy && !_closed
         };
     }
 

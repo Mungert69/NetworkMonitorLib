@@ -65,6 +65,41 @@ public sealed class MetaLiveCmdProcessorTests
     }
 
     [Fact]
+    public async Task InteractAsync_LargeOutputReturnsBoundedHeadAndTailWithoutLeakingIntoNextCall()
+    {
+        const string head = "HEAD-SENTINEL";
+        const string tail = "TAIL-SENTINEL";
+        var largeOutput = head + new string('x', 20 * 1024) + tail;
+        using var process = StartSleepingProcess();
+        using var rpcClient = new ScriptedMetasploitRpcClient(
+            Response(largeOutput, "msf6 > ", false),
+            Response("", "msf6 > ", false),
+            Response("", "msf6 > ", false),
+            Response("", "msf6 > ", false));
+        using var session = new LiveMetasploitSession(process, rpcClient, "1", _ => { });
+
+        var result = await session.InteractAsync(
+            new LiveMetasploitRequest { Input = "show payloads", Control = "write", WaitSeconds = 2 },
+            CancellationToken.None);
+        var nextResult = await session.InteractAsync(
+            new LiveMetasploitRequest { Control = "read", WaitSeconds = 1 },
+            CancellationToken.None);
+
+        Assert.StartsWith(head, result.Output);
+        Assert.EndsWith(tail, result.Output);
+        Assert.Contains("middle console output omitted", result.Output);
+        Assert.True(result.OutputTruncated);
+        Assert.True(result.OmittedCharacters > 0);
+        Assert.True(result.CommandComplete);
+        Assert.False(result.HasMore);
+        Assert.True(result.Output.Length <= 10 * 1024);
+        Assert.Equal("", nextResult.Output);
+        Assert.False(nextResult.OutputTruncated);
+        process.Kill();
+        await process.WaitForExitAsync();
+    }
+
+    [Fact]
     public void DecodeResponse_AcceptsBinaryKeysAndTextValues()
     {
         var buffer = new ArrayBufferWriter<byte>();
