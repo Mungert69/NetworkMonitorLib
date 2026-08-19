@@ -26,6 +26,19 @@ internal sealed class LiveMetasploitRequest
 
     [JsonPropertyName("wait_seconds")]
     public int WaitSeconds { get; set; } = 60;
+
+    [JsonPropertyName("session_id")]
+    public string SessionId { get; set; } = "";
+}
+
+internal sealed class LiveMetasploitSessionInfo
+{
+    public string Id { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Info { get; set; } = "";
+    public string Host { get; set; } = "";
+    public string TunnelLocal { get; set; } = "";
+    public string TunnelPeer { get; set; } = "";
 }
 
 internal sealed class LiveMetasploitResponse
@@ -38,6 +51,10 @@ internal sealed class LiveMetasploitResponse
     public bool OutputTruncated { get; set; }
     public int OmittedCharacters { get; set; }
     public bool CommandComplete { get; set; }
+    public string InteractionMode { get; set; } = "console";
+    public string ActiveSessionId { get; set; } = "";
+    public string ActiveSessionType { get; set; } = "";
+    public List<LiveMetasploitSessionInfo> Sessions { get; set; } = new();
     public string? Error { get; set; }
 }
 
@@ -47,6 +64,12 @@ internal interface IMetasploitRpcClient : IDisposable
     Task<Dictionary<string, object?>> CreateConsoleAsync(CancellationToken cancellationToken);
     Task<Dictionary<string, object?>> ReadConsoleAsync(string consoleId, CancellationToken cancellationToken);
     Task WriteConsoleAsync(string consoleId, string input, CancellationToken cancellationToken);
+    Task<Dictionary<string, object?>> ListSessionsAsync(CancellationToken cancellationToken);
+    Task<Dictionary<string, object?>> ReadMeterpreterSessionAsync(string sessionId, CancellationToken cancellationToken);
+    Task WriteMeterpreterSessionAsync(string sessionId, string input, CancellationToken cancellationToken);
+    Task<Dictionary<string, object?>> ReadShellSessionAsync(string sessionId, CancellationToken cancellationToken);
+    Task WriteShellSessionAsync(string sessionId, string input, CancellationToken cancellationToken);
+    Task StopSessionAsync(string sessionId, CancellationToken cancellationToken);
     Task DetachSessionAsync(string consoleId, CancellationToken cancellationToken);
     Task InterruptSessionAsync(string consoleId, CancellationToken cancellationToken);
     Task DestroyConsoleAsync(string consoleId, CancellationToken cancellationToken);
@@ -88,6 +111,34 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
 
     public async Task WriteConsoleAsync(string consoleId, string input, CancellationToken cancellationToken) =>
         _ = await CallWithAuthenticationAsync("console.write", cancellationToken, consoleId, input);
+
+    public Task<Dictionary<string, object?>> ListSessionsAsync(CancellationToken cancellationToken) =>
+        CallWithAuthenticationAsync("session.list", cancellationToken);
+
+    public Task<Dictionary<string, object?>> ReadMeterpreterSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        CallWithAuthenticationAsync("session.meterpreter_read", cancellationToken, sessionId);
+
+    public async Task WriteMeterpreterSessionAsync(
+        string sessionId,
+        string input,
+        CancellationToken cancellationToken) =>
+        _ = await CallWithAuthenticationAsync("session.meterpreter_write", cancellationToken, sessionId, input);
+
+    public Task<Dictionary<string, object?>> ReadShellSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        CallWithAuthenticationAsync("session.shell_read", cancellationToken, sessionId);
+
+    public async Task WriteShellSessionAsync(
+        string sessionId,
+        string input,
+        CancellationToken cancellationToken) =>
+        _ = await CallWithAuthenticationAsync("session.shell_write", cancellationToken, sessionId, input);
+
+    public async Task StopSessionAsync(string sessionId, CancellationToken cancellationToken) =>
+        _ = await CallWithAuthenticationAsync("session.stop", cancellationToken, sessionId);
 
     public async Task DetachSessionAsync(string consoleId, CancellationToken cancellationToken) =>
         _ = await CallWithAuthenticationAsync("console.session_detach", cancellationToken, consoleId);
@@ -284,6 +335,8 @@ internal sealed class LiveMetasploitSession : IDisposable
     private string _prompt = "";
     private bool _busy;
     private bool _closed;
+    private string _activeSessionId = "";
+    private string _activeSessionType = "";
 
     public LiveMetasploitSession(
         Process process,
@@ -313,6 +366,11 @@ internal sealed class LiveMetasploitSession : IDisposable
             }
 
             var control = request.Control.Trim().ToLowerInvariant();
+            if (control is "session_list" or "session_read" or "session_write" or "session_detach" or "session_stop")
+            {
+                return await InteractWithSessionAsync(request, control, cancellationToken);
+            }
+
             switch (control)
             {
                 case "write":
@@ -372,7 +430,7 @@ internal sealed class LiveMetasploitSession : IDisposable
             }
             while (stopwatch.Elapsed < wait);
 
-            return BuildResponse();
+            return BuildResponse(await TryGetSessionsAsync(cancellationToken));
         }
         finally
         {
@@ -437,7 +495,141 @@ internal sealed class LiveMetasploitSession : IDisposable
         }
     }
 
-    private LiveMetasploitResponse BuildResponse()
+    private async Task<LiveMetasploitResponse> InteractWithSessionAsync(
+        LiveMetasploitRequest request,
+        string control,
+        CancellationToken cancellationToken)
+    {
+        var sessions = await GetSessionsAsync(cancellationToken);
+        if (control == "session_list")
+        {
+            return BuildResponse(sessions);
+        }
+
+        if (control == "session_detach")
+        {
+            _activeSessionId = "";
+            _activeSessionType = "";
+            _busy = false;
+            return BuildResponse(sessions);
+        }
+
+        var sessionId = request.SessionId.Trim();
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            return BuildResponse(sessions, "session_id is required for this session control.");
+        }
+
+        var session = sessions.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, sessionId, StringComparison.Ordinal));
+        if (session == null)
+        {
+            return BuildResponse(sessions, $"Metasploit session '{sessionId}' was not found.");
+        }
+
+        if (control == "session_stop")
+        {
+            await _rpcClient.StopSessionAsync(sessionId, cancellationToken);
+            if (string.Equals(_activeSessionId, sessionId, StringComparison.Ordinal))
+            {
+                _activeSessionId = "";
+                _activeSessionType = "";
+            }
+            _busy = false;
+            return BuildResponse(await GetSessionsAsync(cancellationToken));
+        }
+
+        _activeSessionId = session.Id;
+        _activeSessionType = session.Type;
+        var input = request.Input;
+        if (control == "session_write" && !string.IsNullOrEmpty(input))
+        {
+            input = input.EndsWith('\n') ? input : input + "\n";
+            if (IsMeterpreter(session.Type))
+            {
+                await _rpcClient.WriteMeterpreterSessionAsync(session.Id, input, cancellationToken);
+            }
+            else
+            {
+                await _rpcClient.WriteShellSessionAsync(session.Id, input, cancellationToken);
+            }
+        }
+
+        var wait = TimeSpan.FromSeconds(Math.Clamp(request.WaitSeconds, 1, 60));
+        var stopwatch = Stopwatch.StartNew();
+        var lastActivity = TimeSpan.Zero;
+        var observedOutput = false;
+        do
+        {
+            var read = IsMeterpreter(session.Type)
+                ? await _rpcClient.ReadMeterpreterSessionAsync(session.Id, cancellationToken)
+                : await _rpcClient.ReadShellSessionAsync(session.Id, cancellationToken);
+            var output = MetasploitRpcClient.GetString(read, "data");
+            AppendOutput(output);
+            if (!string.IsNullOrEmpty(output))
+            {
+                observedOutput = true;
+                lastActivity = stopwatch.Elapsed;
+            }
+
+            if (control == "session_read" ||
+                (observedOutput && stopwatch.Elapsed - lastActivity >= OutputSettleWindow) ||
+                (!observedOutput && stopwatch.Elapsed >= WriteObservationWindow))
+            {
+                break;
+            }
+            await Task.Delay(250, cancellationToken);
+        }
+        while (stopwatch.Elapsed < wait);
+
+        _busy = false;
+        return BuildResponse(await GetSessionsAsync(cancellationToken));
+    }
+
+    private async Task<List<LiveMetasploitSessionInfo>> GetSessionsAsync(CancellationToken cancellationToken)
+    {
+        var response = await _rpcClient.ListSessionsAsync(cancellationToken);
+        var sessions = new List<LiveMetasploitSessionInfo>();
+        foreach (var entry in response)
+        {
+            if (entry.Value is not Dictionary<string, object?> values ||
+                !values.ContainsKey("type"))
+            {
+                continue;
+            }
+            sessions.Add(new LiveMetasploitSessionInfo
+            {
+                Id = entry.Key,
+                Type = MetasploitRpcClient.GetString(values, "type"),
+                Info = MetasploitRpcClient.GetString(values, "info"),
+                Host = MetasploitRpcClient.GetString(values, "session_host"),
+                TunnelLocal = MetasploitRpcClient.GetString(values, "tunnel_local"),
+                TunnelPeer = MetasploitRpcClient.GetString(values, "tunnel_peer")
+            });
+        }
+        return sessions.OrderBy(session => session.Id, StringComparer.Ordinal).ToList();
+    }
+
+    private async Task<List<LiveMetasploitSessionInfo>> TryGetSessionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await GetSessionsAsync(cancellationToken);
+        }
+        catch
+        {
+            // Session discovery is additive metadata for legacy console calls.
+            // Explicit session controls still use GetSessionsAsync and surface RPC failures.
+            return new List<LiveMetasploitSessionInfo>();
+        }
+    }
+
+    private static bool IsMeterpreter(string sessionType) =>
+        sessionType.Contains("meterpreter", StringComparison.OrdinalIgnoreCase);
+
+    private LiveMetasploitResponse BuildResponse(
+        List<LiveMetasploitSessionInfo>? sessions = null,
+        string? error = null)
     {
         var totalCharacters = _pendingOutput.Length;
         var outputTruncated = totalCharacters > MaxResponseCharacters;
@@ -470,7 +662,14 @@ internal sealed class LiveMetasploitSession : IDisposable
             HasMore = false,
             OutputTruncated = outputTruncated,
             OmittedCharacters = omittedCharacters,
-            CommandComplete = !_busy && !_closed
+            CommandComplete = !_busy && !_closed,
+            InteractionMode = string.IsNullOrEmpty(_activeSessionId)
+                ? "console"
+                : IsMeterpreter(_activeSessionType) ? "meterpreter" : "shell",
+            ActiveSessionId = _activeSessionId,
+            ActiveSessionType = _activeSessionType,
+            Sessions = sessions ?? new List<LiveMetasploitSessionInfo>(),
+            Error = error
         };
     }
 

@@ -100,6 +100,72 @@ public sealed class MetaLiveCmdProcessorTests
     }
 
     [Fact]
+    public async Task InteractAsync_SessionWriteRoutesMeterpreterCommandOutsideConsole()
+    {
+        using var process = StartSleepingProcess();
+        using var rpcClient = new ScriptedMetasploitRpcClient(Response("", "msf6 > ", false))
+        {
+            SessionListResponse = SessionListResponse("1", "meterpreter", "root @ target"),
+            SessionReadResponses = new Queue<Dictionary<string, object?>>(new[]
+            {
+                SessionData("uid=0(root) gid=0(root)\n"),
+                SessionData("")
+            })
+        };
+        using var session = new LiveMetasploitSession(process, rpcClient, "1", _ => { });
+
+        var result = await session.InteractAsync(
+            new LiveMetasploitRequest
+            {
+                Control = "session_write",
+                SessionId = "1",
+                Input = "execute -f /usr/bin/id -c",
+                WaitSeconds = 2
+            },
+            CancellationToken.None);
+
+        Assert.Equal("uid=0(root) gid=0(root)\n", result.Output);
+        Assert.Equal("meterpreter", result.InteractionMode);
+        Assert.Equal("1", result.ActiveSessionId);
+        Assert.Equal(0, rpcClient.WriteCount);
+        Assert.Equal(1, rpcClient.MeterpreterWriteCount);
+        Assert.Equal(0, rpcClient.ShellWriteCount);
+        Assert.Single(result.Sessions);
+        process.Kill();
+        await process.WaitForExitAsync();
+    }
+
+    [Fact]
+    public async Task InteractAsync_SessionStopUsesSessionRpcAndReturnsToConsoleMode()
+    {
+        using var process = StartSleepingProcess();
+        using var rpcClient = new ScriptedMetasploitRpcClient(Response("", "msf6 > ", false))
+        {
+            SessionListResponse = SessionListResponse("2", "shell", "root shell")
+        };
+        using var session = new LiveMetasploitSession(process, rpcClient, "1", _ => { });
+
+        await session.InteractAsync(
+            new LiveMetasploitRequest
+            {
+                Control = "session_write",
+                SessionId = "2",
+                Input = "id",
+                WaitSeconds = 1
+            },
+            CancellationToken.None);
+        var result = await session.InteractAsync(
+            new LiveMetasploitRequest { Control = "session_stop", SessionId = "2" },
+            CancellationToken.None);
+
+        Assert.Equal(1, rpcClient.StopSessionCount);
+        Assert.Equal("console", result.InteractionMode);
+        Assert.Empty(result.Sessions);
+        process.Kill();
+        await process.WaitForExitAsync();
+    }
+
+    [Fact]
     public void DecodeResponse_AcceptsBinaryKeysAndTextValues()
     {
         var buffer = new ArrayBufferWriter<byte>();
@@ -221,6 +287,22 @@ public sealed class MetaLiveCmdProcessorTests
             ["busy"] = busy
         };
 
+    private static Dictionary<string, object?> SessionData(string data) =>
+        new() { ["data"] = data };
+
+    private static Dictionary<string, object?> SessionListResponse(string id, string type, string info) =>
+        new()
+        {
+            [id] = new Dictionary<string, object?>
+            {
+                ["type"] = type,
+                ["info"] = info,
+                ["session_host"] = "172.30.50.10",
+                ["tunnel_local"] = "172.30.50.1:4444",
+                ["tunnel_peer"] = "172.30.50.10:45500"
+            }
+        };
+
     private sealed class ScriptedMetasploitRpcClient : IMetasploitRpcClient
     {
         private readonly Queue<Dictionary<string, object?>> _responses;
@@ -234,6 +316,11 @@ public sealed class MetaLiveCmdProcessorTests
 
         public int ReadCount { get; private set; }
         public int WriteCount { get; private set; }
+        public int MeterpreterWriteCount { get; private set; }
+        public int ShellWriteCount { get; private set; }
+        public int StopSessionCount { get; private set; }
+        public Dictionary<string, object?> SessionListResponse { get; set; } = new();
+        public Queue<Dictionary<string, object?>> SessionReadResponses { get; set; } = new();
 
         public Task LoginAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<Dictionary<string, object?>> CreateConsoleAsync(CancellationToken cancellationToken) =>
@@ -254,6 +341,45 @@ public sealed class MetaLiveCmdProcessorTests
             WriteCount++;
             return Task.CompletedTask;
         }
+
+        public Task<Dictionary<string, object?>> ListSessionsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(SessionListResponse);
+
+        public Task<Dictionary<string, object?>> ReadMeterpreterSessionAsync(
+            string sessionId,
+            CancellationToken cancellationToken) => Task.FromResult(ReadSessionResponse());
+
+        public Task WriteMeterpreterSessionAsync(
+            string sessionId,
+            string input,
+            CancellationToken cancellationToken)
+        {
+            MeterpreterWriteCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task<Dictionary<string, object?>> ReadShellSessionAsync(
+            string sessionId,
+            CancellationToken cancellationToken) => Task.FromResult(ReadSessionResponse());
+
+        public Task WriteShellSessionAsync(
+            string sessionId,
+            string input,
+            CancellationToken cancellationToken)
+        {
+            ShellWriteCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task StopSessionAsync(string sessionId, CancellationToken cancellationToken)
+        {
+            StopSessionCount++;
+            SessionListResponse.Remove(sessionId);
+            return Task.CompletedTask;
+        }
+
+        private Dictionary<string, object?> ReadSessionResponse() =>
+            SessionReadResponses.Count > 0 ? SessionReadResponses.Dequeue() : SessionData("");
 
         public Task DetachSessionAsync(string consoleId, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task InterruptSessionAsync(string consoleId, CancellationToken cancellationToken) => Task.CompletedTask;
