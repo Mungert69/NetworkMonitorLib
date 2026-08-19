@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 namespace NetworkMonitor.Connection;
+
 internal sealed class DuplexStream : NetworkStream
 {
     private readonly Stream _readSide;
@@ -12,11 +13,11 @@ internal sealed class DuplexStream : NetworkStream
     public DuplexStream(Stream readSide, Stream writeSide)
         : base(new Socket(SocketType.Stream, ProtocolType.Tcp))   // dummy socket
     {
-        _readSide  = readSide;
+        _readSide = readSide;
         _writeSide = writeSide;
     }
 
-    public override bool CanRead  => _readSide.CanRead;
+    public override bool CanRead => _readSide.CanRead;
     public override bool CanWrite => _writeSide.CanWrite;
 
     public override Task<int> ReadAsync(

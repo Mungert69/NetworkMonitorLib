@@ -118,14 +118,14 @@ namespace NetworkMonitor.Objects
         public int TokensUsed { get => _tokensUsed; set => _tokensUsed = value; }
 
         // Add this to your UserInfo class
-private LoadServer _loadServer= new();
+        private LoadServer _loadServer = new();
 
-[NotMapped] 
-public LoadServer LoadServer 
-{ 
-    get => _loadServer; 
-    set => _loadServer = value; 
-} 
+        [NotMapped]
+        public LoadServer LoadServer
+        {
+            get => _loadServer;
+            set => _loadServer = value;
+        }
 #pragma warning restore IL2026
     }
 }

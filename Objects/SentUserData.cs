@@ -9,7 +9,7 @@ namespace NetworkMonitor.Objects
 {
     public class SentUserData
     {
-        public SentUserData(){}
+        public SentUserData() { }
         private UserInfo? _user = new UserInfo();
         private int? _dataSetId;
         private int? _monitorPingInfoID;
@@ -35,35 +35,39 @@ namespace NetworkMonitor.Objects
         /// </summary>
         public int? MonitorIPID { get => _monitorIPID; set => _monitorIPID = value; }
 
-      
-     
+
+
         /// <summary>
         /// The address of the host
         /// </summary>
-        
+
         public string? Address { get => _address; set => _address = value; }
-           ///
+        ///
         /// This field is Required .The prompt that was entered by the user. The backend will use this to assist in creating a useful reponse for the user.
         ///
-        public string? Prompt{get => _prompt; set => _prompt = value;}
-      
+        public string? Prompt { get => _prompt; set => _prompt = value; }
+
         public string ValidateParameters(bool isDataSetId, bool isMonitorPingInfoID, bool isMonitorIPID, bool isHostAddress)
         {
-            var message="";
-            if (isDataSetId && _dataSetId==null){
-                message+=" DataSetId is required for this query. ";
+            var message = "";
+            if (isDataSetId && _dataSetId == null)
+            {
+                message += " DataSetId is required for this query. ";
             }
-            if (isMonitorPingInfoID && _monitorPingInfoID==null){
-                message+=" MonitorPingInfoID is required for this query. ";
+            if (isMonitorPingInfoID && _monitorPingInfoID == null)
+            {
+                message += " MonitorPingInfoID is required for this query. ";
             }
-            if (isMonitorIPID && _monitorIPID==null) {
-                message+=" MonitorIPID is required for this query. ";
+            if (isMonitorIPID && _monitorIPID == null)
+            {
+                message += " MonitorIPID is required for this query. ";
             }
-            if (isHostAddress && _address==null){
-                message+=" HostAddress is required for this query. ";
+            if (isHostAddress && _address == null)
+            {
+                message += " HostAddress is required for this query. ";
             }
-          return message;
-           
+            return message;
+
         }
     }
 }

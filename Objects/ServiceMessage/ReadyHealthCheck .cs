@@ -3,9 +3,10 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using NetworkMonitor.Objects;
 using System.Threading;
 using System.Threading.Tasks;
- 
+
 
 namespace NetworkMonitor.Objects.ServiceMessage;
+
 public class ReadyHealthCheck : IHealthCheck
 {
     private readonly IReadinessState _ready;

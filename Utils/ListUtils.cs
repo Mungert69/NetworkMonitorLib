@@ -8,7 +8,7 @@ namespace NetworkMonitor.Utils
     public class ListUtils
     {
 
-     
+
 
         /*public static void RemoveNestedMonitorPingInfos(List<MonitorPingInfo> mons){
              foreach (var mon in mons)
@@ -21,19 +21,21 @@ namespace NetworkMonitor.Utils
                 }
         }*/
 
-        public static void RemoveNestedMonitorIPs(List<MonitorIP> mons){
+        public static void RemoveNestedMonitorIPs(List<MonitorIP> mons)
+        {
             foreach (var mon in mons)
-                {
-                    if (mon.UserInfo!=null)
+            {
+                if (mon.UserInfo != null)
                     mon.UserInfo.MonitorIPs = new List<MonitorIP>();
-                }
+            }
         }
 
-         public static void RemoveNestedMonitorIPs(List<UserInfo> userInfos){
+        public static void RemoveNestedMonitorIPs(List<UserInfo> userInfos)
+        {
             foreach (var userInfo in userInfos)
-                {
-                    userInfo.MonitorIPs = new List<MonitorIP>();
-                }
+            {
+                userInfo.MonitorIPs = new List<MonitorIP>();
+            }
         }
     }
 }

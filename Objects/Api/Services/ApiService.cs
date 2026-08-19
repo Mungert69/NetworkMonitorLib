@@ -38,7 +38,7 @@ namespace NetworkMonitor.Api.Services
         private readonly PingParams _pingParams;
         private readonly NetConnectCollection _netConnectCollection;
         private ISystemParamsHelper _systemParamsHelper;
-              private List<string> _rapidApiKey;
+        private List<string> _rapidApiKey;
         private ICmdProcessorProvider _cmdProcessorProvider;
         public List<string> RapidApiKeys { get => _rapidApiKey; set => _rapidApiKey = value; }
 

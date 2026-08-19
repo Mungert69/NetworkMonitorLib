@@ -5,7 +5,7 @@ namespace NetworkMonitor.Utils.Helpers;
 
 public class MonitorIPHelper
 {
-   
+
     public static string ConvertLocationToAppID(string location, IProcessorState processorState)
     {
         string appID = "";

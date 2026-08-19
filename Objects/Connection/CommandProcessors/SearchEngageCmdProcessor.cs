@@ -25,7 +25,7 @@ namespace NetworkMonitor.Connection
 
         private readonly Random _random = new Random();
 
-              private readonly IBrowserHost _browserHost;
+        private readonly IBrowserHost _browserHost;
 
         private readonly List<ArgSpec> _schema;
 
@@ -37,7 +37,7 @@ namespace NetworkMonitor.Connection
             IBrowserHost browserHost)
             : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _browserHost  = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
+            _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             _schema = new()
             {
@@ -119,12 +119,12 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var searchTerm        = parsed.GetString("search_term");
-                var targetDomain      = parsed.GetString("target_domain");
-                var searchTimeout     = parsed.GetInt("search_timeout", _searchTimeout);
+                var searchTerm = parsed.GetString("search_term");
+                var targetDomain = parsed.GetString("target_domain");
+                var searchTimeout = parsed.GetInt("search_timeout", _searchTimeout);
                 var engagementTimeout = parsed.GetInt("engagement_timeout", _engagementTimeout);
-                var delayMin          = parsed.GetInt("interaction_delay_min", _interactionDelayMin);
-                var delayMax          = parsed.GetInt("interaction_delay_max", _interactionDelayMax);
+                var delayMin = parsed.GetInt("interaction_delay_min", _interactionDelayMin);
+                var delayMax = parsed.GetInt("interaction_delay_max", _interactionDelayMax);
 
                 if (delayMax < delayMin) (delayMin, delayMax) = (delayMax, delayMin);
 
@@ -193,7 +193,7 @@ namespace NetworkMonitor.Connection
                 {
                     Success = ok,
                     Message = await SendMessage(msg, processorScanDataObj),
-                    Data    = metricsOut
+                    Data = metricsOut
                 };
             }
             catch (OperationCanceledException)
@@ -234,30 +234,33 @@ namespace NetworkMonitor.Connection
                 {
                     await ScrollLikeHuman(page);
                     await RandomDelay(delayMin, delayMax, opCts.Token);
-                } catch { /* best effort */ }
+                }
+                catch { /* best effort */ }
 
                 try
                 {
                     await ClickRandomLink(page);
                     await RandomDelay(delayMin, delayMax, opCts.Token);
-                } catch { /* best effort */ }
+                }
+                catch { /* best effort */ }
 
                 try
                 {
                     await ScrollLikeHuman(page, fastScroll: false);
                     await HoverOverElements(page);
-                } catch { /* best effort */ }
+                }
+                catch { /* best effort */ }
 
                 var metrics = new EngagementMetrics
                 {
-                    TimeOnSite   = engagementTimeout,
+                    TimeOnSite = engagementTimeout,
                     PagesVisited = 2,
                     Interactions = 3
                 };
 
                 result.Success = true;
                 result.Message = "Engagement simulation completed successfully";
-                result.Data    = metrics;
+                result.Data = metrics;
             }
             catch (OperationCanceledException)
             {
@@ -285,7 +288,7 @@ namespace NetworkMonitor.Connection
 
         private async Task ScrollLikeHuman(IPage page, bool fastScroll = true)
         {
-            var scrollSteps  = fastScroll ? 5 : 20;
+            var scrollSteps = fastScroll ? 5 : 20;
             var scrollAmount = await page.EvaluateExpressionAsync<int>("document.body.scrollHeight");
 
             for (int i = 0; i < scrollSteps; i++)
@@ -378,7 +381,7 @@ Metrics returned:
 
     public class EngagementMetrics
     {
-        public int TimeOnSite   { get; set; }
+        public int TimeOnSite { get; set; }
         public int PagesVisited { get; set; }
         public int Interactions { get; set; }
     }

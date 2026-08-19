@@ -17,7 +17,7 @@ namespace NetworkMonitor.Utils;
 
 public class NetworkUtils
 {
- public static int WordToPort(string word, int minValue = 1024, int maxValue = 65535)
+    public static int WordToPort(string word, int minValue = 1024, int maxValue = 65535)
     {
         if (minValue >= maxValue)
             throw new ArgumentException("minValue must be less than maxValue");
@@ -278,8 +278,8 @@ public class NetworkUtils
                     !IPAddress.IsLoopback(ip.Address))
                 {
                     int cidr = SubnetMaskToCIDR(ip.IPv4Mask.ToString());
-                     long networkSize = (long)Math.Pow(2, 32 - cidr);
-               
+                    long networkSize = (long)Math.Pow(2, 32 - cidr);
+
                     suitableInterfaces.Add(new NetworkInterfaceInfo
                     {
                         Name = ni.Name,
@@ -289,22 +289,22 @@ public class NetworkUtils
                         SubnetMask = ip.IPv4Mask.ToString(),
                         CIDR = cidr,
                         IsPrivate = IsPrivateIpAddress(ip.Address),
-                        NetworkSize=networkSize
+                        NetworkSize = networkSize
                     });
                 }
             }
         }
 
         // 1. Private IPs
-    // 2. Ethernet and Wi-Fi
-    // 3. Interface name
-    suitableInterfaces = suitableInterfaces
-        .OrderByDescending(i => i.IsPrivate)
-        .ThenBy(i => i.NetworkSize)
-        .ThenBy(i => i.Type != NetworkInterfaceType.Ethernet && 
-                     i.Type != NetworkInterfaceType.Wireless80211 ? 1 : 0)
-        .ThenBy(i => i.Name)
-        .ToList();
+        // 2. Ethernet and Wi-Fi
+        // 3. Interface name
+        suitableInterfaces = suitableInterfaces
+            .OrderByDescending(i => i.IsPrivate)
+            .ThenBy(i => i.NetworkSize)
+            .ThenBy(i => i.Type != NetworkInterfaceType.Ethernet &&
+                         i.Type != NetworkInterfaceType.Wireless80211 ? 1 : 0)
+            .ThenBy(i => i.Name)
+            .ToList();
 
         return suitableInterfaces;
     }

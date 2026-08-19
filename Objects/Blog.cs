@@ -31,7 +31,7 @@ namespace NetworkMonitor.Objects
         public DateTime DateCreated { get; set; } = DateTime.Now;
 
         public virtual List<BlogCategory> BlogCategories { get; set; } = new List<BlogCategory>();
-        public virtual List<BlogQNA> BlogQNAs{get; set; } = new List<BlogQNA>();
+        public virtual List<BlogQNA> BlogQNAs { get; set; } = new List<BlogQNA>();
     }
 
 }

@@ -42,7 +42,7 @@ namespace NetworkMonitor.Objects
         void Init();
     }
 
-    
+
 
 
     public class LocalCmdProcessorStates : ILocalCmdProcessorStates

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
 namespace NetworkMonitor.Utils.Helpers;
+
 public static class ProcessSignalHelper
 {
     // Public method to send a Ctrl+C signal to a process

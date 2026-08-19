@@ -409,7 +409,7 @@ Notes:
         {
             var ports = new List<int>();
             if (string.IsNullOrWhiteSpace(raw)) return (ports, null);
-          
+
             raw = raw.Trim('[', ']');
             var tokens = raw.Split(new[] { ',', ';', ':', ' ', '\t', '\r', '\n' },
                                    StringSplitOptions.RemoveEmptyEntries);

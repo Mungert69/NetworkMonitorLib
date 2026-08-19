@@ -49,7 +49,7 @@ namespace NetworkMonitor.Objects
     }
     public class JsonBlogPost
     {
-        public JsonBlogPost(){}
+        public JsonBlogPost() { }
         public FrontMatter frontmatter { get; set; } = new FrontMatter();
         public string content { get; set; } = "";
         public string slug { get; set; } = "";

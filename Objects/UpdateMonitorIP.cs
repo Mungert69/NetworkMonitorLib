@@ -7,8 +7,8 @@ namespace NetworkMonitor.Objects
 {
     public class UpdateMonitorIP : MonitorIP
     {
-     
-        private MonitorPingInfo? _monitorPingInfo=new MonitorPingInfo();
+
+        private MonitorPingInfo? _monitorPingInfo = new MonitorPingInfo();
         private bool _deleteAll;
         private bool _isSwapping;
         private bool _delete;
@@ -19,20 +19,20 @@ namespace NetworkMonitor.Objects
 
         public UpdateMonitorIP(MonitorIP m)
         {
-            AppID=m.AppID;
-            Address=m.Address;
-            Enabled=m.Enabled;
-            EndPointType= m.EndPointType;
-            Hidden= m.Hidden;
-            ID= m.ID;
-            Timeout= m.Timeout;
+            AppID = m.AppID;
+            Address = m.Address;
+            Enabled = m.Enabled;
+            EndPointType = m.EndPointType;
+            Hidden = m.Hidden;
+            ID = m.ID;
+            Timeout = m.Timeout;
             SkipCycles = m.SkipCycles;
-            UserID= m.UserID;
-            Port= m.Port;
-            AddUserEmail=m.AddUserEmail;
-            IsEmailVerified=m.IsEmailVerified;
-            Username=m.Username;
-            Password=m.Password;
+            UserID = m.UserID;
+            Port = m.Port;
+            AddUserEmail = m.AddUserEmail;
+            IsEmailVerified = m.IsEmailVerified;
+            Username = m.Username;
+            Password = m.Password;
             Args = m.Args;
             MonitorModelConfigId = m.MonitorModelConfigId;
             if (m.ModelConfig != null)

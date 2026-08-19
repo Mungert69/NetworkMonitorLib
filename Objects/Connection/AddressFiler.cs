@@ -5,46 +5,46 @@ using System.Threading.Tasks;
 
 namespace NetworkMonitor.Connection
 {
-  public class AddressFilter
-{
-    // Method to call AddHttpsPrefix if EndPointType is http. Else call RemoveHttpsPrefix
-    public static string FilterAddress(string address, string? type)
+    public class AddressFilter
     {
-        if (type == "http" || type=="httpfull" || type=="httphtml")
+        // Method to call AddHttpsPrefix if EndPointType is http. Else call RemoveHttpsPrefix
+        public static string FilterAddress(string address, string? type)
         {
-            return AddHttpsPrefix(address);
+            if (type == "http" || type == "httpfull" || type == "httphtml")
+            {
+                return AddHttpsPrefix(address);
+            }
+            else
+            {
+                return RemoveHttpsPrefix(address);
+            }
         }
-        else
+        private static string AddHttpsPrefix(string address)
         {
-            return RemoveHttpsPrefix(address);
+
+            if (!address.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !address.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                return "https://" + address;
+            }
+
+            return address;
+        }
+
+        private static string RemoveHttpsPrefix(string address)
+        {
+
+            if (address.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return address.Substring("https://".Length);
+            }
+
+            if (address.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                return address.Substring("http://".Length);
+            }
+
+            return address;
         }
     }
-    private static string AddHttpsPrefix(string address)
-    {
-
-        if (!address.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !address.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-        {
-            return "https://" + address;
-        }
-
-        return address;
-    }
-
-    private static string RemoveHttpsPrefix(string address)
-    {
-
-        if (address.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            return address.Substring("https://".Length);
-        }
-
-        if (address.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-        {
-            return address.Substring("http://".Length);
-        }
-
-        return address;
-    }
-}
 
 }

@@ -34,7 +34,7 @@ public static class JsonRepair
     }
 
     public static bool ThrowExceptions { get; set; } = true;
-    public static InputType Context    { get; set; } = InputType.Other;
+    public static InputType Context { get; set; } = InputType.Other;
 
 
     /// <summary>
@@ -66,11 +66,11 @@ public static class JsonRepair
 
 
 
-    private static int     _i       = 0  ; // Current index in input text
-    private static string  _text    = "" ; // input text
-    private static string  _output  = "" ; // generated output
+    private static int _i = 0; // Current index in input text
+    private static string _text = ""; // input text
+    private static string _output = ""; // generated output
     private static readonly MatchingQuotes MatchingQuotes = new MatchingQuotes(); // Helper class to match opening and closing quotes
-    private static int _closeCode   ='\0';
+    private static int _closeCode = '\0';
 
     /// <summary>
     /// Repairs a string containing an invalid JSON document.
@@ -81,9 +81,9 @@ public static class JsonRepair
     public static string RepairJson(string input)
     {
         if (string.IsNullOrEmpty(input)) return "";
-        _i      = 0;
+        _i = 0;
         _output = "";
-        _text   = input;
+        _text = input;
         bool strippedHeadingText = false;
 
         if (Context == InputType.LLM)
@@ -151,10 +151,10 @@ public static class JsonRepair
     {
         ParseWhitespaceAndSkipComments();
         bool processed =
-            ParseObject()   ||
-            ParseArray()    ||
-            ParseString()   ||
-            ParseNumber()   ||
+            ParseObject() ||
+            ParseArray() ||
+            ParseString() ||
+            ParseNumber() ||
             ParseKeywords() ||
             ParseUnquotedString();
         ParseWhitespaceAndSkipComments();
@@ -171,14 +171,14 @@ public static class JsonRepair
             _text.CharCodeAt(_i) != StringUtils.CodeOpeningBrace)
         {
             _i++;
-            if (_i >= _text.Length )
+            if (_i >= _text.Length)
             {
                 // Could not find any start brace, abort attempt
                 _i = start; return false;
             }
         }
         _closeCode = (_text.CharCodeAt(_i) == StringUtils.CodeOpeningBracket) ? StringUtils.CodeClosingBracket :
-                     (_text.CharCodeAt(_i) == StringUtils.CodeOpeningBrace  ) ? StringUtils.CodeClosingBrace : '\0';
+                     (_text.CharCodeAt(_i) == StringUtils.CodeOpeningBrace) ? StringUtils.CodeClosingBrace : '\0';
         if (_text.IndexOf((char)_closeCode) == -1)
         {
             // Could not find any matching closing brace, abort attempt
@@ -190,16 +190,16 @@ public static class JsonRepair
 
     private static bool ParseAndStripUntilLastBrace()
     {
-        var start = _output.Length-1;
-        var o     = _output.Length-1;
+        var start = _output.Length - 1;
+        var o = _output.Length - 1;
         while (_output.CharCodeAt(o) != _closeCode && o > 0) { o--; }
 
-        if (o == 0) 
+        if (o == 0)
         {
             // could not find end brace/bracket, abort attempt
             return false;
         }
-        o       = Math.Min(o + 1, _output.Length);
+        o = Math.Min(o + 1, _output.Length);
         _output = _output.Substring(0, o);
         return true;
     }
@@ -371,8 +371,8 @@ public static class JsonRepair
                 if (!processedKey)
                 {
                     if (
-                    _text.CharCodeAt(_i) == StringUtils.CodeClosingBrace   ||
-                    _text.CharCodeAt(_i) == StringUtils.CodeOpeningBrace   ||
+                    _text.CharCodeAt(_i) == StringUtils.CodeClosingBrace ||
+                    _text.CharCodeAt(_i) == StringUtils.CodeOpeningBrace ||
                     _text.CharCodeAt(_i) == StringUtils.CodeClosingBracket ||
                     _text.CharCodeAt(_i) == StringUtils.CodeOpeningBracket ||
                     _text.CharCodeAt(_i) == '\0'
@@ -746,11 +746,11 @@ public static class JsonRepair
     private static bool ParseKeywords()
     {
         return
-            ParseKeyword("true", "true")   ||
+            ParseKeyword("true", "true") ||
             ParseKeyword("false", "false") ||
-            ParseKeyword("null", "null")   ||
+            ParseKeyword("null", "null") ||
             // repair Python keywords True, False, None
-            ParseKeyword("True", "true")   ||
+            ParseKeyword("True", "true") ||
             ParseKeyword("False", "false") ||
             ParseKeyword("None", "null");
     }
@@ -766,7 +766,7 @@ public static class JsonRepair
         if (_text.SubstringSafe(_i, name.Length) == name)
         {
             _output += value;
-            _i      += name.Length;
+            _i += name.Length;
             return true;
         }
 

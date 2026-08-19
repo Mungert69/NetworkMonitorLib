@@ -4,7 +4,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
 
     public class MonitorServiceInitObj
     {
-        public MonitorServiceInitObj(){}
+        public MonitorServiceInitObj() { }
         private bool _isServiceReady;
         private bool _isMonitorCheckServiceReady;
         private bool _initResetProcessor;

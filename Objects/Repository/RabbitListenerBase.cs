@@ -44,8 +44,8 @@ namespace NetworkMonitor.Objects.Repository
             _systemUrl = systemUrl;
             _state = state ?? new RabbitListenerState();
             _isTls = systemUrl.UseTls;
-             _logger?.LogInformation($" Use Tls in RabbitListenerBase ctor {_isTls}");
-               
+            _logger?.LogInformation($" Use Tls in RabbitListenerBase ctor {_isTls}");
+
 
         }
         protected abstract void InitRabbitMQObjs();
@@ -159,7 +159,7 @@ namespace NetworkMonitor.Objects.Repository
                 Port = _systemUrl.RabbitPort,
                 RequestedHeartbeat = TimeSpan.FromSeconds(120),
                 HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
-   
+
                 Ssl = BuildSslOption()
             };
             _state.IsRabbitConnected = false;

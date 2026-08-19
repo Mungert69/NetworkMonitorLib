@@ -85,7 +85,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
                     existingAlert.Message = matchingAlert.Message;
                     existingAlert.AddUserEmail = matchingAlert.AddUserEmail;
                     existingAlert.IsEmailVerified = matchingAlert.IsEmailVerified;
-                  
+
                 }
             }
 

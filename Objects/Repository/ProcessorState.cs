@@ -128,7 +128,7 @@ namespace NetworkMonitor.Objects.Repository
             return $" (Agent not found with agentID {appID}) ";
         }
 
-           public string IDFromLocation(string agentLocation)
+        public string IDFromLocation(string agentLocation)
         {
             var selectedProcessor = _processorList
                  .FirstOrDefault(p => p.Location == agentLocation);

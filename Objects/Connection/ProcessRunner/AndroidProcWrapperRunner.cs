@@ -96,7 +96,7 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
             lock (stderr) stderr.AppendLine(line);
             _logger.LogDebug("[STDERR] {Line}", line);
         };
-        ps.OnExited     += ec   => _logger.LogInformation("Process exited with code {Code}", ec);
+        ps.OnExited += ec => _logger.LogInformation("Process exited with code {Code}", ec);
 
         using var ctr = token.Register(() => { try { ps.Stop(); } catch { } });
 
@@ -245,14 +245,14 @@ public class AndroidProcWrapperRunner : IPlatformProcessRunner
             "libcrypto.so",
             "libc++_shared.so",
             "liboqsprovider.so",
-            "libopenssl_lua.so" 
+            "libopenssl_lua.so"
         };
 
         if (_extractionEnabled)
         {
             foreach (var name in expected.Distinct())
             {
-                var p  = System.IO.Path.Combine(_nativeDir, name);
+                var p = System.IO.Path.Combine(_nativeDir, name);
                 var jf = new JFile(p);
                 _logger.LogInformation("Check {Name}: exists={E} size={S} R={R} X={X}",
                     name, jf.Exists(), jf.Length(), jf.CanRead(), jf.CanExecute());

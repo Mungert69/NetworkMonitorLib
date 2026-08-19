@@ -27,9 +27,9 @@ namespace NetworkMonitor.Connection
     }
     public class LaunchHelper : ILaunchHelper
     {
-        private  readonly SemaphoreSlim _downloadSemaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _downloadSemaphore = new SemaphoreSlim(1, 1);
 
-        public  bool CheckDisplay(ILogger logger, bool forceHeadless = false)
+        public bool CheckDisplay(ILogger logger, bool forceHeadless = false)
         {
             bool isGuiAvailable = false;
 
@@ -102,7 +102,7 @@ namespace NetworkMonitor.Connection
             return useHeadless;
         }
 
-        public  async Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false)
+        public async Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false)
         {
             var vpo = new ViewPortOptions { Width = 1920, Height = 1280 };
             commandPath = Path.GetFullPath(commandPath.Replace('/', Path.DirectorySeparatorChar));
@@ -198,7 +198,7 @@ namespace NetworkMonitor.Connection
             logger?.LogInformation($"Using Chrome executable path {chromeExecutable}");
             return CreateLaunchOptions(vpo, useHeadless, chromeExecutable);
 
-             string? FindChromeExecutable(string rootPath)
+            string? FindChromeExecutable(string rootPath)
             {
                 string exeName = "chrome";
 #if WINDOWS

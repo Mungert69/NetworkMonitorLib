@@ -50,7 +50,7 @@ namespace NetworkMonitor.Connection
              IBrowserHost? browserHost = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _browserHost  = browserHost;
+            _browserHost = browserHost;
 
             _schema = new()
             {
@@ -94,7 +94,7 @@ namespace NetworkMonitor.Connection
             IBrowserHost? bh = null)
             => new HugSpaceWakeCmdProcessor(l, s, r, c, bh);
 
-           
+
         public override async Task<ResultObj> RunCommand(
             string arguments,
             CancellationToken cancellationToken,
@@ -126,10 +126,10 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var url          = parseResult.GetString("url"); // validated URL
+                var url = parseResult.GetString("url"); // validated URL
                 var microTimeout = parseResult.GetInt("micro_timeout", DefaultMicroTimeoutMs);
                 var macroTimeout = parseResult.GetInt("macro_timeout", DefaultMacroTimeoutMs);
-                var debugParts   = new List<string>();
+                var debugParts = new List<string>();
                 SpaceProbeResult? probeResult = null;
 
                 // Lightweight probe using static HTML to avoid spinning up Chromium if not needed.

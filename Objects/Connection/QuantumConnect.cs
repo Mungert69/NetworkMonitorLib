@@ -43,7 +43,7 @@ namespace NetworkMonitor.Connection
             IsLongRunning = true;
         }
 
-     
+
         protected virtual async Task<string> RunCommandAsync(
             string oqsCodepoint,
             string groups,

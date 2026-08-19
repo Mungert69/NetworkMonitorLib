@@ -1,26 +1,28 @@
 
 
-namespace NetworkMonitor.Objects.ServiceMessage{
-    public class PaymentTransaction{
-        public PaymentTransaction(){}
-        private bool _isUpdate=false;
-        private bool _isDelete=false;
-        private bool _isCreate=false;
-        private bool _isPayment=false;
+namespace NetworkMonitor.Objects.ServiceMessage
+{
+    public class PaymentTransaction
+    {
+        public PaymentTransaction() { }
+        private bool _isUpdate = false;
+        private bool _isDelete = false;
+        private bool _isCreate = false;
+        private bool _isPayment = false;
         private int _id;
         private DateTime _eventDate;
-        private UserInfo _userInfo=new UserInfo();
-        private string _externalUrl="";
+        private UserInfo _userInfo = new UserInfo();
+        private string _externalUrl = "";
         private bool _pingInfosComplete;
 
-        private bool _isComplete=false;
+        private bool _isComplete = false;
         private DateTime _completedDate;
 
-        private TResultObj<string> _result=new TResultObj<string>();
+        private TResultObj<string> _result = new TResultObj<string>();
 
-        private int _retryCount=0;
-        private string _eventId="";
-        private string _priceId="";
+        private int _retryCount = 0;
+        private string _eventId = "";
+        private string _priceId = "";
 
         public bool IsUpdate { get => _isUpdate; set => _isUpdate = value; }
         public int Id { get => _id; set => _id = value; }

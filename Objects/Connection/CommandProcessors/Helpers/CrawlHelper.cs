@@ -17,6 +17,7 @@ using System.Threading;
 using PuppeteerSharp;
 using System.Text.Json;
 namespace NetworkMonitor.Connection;
+
 public class CrawlHelper
 {
     // Simulate real user interactions
@@ -346,7 +347,7 @@ public class CrawlHelper
         logger.LogWarning("Failed to click element after all retries.");
         return false;
     }
-   
+
     public static async Task HandleCookieConsent(IPage page, ILogger logger, int timeout)
     {
         logger.LogInformation("Checking for cookie consent popup...");

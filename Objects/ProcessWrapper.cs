@@ -5,9 +5,10 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 
 namespace NetworkMonitor.Objects;
+
 public class ProcessWrapper
 {
-     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
+    public DateTime LastActivity { get; set; } = DateTime.UtcNow;
     private bool _hasStarted = false;
     private Process _process;
     public ProcessWrapper()
@@ -19,7 +20,7 @@ public class ProcessWrapper
         if (process == null) _process = new Process();
         else _process = process;
     }
-      public Process UnderlyingProcess => _process;
+    public Process UnderlyingProcess => _process;
     public virtual IStreamWriter StandardInput => new StreamWriterWrapper(_process.StandardInput);
     public virtual IStreamReader StandardOutput => new StreamReaderWrapper(_process.StandardOutput);
     public virtual ProcessStartInfo StartInfo => _process.StartInfo;
@@ -52,18 +53,18 @@ public class ProcessWrapper
         return _process.StandardInput.FlushAsync();
     }
 
-    
-      public virtual async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+
+    public virtual async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        
-              return await _process.StandardOutput.BaseStream.ReadAsync(buffer, offset, count, cancellationToken);
-  
+
+        return await _process.StandardOutput.BaseStream.ReadAsync(buffer, offset, count, cancellationToken);
+
     }
     public virtual async Task<int> ReadAsync(byte[] buffer, int offset, int count)
     {
         return await _process.StandardOutput.BaseStream.ReadAsync(buffer, offset, count);
     }
-     // New WaitForExit wrapper
+    // New WaitForExit wrapper
     public virtual bool WaitForExit(int milliseconds)
     {
         return _process.WaitForExit(milliseconds);
@@ -78,7 +79,7 @@ public interface IStreamReader
 {
     Task<string> ReadLineAsync();
     Task<int> ReadAsync(byte[] buffer, int offset, int count);
-      Task<int> ReadAsync(byte[] buffer, int offset, int count,CancellationToken cancellationToken);
+    Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
     // Add other necessary methods from StreamReader
 }
 public interface IStreamWriter
@@ -107,7 +108,7 @@ public class StreamReaderWrapper : IStreamReader
         // Asynchronous read with cancellation support
         return await _innerStreamReader.BaseStream.ReadAsync(buffer, offset, count, cancellationToken);
     }
-   
+
 }
 public class StreamWriterWrapper : IStreamWriter
 {

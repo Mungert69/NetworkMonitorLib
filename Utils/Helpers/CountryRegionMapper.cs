@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 namespace NetworkMonitor.Utils.Helpers;
+
 public class CountryRegionMapper
 {
     private readonly Dictionary<string, string> CountryToRegionMap = new Dictionary<string, string>
@@ -40,13 +41,14 @@ public class CountryRegionMapper
         // ...
     };
 
-      private string _defaultRegion ;
-    private List<string> _enabledRegions ;
+    private string _defaultRegion;
+    private List<string> _enabledRegions;
 
-    public CountryRegionMapper(string defaultRegion, List<string> enabledRegions) {
+    public CountryRegionMapper(string defaultRegion, List<string> enabledRegions)
+    {
         _defaultRegion = defaultRegion;
         _enabledRegions = enabledRegions;
-    } 
+    }
 
     public string MapCountryToRegion(string? countryCode)
     {
@@ -58,7 +60,7 @@ public class CountryRegionMapper
                 return region;
             else return _defaultRegion;
         }
-   
+
         return _defaultRegion;
     }
 }

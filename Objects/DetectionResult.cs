@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 namespace NetworkMonitor.Objects;
+
 public class DetectionResult
 {
     public bool IsIssueDetected { get; set; }

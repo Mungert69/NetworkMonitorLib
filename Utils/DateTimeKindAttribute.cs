@@ -32,8 +32,8 @@ public class DateTimeKindAttribute : Attribute
                 continue;
 
             var dt = property.PropertyType == typeof(DateTime?)
-                ? (DateTime?) property.GetValue(entity)
-                : (DateTime?) property.GetValue(entity);
+                ? (DateTime?)property.GetValue(entity)
+                : (DateTime?)property.GetValue(entity);
 
             if (dt == null)
                 continue;

@@ -51,7 +51,7 @@ namespace NetworkMonitor.Objects.Repository
         private readonly object _reconnectLock = new();
         private readonly object _connectTaskLock = new();
         private Task<ResultObj>? _connectAndSetupTask;
-        private readonly Dictionary<string, string> _exchangeTypes= new Dictionary<string, string>();
+        private readonly Dictionary<string, string> _exchangeTypes = new Dictionary<string, string>();
         private CancellationTokenSource _shutdownCts = new();
         private volatile bool _isShuttingDown = false;
         private volatile bool _hasConnectedOnce = false;
@@ -109,7 +109,7 @@ namespace NetworkMonitor.Objects.Repository
                 _systemUrl = _netConfig.LocalSystemUrl;
                 _isTls = _systemUrl.UseTls;
                 _logger?.LogInformation($" Use Tls in RabbitRepo NetConnectConfig ctor {_isTls}");
-                
+
                 _retryDelayMilliseconds = _netConfig.RetryDelayMilliseconds;
                 //ConnectAndSetUp();
                 //_instanceName = _systemUrl.RabbitInstanceName;
@@ -258,7 +258,7 @@ namespace NetworkMonitor.Objects.Repository
                     Port = _systemUrl.RabbitPort,
                     RequestedHeartbeat = TimeSpan.FromSeconds(120),
                     HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
-   
+
                     Ssl = BuildSslOption()
                 };
                 var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, effectiveMaxRetries, _retryDelayMilliseconds, cancellationToken);

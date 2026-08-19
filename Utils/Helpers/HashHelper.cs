@@ -23,7 +23,7 @@ public static class HashHelper
         }
     }
 
-      public static string ComputeSha3_256Hash(string rawData)
+    public static string ComputeSha3_256Hash(string rawData)
     {
         using (SHA256 sha3 = SHA256.Create()) // Create an instance of SHA3-256
         {

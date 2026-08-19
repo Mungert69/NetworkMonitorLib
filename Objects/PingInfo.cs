@@ -12,7 +12,7 @@ namespace NetworkMonitor.Objects
         public PingInfo(PingInfo p)
         {
             ID = p.ID;
-            DateSentInt=p.DateSentInt;
+            DateSentInt = p.DateSentInt;
             Status = p.Status;
             RoundTripTime = p.RoundTripTime;
             MonitorPingInfoID = p.MonitorPingInfoID;
@@ -27,8 +27,8 @@ namespace NetworkMonitor.Objects
         public DateTime DateSent
         {
             get
-            { 
-                return DateTime.SpecifyKind(new DateTime(2022, 1, 1).AddSeconds(_dateSentInt), DateTimeKind.Utc); 
+            {
+                return DateTime.SpecifyKind(new DateTime(2022, 1, 1).AddSeconds(_dateSentInt), DateTimeKind.Utc);
             }
             set
             {
@@ -53,10 +53,10 @@ namespace NetworkMonitor.Objects
         public ushort? RoundTripTime { get; set; }
 
         [NotMapped]
-         public int RoundTripTimeInt { get; set; }
-         /// <summary>
-         /// Parent MonitorPingInfo object ID.
-         /// </summary>
+        public int RoundTripTimeInt { get; set; }
+        /// <summary>
+        /// Parent MonitorPingInfo object ID.
+        /// </summary>
         public int MonitorPingInfoID { get; set; }
         /// <summary>
         /// Datesent in a compressed integer format.

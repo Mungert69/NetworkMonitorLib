@@ -2,26 +2,28 @@
 using NetworkMonitor.Utils;
 
 namespace NetworkMonitor.Objects.ServiceMessage;
-    public class ProcessorScanDataObj {
+
+public class ProcessorScanDataObj
+{
     private bool _useDefaultEndpoint;
-    private string _defaultEndpoint="";
-    private string _arguments="";
-    private bool _argsEscaped=false;
-    private string _scanCommandOutput="";
-    private string _messageID="";
-    private string _callingService="";
-    private LLMServiceObj _llmServiceObj= new LLMServiceObj();
+    private string _defaultEndpoint = "";
+    private string _arguments = "";
+    private bool _argsEscaped = false;
+    private string _scanCommandOutput = "";
+    private string _messageID = "";
+    private string _callingService = "";
+    private LLMServiceObj _llmServiceObj = new LLMServiceObj();
     private int _lineLimit = -1;
     private int _page = 1;
-    private string _agentLocation="";
+    private string _agentLocation = "";
     private int _timeout = 600; // Default timeout for cmd processor operations
     private DateTime _startTime;
     private bool _sendMessage = true;
-    private string _authKey="";
-    private string _agentId="";
-    private bool _isControllerCall=false;
-    private string _type="";
-    private bool _isAck=false;
+    private string _authKey = "";
+    private string _agentId = "";
+    private bool _isControllerCall = false;
+    private string _type = "";
+    private bool _isAck = false;
     private bool _scanCommandSuccess;
     private byte[] _rawData = Array.Empty<byte>();
     private string _rawDataMimeType = "";
@@ -30,7 +32,7 @@ namespace NetworkMonitor.Objects.ServiceMessage;
     private string _rawDataSha256 = "";
 
     public bool UseDefaultEndpoint { get => _useDefaultEndpoint; set => _useDefaultEndpoint = value; }
-    public string  DefaultEndpoint { get => _defaultEndpoint; set => _defaultEndpoint = value; }
+    public string DefaultEndpoint { get => _defaultEndpoint; set => _defaultEndpoint = value; }
     public string Arguments { get => _arguments; set => _arguments = value; }
     public string CallingService { get => _callingService; set => _callingService = value; }
     public string ScanCommandOutput { get => _scanCommandOutput; set => _scanCommandOutput = value; }
@@ -58,8 +60,8 @@ namespace NetworkMonitor.Objects.ServiceMessage;
     public string RawDataSha256 { get => _rawDataSha256; set => _rawDataSha256 = value ?? ""; }
 
     public ProcessorScanDataObj()
-        {
-            _messageID = StringUtils.GetNanoid();
-            _startTime = DateTime.UtcNow;
-        }
+    {
+        _messageID = StringUtils.GetNanoid();
+        _startTime = DateTime.UtcNow;
+    }
 }

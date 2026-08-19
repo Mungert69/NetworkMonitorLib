@@ -4,7 +4,7 @@ namespace NetworkMonitor.Objects
 {
     public class DataSetObj
     {
-        public DataSetObj(){}
+        public DataSetObj() { }
         private int dataSetId;
         private DateTime dateStarted;
 

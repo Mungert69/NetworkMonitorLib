@@ -1,6 +1,7 @@
 using System.Text;
 
 namespace NetworkMonitor.Utils;
+
 public static class StringBuilderExtensions
 {
     public static StringBuilder TrimEnd(this StringBuilder sb, char[] trimChars)

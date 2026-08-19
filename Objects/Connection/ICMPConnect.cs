@@ -51,16 +51,16 @@ namespace NetworkMonitor.Connection
         }
         private void PingCompletedCallback(object sender, PingCompletedEventArgs e)
         {
-           
+
             // If the operation was canceled, display a message to the user.
             if (e.Cancelled)
             {
-                ProcessException("Ping Canceled","Ping Canceled");
+                ProcessException("Ping Canceled", "Ping Canceled");
             }
             // If an error occurred, display the exception to the user.
             if (e.Error != null)
             {
-                ProcessException(e.Error.ToString(),"Exception");
+                ProcessException(e.Error.ToString(), "Exception");
             }
             PingReply? reply = e.Reply;
             ProcessPingStatus(reply);
@@ -70,7 +70,7 @@ namespace NetworkMonitor.Connection
 
             if (reply == null)
             {
-                ProcessException("Ping Reply Null","Ping Reply Null");
+                ProcessException("Ping Reply Null", "Ping Reply Null");
                 return;
             }
             string replyStatus = reply.Status.ToString();
@@ -81,7 +81,7 @@ namespace NetworkMonitor.Connection
             }
             else
             {
-                ProcessException(reply.Status.ToString(),"Exception");
+                ProcessException(reply.Status.ToString(), "Exception");
                 return;
             }
 

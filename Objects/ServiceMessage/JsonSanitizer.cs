@@ -10,7 +10,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
 
         public static string RepairJson(string input, HashSet<string> ignoreParameters)
         {
-            string json=input;
+            string json = input;
             try
             {
                 JsonSerializer.Deserialize<Dictionary<string, object>>(input);
@@ -20,17 +20,17 @@ namespace NetworkMonitor.Objects.ServiceMessage
 
                 try
                 {
-                    string? field=e?.Path?.Replace("$.","");
-                    if ( field!=null && !ignoreParameters.Contains(field))
+                    string? field = e?.Path?.Replace("$.", "");
+                    if (field != null && !ignoreParameters.Contains(field))
                     {
                         Console.WriteLine("\n\nRepairing => " + field + " \n\n");
                         string repairedJson = JsonRepair.RepairJson(input);
                         JsonSerializer.Deserialize<Dictionary<string, object>>(repairedJson);
-                       json=repairedJson;
+                        json = repairedJson;
                     }
-                   
+
                 }
-                catch {}
+                catch { }
 
             }
             return json;

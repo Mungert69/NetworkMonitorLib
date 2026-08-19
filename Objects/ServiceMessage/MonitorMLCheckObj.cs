@@ -3,7 +3,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
 {
     public class MonitorMLCheckObj
     {
-        public MonitorMLCheckObj(){}
+        public MonitorMLCheckObj() { }
         private int _monitorIPID;
         private int _dataSetID;
         private DateTime _dateStart;

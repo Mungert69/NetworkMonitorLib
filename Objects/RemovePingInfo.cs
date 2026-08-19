@@ -7,8 +7,8 @@ namespace NetworkMonitor.Objects
 {
     public class RemovePingInfo
     {
-        public RemovePingInfo(){}
-        public ulong ID{get;set;}
-        public int MonitorPingInfoID{get;set;}
+        public RemovePingInfo() { }
+        public ulong ID { get; set; }
+        public int MonitorPingInfoID { get; set; }
     }
 }

@@ -16,7 +16,7 @@ public class BlogQNA
     [JsonPropertyName("question")]
     public string Question { get; set; } = "";
 
-     [JsonPropertyName("answer")]
+    [JsonPropertyName("answer")]
     public string Answer { get; set; } = "";
 
     public virtual int BlogID { get; set; } = 0;

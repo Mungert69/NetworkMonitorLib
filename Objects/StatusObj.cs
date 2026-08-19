@@ -8,60 +8,61 @@ namespace NetworkMonitor.Objects
     public class StatusObj
     {
         public const int MessageMaxLength = 4096;
-        public StatusObj(){}
-        public StatusObj(StatusObj copy){
-                ID=copy.ID;
-                DownCount=copy.DownCount;
-                IsUp=copy.IsUp;
-                AlertFlag=copy.AlertFlag;
-                AlertSent=copy.AlertSent;
-                EventTime=copy.EventTime;
-                MonitorPingInfoID=copy.MonitorPingInfoID;
-                Message=copy.Message;
+        public StatusObj() { }
+        public StatusObj(StatusObj copy)
+        {
+            ID = copy.ID;
+            DownCount = copy.DownCount;
+            IsUp = copy.IsUp;
+            AlertFlag = copy.AlertFlag;
+            AlertSent = copy.AlertSent;
+            EventTime = copy.EventTime;
+            MonitorPingInfoID = copy.MonitorPingInfoID;
+            Message = copy.Message;
         }
         [Key]
         public int ID { get; set; }
         private DateTime? _eventTime;
         private string? _message = "";
-        
+
         // A thread safe DownCount
 #if NetworkMonitorProcessor
-    // Initialize the lock for microservice NetworkMontiorProcessor
-    private int _downCount;
-    
-    // Set DownCount to 0
-    public void ResetDownCount()
-    {
-        Interlocked.Exchange(ref _downCount, 0);
-    }
-    
-    // Increment the DownCount field
-    public void IncrementDownCount()
-    {
-        Interlocked.Increment(ref _downCount);
-    }
-    
-    /// <summary>
-    /// How many events in a row has the host been down.
-    /// </summary>
-    public int DownCount 
-    {
-        get 
+        // Initialize the lock for microservice NetworkMontiorProcessor
+        private int _downCount;
+
+        // Set DownCount to 0
+        public void ResetDownCount()
         {
-            return Interlocked.CompareExchange(ref _downCount, 0, 0);
+            Interlocked.Exchange(ref _downCount, 0);
         }
-         set
+
+        // Increment the DownCount field
+        public void IncrementDownCount()
         {
-            Interlocked.Exchange(ref _downCount, value);
+            Interlocked.Increment(ref _downCount);
         }
-    }
+
+        /// <summary>
+        /// How many events in a row has the host been down.
+        /// </summary>
+        public int DownCount
+        {
+            get
+            {
+                return Interlocked.CompareExchange(ref _downCount, 0, 0);
+            }
+            set
+            {
+                Interlocked.Exchange(ref _downCount, value);
+            }
+        }
 #else
     public int DownCount { get; set; }
 #endif
 
-/// <summary>
-/// Did the host respond during the last reponse event for the data set.
-/// </summary>
+        /// <summary>
+        /// Did the host respond during the last reponse event for the data set.
+        /// </summary>
         public bool? IsUp { get; set; }
         /// <summary>
         /// Has an alert been raised for this host since the last alert reset.
@@ -78,12 +79,12 @@ namespace NetworkMonitor.Objects
         {
             get
             {
-                 if (_eventTime.HasValue)
+                if (_eventTime.HasValue)
                 {
                     return DateTime.SpecifyKind(_eventTime.Value, DateTimeKind.Utc);
                 }
                 return null;
-              
+
             }
             set { _eventTime = value; }
         }

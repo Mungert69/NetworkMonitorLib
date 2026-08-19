@@ -11,7 +11,7 @@ namespace NetworkMonitor.Objects
     public static class PlanLimits
     {
 
-         // Default
+        // Default
         public const int DefaultHosts = 5;
         public const int DefaultMaxTokens = 200_000;
         public const int DefaultDailyTokens = 10_000;

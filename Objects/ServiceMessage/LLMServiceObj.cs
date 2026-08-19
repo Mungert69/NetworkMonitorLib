@@ -102,11 +102,11 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private string functionName = "";
         private string swapFunctionName = "";
         private string functionCallId = "";
-        private int? timeout =null;
+        private int? timeout = null;
         private string? toolsDefinitionId = null;
         private string? jsonToolsBuilderSpec = null;
         private string llmRunnerType = "TurboLLM";
-        private string chatAgentLocation="";
+        private string chatAgentLocation = "";
         private string chatDeviceContext = "";
         private string sourceLlm = "";
         private string destinationLlm = "";
@@ -380,7 +380,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         {
             try
             {
-                var timeZoneInfo = !string.IsNullOrEmpty(timeZone)  ? TimeZoneInfo.FindSystemTimeZoneById(timeZone) : TimeZoneInfo.Utc;
+                var timeZoneInfo = !string.IsNullOrEmpty(timeZone) ? TimeZoneInfo.FindSystemTimeZoneById(timeZone) : TimeZoneInfo.Utc;
                 return TimeZoneInfo.ConvertTimeFromUtc(startTimeUTC, timeZoneInfo);
             }
             catch

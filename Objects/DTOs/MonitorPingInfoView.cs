@@ -7,6 +7,7 @@ using System.Windows.Input;
 
 
 namespace NetworkMonitor.DTOs;
+
 public interface IMonitorPingInfoView : INotifyPropertyChanged
 {
     List<MonitorPingInfo> MonitorPingInfos { get; set; }
@@ -30,10 +31,10 @@ public class MonitorPingInfoView : IMonitorPingInfoView
 
     public MonitorPingInfoView()
     {
-      //  ShowStatusDetailsCommand = new Command<MonitorPingInfo>(ExecuteShowStatusDetailsCommand);
+        //  ShowStatusDetailsCommand = new Command<MonitorPingInfo>(ExecuteShowStatusDetailsCommand);
     }
 
-   public bool HasData
+    public bool HasData
     {
         get => _hasData;
         private set
@@ -128,7 +129,7 @@ public class MonitorPingInfoView : IMonitorPingInfoView
                 mpIndicators.Add(mpIndicator);
             }
 
-           // double outerCircleRadius = 0.5;
+            // double outerCircleRadius = 0.5;
             //double indicatorDiameter = 0.1;
             var distributor = new CircleDistributor();
             var points = mpIndicators.Cast<IPoint>().ToList();
@@ -150,5 +151,5 @@ public class MPIndicator : MonitorPingInfo, IPoint
     public double YPosition { get; set; } = 0.5d;
     public double DiameterPixels { get; set; } = 15;
     public bool IsAnimated { get; set; } = true;
-   
+
 }

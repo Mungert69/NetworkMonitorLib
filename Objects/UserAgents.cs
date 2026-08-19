@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 namespace NetworkMonitor.Objects;
+
 public class UserAgents
 {
     private static readonly List<string> Agents = new List<string>
@@ -45,38 +46,38 @@ public class UserAgents
         // Fallback if platform cannot be determined
         return "Unknown";
     }
-     public static string GetPluginsForUserAgent(string userAgent)
+    public static string GetPluginsForUserAgent(string userAgent)
+    {
+        // Customize plugins based on the userAgent
+        if (userAgent.Contains("Chrome"))
         {
-            // Customize plugins based on the userAgent
-            if (userAgent.Contains("Chrome"))
-            {
-                return @"
+            return @"
                     [
                         { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
                         { name: 'Widevine Content Decryption Module', filename: 'widevinecdm', description: '' }
                     ]
                 ";
-            }
-            else if (userAgent.Contains("Firefox"))
-            {
-                return @"
+        }
+        else if (userAgent.Contains("Firefox"))
+        {
+            return @"
                     [
                         { name: 'PDF.js', filename: 'pdfjs-extension', description: 'PDF Viewer' },
                         { name: 'Widevine Content Decryption Module', filename: 'widevinecdm', description: '' }
                     ]
                 ";
-            }
-            else if (userAgent.Contains("Safari"))
-            {
-                return @"
+        }
+        else if (userAgent.Contains("Safari"))
+        {
+            return @"
                     [
                         { name: 'QuickTime Plug-in', filename: 'QuickTime.plugin', description: 'QuickTime Plug-in' }
                     ]
                 ";
-            }
-            else
-            {
-                return "[]"; // Empty plugins list for unsupported user agents
-            }
         }
+        else
+        {
+            return "[]"; // Empty plugins list for unsupported user agents
+        }
+    }
 }

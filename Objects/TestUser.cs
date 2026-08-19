@@ -8,9 +8,9 @@ namespace NetworkMonitor.Objects
     public class TestUser
     {
 #pragma warning disable IL2026
-        public TestUser(){}
+        public TestUser() { }
 
-      
+
 
         [MaxLength(50)]
         public string? UserID { get; set; }
@@ -19,9 +19,9 @@ namespace NetworkMonitor.Objects
         private bool _enabled = true;
         public bool Enabled { get => _enabled; set => _enabled = value; }
 
-    [Key]
-    [MaxLength(255)]
-    public string Email { get; set; } = "";
+        [Key]
+        [MaxLength(255)]
+        public string Email { get; set; } = "";
 
 
         public DateTime? ActivatedDate { get; set; }
@@ -29,6 +29,6 @@ namespace NetworkMonitor.Objects
         public DateTime? InviteSentDate { get; set; }
         public DateTime? CancelAt { get; set; }
 
-      #pragma warning restore IL2026
+#pragma warning restore IL2026
     }
 }

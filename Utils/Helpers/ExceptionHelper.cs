@@ -7,7 +7,8 @@ using System.Threading.Tasks;
 using NetworkMonitor.Objects;
 namespace NetworkMonitor.Utils.Helpers;
 
-public class ExceptionHelper {
+public class ExceptionHelper
+{
     public static string AppID = "notset";
 
     private static readonly HttpClient s_httpClient = new HttpClient();

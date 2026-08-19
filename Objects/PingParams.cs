@@ -1,11 +1,12 @@
 ﻿using System.Text.Json.Serialization;
 namespace NetworkMonitor.Objects
 {
-    
+
     public class PingParams
 
     {
-        public PingParams(){
+        public PingParams()
+        {
 
         }
         private int _timeOut;

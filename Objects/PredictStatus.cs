@@ -11,7 +11,8 @@ public class PredictStatus
     public const int MessageMaxLength = 4096;
     public PredictStatus() { }
 
-    public PredictStatus(PredictStatus copy, bool zeroIds = false) {
+    public PredictStatus(PredictStatus copy, bool zeroIds = false)
+    {
         if (zeroIds)
         {
             ID = 0;
@@ -23,13 +24,13 @@ public class PredictStatus
             MonitorPingInfoID = copy.MonitorPingInfoID;
         }
 
-                AlertFlag =copy.AlertFlag;
-                AlertSent=copy.AlertSent;
-                EventTime=copy.EventTime;
-                Message=copy.Message;
-                ChangeDetectionResult=copy.ChangeDetectionResult;
-                SpikeDetectionResult=copy.SpikeDetectionResult;
-      }
+        AlertFlag = copy.AlertFlag;
+        AlertSent = copy.AlertSent;
+        EventTime = copy.EventTime;
+        Message = copy.Message;
+        ChangeDetectionResult = copy.ChangeDetectionResult;
+        SpikeDetectionResult = copy.SpikeDetectionResult;
+    }
     [Key]
     public int ID { get; set; }
     private DateTime? _eventTime;
@@ -78,8 +79,8 @@ public class PredictStatus
     }
     public DetectionResult ChangeDetectionResult { get; set; } = new DetectionResult();
     public DetectionResult SpikeDetectionResult { get; set; } = new DetectionResult();
-  
-   // Backing fields for IsUp and DownCount
+
+    // Backing fields for IsUp and DownCount
     private bool _isUpDb;
     private int _downCountDb;
 

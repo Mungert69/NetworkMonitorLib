@@ -41,7 +41,7 @@ namespace NetworkMonitor.Objects
             this.EditAuthKey = newMonIP.EditAuthKey;
             this.MessageForUser = newMonIP.MessageForUser;
             this.DateAdded = newMonIP.DateAdded;
-            this.SiteHash= newMonIP.SiteHash;
+            this.SiteHash = newMonIP.SiteHash;
             this.MonitorModelConfigId = newMonIP.MonitorModelConfigId;
             if (newMonIP.ModelConfig != null)
             {

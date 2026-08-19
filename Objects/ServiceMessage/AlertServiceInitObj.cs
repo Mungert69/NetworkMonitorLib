@@ -7,12 +7,12 @@ namespace NetworkMonitor.Objects.ServiceMessage
 {
     public class AlertServiceInitObj
     {
-        public AlertServiceInitObj(){}
+        public AlertServiceInitObj() { }
         private bool _isAlertServiceReady;
-        private bool _totalReset=false;
-        private bool _updateUserInfos=false;
+        private bool _totalReset = false;
+        private bool _updateUserInfos = false;
 
-        private List<UserInfo> _userInfos=new List<UserInfo>();
+        private List<UserInfo> _userInfos = new List<UserInfo>();
 
         public bool IsAlertServiceReady { get => _isAlertServiceReady; set => _isAlertServiceReady = value; }
         public bool TotalReset { get => _totalReset; set => _totalReset = value; }

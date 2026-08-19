@@ -151,8 +151,8 @@ By providing arguments to this processor, you can execute a wide range of Metasp
         private async Task<string> ExecuteMetasploit(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj)
         {
             string msfDir = "";
-            string msfPath="";
-            _cmdProcessorStates.CmdName="msfconsole";
+            string msfPath = "";
+            _cmdProcessorStates.CmdName = "msfconsole";
             string output = "";
             bool isWindows = string.Equals(_netConfig.OSPlatform, "windows", StringComparison.OrdinalIgnoreCase);
             // Use 'where' command to locate the executable in the system's PATH

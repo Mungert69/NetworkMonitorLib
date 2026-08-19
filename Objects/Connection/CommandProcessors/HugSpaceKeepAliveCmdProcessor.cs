@@ -21,9 +21,9 @@ namespace NetworkMonitor.Connection
         // Defaults (can be overridden by CLI args)
         private const int DefaultMicroTimeoutMs = 10_000;
         private const int DefaultMacroTimeoutMs = 45_000;
-        private const int DefaultLingerMs      = 8_000;
+        private const int DefaultLingerMs = 8_000;
 
-               private readonly IBrowserHost _browserHost;
+        private readonly IBrowserHost _browserHost;
         private readonly List<ArgSpec> _schema;
 
         public HugSpaceKeepAliveCmdProcessor(
@@ -34,7 +34,7 @@ namespace NetworkMonitor.Connection
              IBrowserHost? browserHost = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _browserHost  = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
+            _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             // Fully specify schema so Parse(...) can validate + fill defaults
             _schema = new()
@@ -88,8 +88,8 @@ namespace NetworkMonitor.Connection
             IBrowserHost? bh = null)
             => new HugSpaceKeepAliveCmdProcessor(l, s, r, c, bh);
 
-     
-       
+
+
         public override async Task<ResultObj> RunCommand(
             string arguments,
             CancellationToken cancellationToken,
@@ -114,10 +114,10 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var url          = parseResult.GetString("url"); // validated "url" type
+                var url = parseResult.GetString("url"); // validated "url" type
                 var microTimeout = parseResult.GetInt("micro_timeout", DefaultMicroTimeoutMs);
                 var macroTimeout = parseResult.GetInt("macro_timeout", DefaultMacroTimeoutMs);
-                var lingerMs     = parseResult.GetInt("linger_ms", DefaultLingerMs);
+                var lingerMs = parseResult.GetInt("linger_ms", DefaultLingerMs);
 
                 cancellationToken.ThrowIfCancellationRequested();
 

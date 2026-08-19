@@ -9,7 +9,7 @@ namespace NetworkMonitor.Objects
         public ushort RabbitPort { get; set; } = 55671;
 
     }
-   public class RabbitLoadServerResult
+    public class RabbitLoadServerResult
     {
         public string Message { get; set; } = "";
         public bool Success { get; set; } = false;

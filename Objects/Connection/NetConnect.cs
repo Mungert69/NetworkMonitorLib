@@ -90,7 +90,7 @@ namespace NetworkMonitor.Connection
                 DateSent = DateTime.UtcNow
             };
             _cts = new CancellationTokenSource();
-            _mpiConnect.SiteHash=_mpiStatic.SiteHash;
+            _mpiConnect.SiteHash = _mpiStatic.SiteHash;
             int timeout = _mpiStatic.Timeout;
             if (ExtendTimeout)
             {
@@ -99,7 +99,7 @@ namespace NetworkMonitor.Connection
             _cts.CancelAfter(TimeSpan.FromMilliseconds(timeout));
 
         }
-     
+
         public void PostConnect()
         {
             IsRunning = false;
@@ -121,8 +121,8 @@ namespace NetworkMonitor.Connection
         }
         protected void ProcessStatus(string reply, ushort timeTaken, string extraData = "")
         {
-             if (!string.IsNullOrEmpty(extraData)) _mpiConnect.Message = reply + " " + extraData;
-           else _mpiConnect.Message = reply;
+            if (!string.IsNullOrEmpty(extraData)) _mpiConnect.Message = reply + " " + extraData;
+            else _mpiConnect.Message = reply;
             _mpiConnect.PingInfo.Status = reply;
             _mpiConnect.PingInfo.RoundTripTime = timeTaken;
             _mpiConnect.IsUp = true;

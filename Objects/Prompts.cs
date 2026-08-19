@@ -14,10 +14,10 @@ namespace NetworkMonitor.Objects;
 
 
 public static class Prompts
-{ 
+{
 
-public static string CmdProcessorPrompt () => 
-@"**.NET Source Code in add_cmd_processor**:
+    public static string CmdProcessorPrompt() =>
+    @"**.NET Source Code in add_cmd_processor**:
 When adding a cmd processor, supply its source code in the 'source_code' parameter. The code must inherit from the base class CmdProcessor
 For reference and outline of the CmdProcesor Base class is given below :
 
@@ -155,7 +155,7 @@ Use _rootFolder for file operations as this has read write access. Try and imple
 ";
 
 
-  public static string SecurityPrompt() => @"
+    public static string SecurityPrompt() => @"
 Error Recovery:
 Nmap Errors:
 

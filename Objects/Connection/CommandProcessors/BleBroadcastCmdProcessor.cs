@@ -168,8 +168,8 @@ namespace NetworkMonitor.Connection
                 return new ResultObj { Success = false, Message = err };
             }
 
-                string address = parsed.GetString("address");
-                string keyRaw = parsed.GetString("key");
+            string address = parsed.GetString("address");
+            string keyRaw = parsed.GetString("key");
             string format = parsed.GetString("format", "aesgcm");
             int nonceLength = parsed.GetInt("nonce_len", 12);
             int tagLength = parsed.GetInt("tag_len", 16);
@@ -1576,7 +1576,7 @@ namespace NetworkMonitor.Connection
             {
                 bytes = Convert.FromHexString(trimmed);
                 return true;
-            }               
+            }
             catch (Exception ex)
             {
                 error = $"Invalid raw payload hex: {ex.Message}";

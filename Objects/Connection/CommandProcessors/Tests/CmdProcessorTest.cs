@@ -326,7 +326,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
                 MessageID = "msgid",
                 CallingService = "svc"
             };
-            rabbitRepo.Setup(x => x.PublishAsync<ProcessorScanDataObj>(It.IsAny<string>(), It.IsAny<ProcessorScanDataObj>(),""))
+            rabbitRepo.Setup(x => x.PublishAsync<ProcessorScanDataObj>(It.IsAny<string>(), It.IsAny<ProcessorScanDataObj>(), ""))
                 .Returns(Task.CompletedTask);
 
             var output = "line1\nline2\nline3\nline4";

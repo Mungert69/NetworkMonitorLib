@@ -5,23 +5,23 @@ using System.Threading.Tasks;
 
 namespace NetworkMonitor.Objects.ServiceMessage
 {
- 
+
 
     public class MonitorDataInitObj
     {
-        public MonitorDataInitObj(){}
+        public MonitorDataInitObj() { }
         private bool _isDataReady;
-         private bool _isDataSaveReady;
-         private bool _isDataPurgeReady;
-          private bool _isDataMessage;
-         private bool _isDataSaveMessage;
-         private bool _isDataPurgeMessage;
+        private bool _isDataSaveReady;
+        private bool _isDataPurgeReady;
+        private bool _isDataMessage;
+        private bool _isDataSaveMessage;
+        private bool _isDataPurgeMessage;
 
         private bool _initResetProcessor;
         private bool _initTotalResetProcesser;
         private bool _initUpdateAlertMessage;
         private bool _initTotalResetAlertMessage;
-        private bool _isTestMode=false;
+        private bool _isTestMode = false;
 
         public bool InitResetProcessor { get => _initResetProcessor; set => _initResetProcessor = value; }
         public bool InitTotalResetProcesser { get => _initTotalResetProcesser; set => _initTotalResetProcesser = value; }

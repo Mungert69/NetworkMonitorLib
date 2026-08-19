@@ -14,8 +14,8 @@ internal sealed class QuantumStub : QuantumConnect
 
     public QuantumStub(
         IList<AlgorithmInfo> algos,
-        string               fakeOutput,
-        ILogger              log)
+        string fakeOutput,
+        ILogger log)
         : base(new List<AlgorithmInfo>(algos), "/oqs", "/bin", log)
         => _fake = fakeOutput;
 
@@ -28,8 +28,8 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
 {
     public class QuantumConnectTests
     {
-        private static AlgorithmInfo Algo(string n,int id=1,bool env=false,bool en=true) =>
-            new() { AlgorithmName=n, DefaultID=id, AddEnv=env, Enabled=en, EnvironmentVariable="VAR" };
+        private static AlgorithmInfo Algo(string n, int id = 1, bool env = false, bool en = true) =>
+            new() { AlgorithmName = n, DefaultID = id, AddEnv = env, Enabled = en, EnvironmentVariable = "VAR" };
 
         private static ILogger Log() => new Mock<ILogger>().Object;
 
@@ -40,11 +40,11 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         public async Task Connect_sets_failure_status_when_no_qs_algorithm()
         {
             var qc = new QuantumStub(
-                        new[]{ Algo("curve1") },
+                        new[] { Algo("curve1") },
                         SentinelBanner,
                         Log());
 
-            qc.MpiStatic = new MPIStatic { Address="host", Port=443, Timeout=1000 };
+            qc.MpiStatic = new MPIStatic { Address = "host", Port = 443, Timeout = 1000 };
             await qc.Connect();
 
             Assert.False(qc.MpiConnect.IsUp);
@@ -56,7 +56,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         public async Task ProcessAlgorithm_returns_failure_without_keyshare()
         {
             var algo = Algo("curveX", 0xABCD);
-            var qc   = new QuantumStub(new[]{algo}, SentinelBanner, Log());
+            var qc = new QuantumStub(new[] { algo }, SentinelBanner, Log());
 
             var res = await qc.ProcessAlgorithm(algo, "host", 443);
 
@@ -68,9 +68,9 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         public async Task IsQuantumSafe_returns_failure_when_all_algos_fail()
         {
             var modern = Algo("modern", 1);
-            var legacy = Algo("legacy", 2, env:true);
+            var legacy = Algo("legacy", 2, env: true);
 
-            var qc  = new QuantumStub(new[]{modern, legacy}, SentinelBanner, Log());
+            var qc = new QuantumStub(new[] { modern, legacy }, SentinelBanner, Log());
             var res = await qc.IsQuantumSafe("host", 443);
 
             Assert.False(res.Success);

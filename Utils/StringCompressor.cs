@@ -22,7 +22,7 @@ namespace NetworkMonitor.Utils
                     // setting the leaveOpen parameter to true to ensure that compressedStream will not be closed when compressorStream is disposed
                     // this allows compressorStream to close and flush its buffers to compressedStream and guarantees that compressedStream.ToArray() can be called afterward
                     // although MSDN documentation states that ToArray() can be called on a closed MemoryStream, I don't want to rely on that very odd behavior should it ever change
-                    using (var compressorStream = new  BrotliStream(compressedStream, CompressionLevel.Optimal, true))
+                    using (var compressorStream = new BrotliStream(compressedStream, CompressionLevel.Optimal, true))
                     {
                         uncompressedStream.CopyTo(compressorStream);
                     }
@@ -34,7 +34,7 @@ namespace NetworkMonitor.Utils
 
             return Convert.ToBase64String(compressedBytes);
         }
-         public static byte[] CompressToBytes(string uncompressedString)
+        public static byte[] CompressToBytes(string uncompressedString)
         {
             byte[] compressedBytes;
 
@@ -45,7 +45,7 @@ namespace NetworkMonitor.Utils
                     // setting the leaveOpen parameter to true to ensure that compressedStream will not be closed when compressorStream is disposed
                     // this allows compressorStream to close and flush its buffers to compressedStream and guarantees that compressedStream.ToArray() can be called afterward
                     // although MSDN documentation states that ToArray() can be called on a closed MemoryStream, I don't want to rely on that very odd behavior should it ever change
-                    using (var compressorStream = new  BrotliStream(compressedStream, CompressionLevel.Optimal, true))
+                    using (var compressorStream = new BrotliStream(compressedStream, CompressionLevel.Optimal, true))
                     {
                         uncompressedStream.CopyTo(compressorStream);
                     }
@@ -81,7 +81,7 @@ namespace NetworkMonitor.Utils
             return Encoding.UTF8.GetString(decompressedBytes);
         }
 
-         public static string Decompress(byte[] compressedBytes)
+        public static string Decompress(byte[] compressedBytes)
         {
             byte[] decompressedBytes;
 
@@ -99,6 +99,6 @@ namespace NetworkMonitor.Utils
 
             return Encoding.UTF8.GetString(decompressedBytes);
         }
-    
+
     }
 }

@@ -45,7 +45,8 @@ namespace NetworkMonitor.Utils.Helpers
         {
             return new AlertParams();
         }
-        public MLParams GetMLParams() {
+        public MLParams GetMLParams()
+        {
             return new MLParams();
         }
     }

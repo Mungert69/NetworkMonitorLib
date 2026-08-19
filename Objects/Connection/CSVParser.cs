@@ -6,6 +6,7 @@ using System.Reflection;
 using NetworkMonitor.Objects;
 using System.Diagnostics.CodeAnalysis;
 namespace NetworkMonitor.Connection;
+
 public class HexStringToIntConverter
 {
     public static int ConvertFromString(string text)
@@ -89,8 +90,8 @@ public class CsvParser
             }
         }
     }
-     public static List<T> ParseCsv<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string filePath) 
-        where T : new()
+    public static List<T> ParseCsv<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string filePath)
+       where T : new()
     {
         var records = new List<T>();
 

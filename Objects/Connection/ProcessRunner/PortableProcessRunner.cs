@@ -18,17 +18,17 @@ public class PortableProcessRunner : IPlatformProcessRunner
         CancellationToken token)
     {
         var output = new StringBuilder();
-        var error  = new StringBuilder();
+        var error = new StringBuilder();
 
         var psi = new ProcessStartInfo
         {
-            FileName               = executablePath,
-            Arguments              = arguments ?? string.Empty,
-            WorkingDirectory       = string.IsNullOrWhiteSpace(workingDirectory) ? Environment.CurrentDirectory : workingDirectory,
-            UseShellExecute        = false,
+            FileName = executablePath,
+            Arguments = arguments ?? string.Empty,
+            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? Environment.CurrentDirectory : workingDirectory,
+            UseShellExecute = false,
             RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            CreateNoWindow         = true
+            RedirectStandardError = true,
+            CreateNoWindow = true
         };
 
         if (envVars != null)

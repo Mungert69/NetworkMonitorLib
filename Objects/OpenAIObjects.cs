@@ -69,7 +69,7 @@ namespace NetworkMonitor.Service.Services.OpenAI
         [JsonPropertyName("created")]
         public long Created { get; set; }
         [JsonPropertyName("model")]
-        public string Model { get; set; }="";
+        public string Model { get; set; } = "";
         [JsonPropertyName("usage")]
         public ChatCompletionUsage? Usage { get; set; }
         [JsonPropertyName("choices")]
@@ -185,7 +185,7 @@ namespace NetworkMonitor.Service.Services.OpenAI
     public class BlogList
     {
         public string? Content { get; set; }
-        public List<string> Categories { get; set; }= new List<string>();
+        public List<string> Categories { get; set; } = new List<string>();
         public DateTime? Date { get; set; }
     }
 }

@@ -24,7 +24,7 @@ public class PingCmdProcessor : CmdProcessor
      : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
     {
         _cmdProcessorStates.CmdName = "ping";
-         _cmdProcessorStates.CmdDisplayName = "Ping";
+        _cmdProcessorStates.CmdDisplayName = "Ping";
     }
 
 
@@ -148,14 +148,14 @@ public class PingCmdProcessor : CmdProcessor
     public override async Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken, ProcessorScanDataObj? processorScanDataObj = null)
     {
         _logger.LogWarning($" Warning : {_cmdProcessorStates.CmdName}  Run Command is not enabled or installed on this agent.");
-                var output = $"The {_cmdProcessorStates.CmdDisplayName}   Run Command is not available on this agent. Try using another agent.\n";
-                _cmdProcessorStates.IsCmdSuccess = false;
-                _cmdProcessorStates.IsCmdRunning = false;
-                return new ResultObj(){Message= await SendMessage(output, null), Success = false};
+        var output = $"The {_cmdProcessorStates.CmdDisplayName}   Run Command is not available on this agent. Try using another agent.\n";
+        _cmdProcessorStates.IsCmdSuccess = false;
+        _cmdProcessorStates.IsCmdRunning = false;
+        return new ResultObj() { Message = await SendMessage(output, null), Success = false };
     }
-    
 
-   
+
+
 
     private string ResolveHostName(string ipAddress)
     {

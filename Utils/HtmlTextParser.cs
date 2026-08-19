@@ -1,18 +1,19 @@
 using HtmlAgilityPack;
 namespace NetworkMonitor.Utils;
+
 public static class HtmlTextParser
 {
     public static bool IsHtml(string text)
-{
-    // Quick, naive check:
-    //   * looks for "<html>", "<body>", or "<head>"
-    //   * ignoring case
-    // You can expand with more robust checks if needed
-    if (string.IsNullOrWhiteSpace(text)) return false;
+    {
+        // Quick, naive check:
+        //   * looks for "<html>", "<body>", or "<head>"
+        //   * ignoring case
+        // You can expand with more robust checks if needed
+        if (string.IsNullOrWhiteSpace(text)) return false;
 
-    string lowered = text.ToLowerInvariant();
-    return lowered.Contains("<html") || lowered.Contains("<body") || lowered.Contains("<head>");
-}
+        string lowered = text.ToLowerInvariant();
+        return lowered.Contains("<html") || lowered.Contains("<body") || lowered.Contains("<head>");
+    }
 
     public static string ParseHtmlContent(string html)
     {

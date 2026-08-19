@@ -108,7 +108,7 @@ namespace NetworkMonitor.Objects
             }
         }
 
-         private string? _countryCode;
+        private string? _countryCode;
         [MaxLength(2)]
         public string? CountryCode
         {
@@ -150,19 +150,19 @@ namespace NetworkMonitor.Objects
             }
         }
         public void SetFields(LoadServer other)
-    {
-      if (other != null)
-      {
-        ID = other.ID;
-        Url = other.Url;
-        UserID = other.UserID;
-        RabbitHostName = other.RabbitHostName;
-        RabbitPort = other.RabbitPort;
-        RabbitInstanceName = other.RabbitInstanceName;
-        CountryCode = other.CountryCode;
-        Region = other.Region;
-      }
-    }
+        {
+            if (other != null)
+            {
+                ID = other.ID;
+                Url = other.Url;
+                UserID = other.UserID;
+                RabbitHostName = other.RabbitHostName;
+                RabbitPort = other.RabbitPort;
+                RabbitInstanceName = other.RabbitInstanceName;
+                CountryCode = other.CountryCode;
+                Region = other.Region;
+            }
+        }
 
 
 #pragma warning restore IL2026

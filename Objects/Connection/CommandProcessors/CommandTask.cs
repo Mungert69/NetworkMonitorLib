@@ -2,6 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System;
 namespace NetworkMonitor.Connection;
+
 public class CommandTask
 {
     public string MessageId { get; }

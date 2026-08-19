@@ -5,19 +5,19 @@ namespace NetworkMonitor.Objects.ServiceMessage
     public class ProcessorInitObj
 
     {
-        public ProcessorInitObj(){}
-        private List<MonitorIP> _monitorIPs=new List<MonitorIP>();
+        public ProcessorInitObj() { }
+        private List<MonitorIP> _monitorIPs = new List<MonitorIP>();
 
-        private List<MonitorPingInfo> _savedMonitorPingInfos=new List<MonitorPingInfo>();
+        private List<MonitorPingInfo> _savedMonitorPingInfos = new List<MonitorPingInfo>();
 
         private PingParams? _pingParams;
         private bool _isProcessorReady = false;
-        private bool _reset=false;
-        private bool _totalReset=false;
-        private string _appID="";
-        private string _authKey="";
+        private bool _reset = false;
+        private bool _totalReset = false;
+        private string _appID = "";
+        private string _authKey = "";
 
-        private string _rabbitHostName="";
+        private string _rabbitHostName = "";
         private int _rabbitPort;
 
         public List<MonitorIP> MonitorIPs { get => _monitorIPs; set => _monitorIPs = value; }

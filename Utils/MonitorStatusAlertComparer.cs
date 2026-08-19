@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NetworkMonitor.Objects;
 namespace NetworkMonitor.Utils;
+
 public class MonitorStatusAlertComparer : IEqualityComparer<MonitorStatusAlert>
 {
     public bool Equals(MonitorStatusAlert? x, MonitorStatusAlert? y)

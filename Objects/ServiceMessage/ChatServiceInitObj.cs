@@ -7,7 +7,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
 {
     public class ChatServiceInitObj
     {
-        public ChatServiceInitObj(){}
+        public ChatServiceInitObj() { }
         private bool _isServiceReady;
 
         public bool IsServiceReady { get => _isServiceReady; set => _isServiceReady = value; }

@@ -86,9 +86,9 @@ namespace NetworkMonitor.Utils.Helpers
             {
                 _logger.LogWarning($"No .env file found at: {envFilePath}");
             }
-                 // Initialize helper so GetSection("Key") can be used app-wide
+            // Initialize helper so GetSection("Key") can be used app-wide
             GetConfigHelper.Initialize(_config, _logger);
-     
+
         }
         public string GetPublicIP()
         {
@@ -157,7 +157,7 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.ThisSystemUrl = _config.GetSection("LocalSystemUrl").Get<SystemUrl>() ?? throw new Exception(" Check config no LocalSystemUrl found");
             // Compatibility: allow setting this either under LocalSystemUrl or as a top-level key.
             systemParams.ThisSystemUrl.RequirePublisherUserId = _config.GetValue<bool?>("RequirePublisherUserId") ?? true;
-            
+
             if (!string.IsNullOrEmpty(rabbitPassword))
             {
                 systemParams.ThisSystemUrl.RabbitPassword = rabbitPassword;
@@ -477,7 +477,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmPromptTokens = int.TryParse(_config["LlmPromptTokens"], out int llmPromptTokens) ? llmPromptTokens : 28000;
             mlParams.LlmGptModel = _config.GetValue<string>("LlmGptModel") ?? "gpt-4.1-mini";
             mlParams.GptModelVersion = _config.GetValue<string>("GptModelVersion") ?? "gpt";
-            
+
             mlParams.LlmUserPromptTimeout = int.TryParse(_config["LlmUserPromptTimeout"], out int llmUserPromptTimeout) ? llmUserPromptTimeout : 50;
             mlParams.LlmSessionIdleTimeout = int.TryParse(_config["LlmSessionIdleTimeout"], out int llmSessionIdleTimeout) ? llmSessionIdleTimeout : 60;
             mlParams.LlmFunctionDic = _config.GetSection("LlmFunctionMapping").Get<Dictionary<string, string>>() ?? new Dictionary<string, string>();
@@ -544,7 +544,7 @@ namespace NetworkMonitor.Utils.Helpers
                 mlParams.RemoteCache.RetryAttempts = remoteCacheSection.GetValue<int>("RetryAttempts", 3);
             }
 
-	#pragma warning restore IL2026
+#pragma warning restore IL2026
             return mlParams;
 
         }

@@ -82,7 +82,7 @@ public class QueryIndexRequest
     public string RoutingKey { get; set; } = "";
 
     // String property for easy setting
-   public void SetVectorSearchModeFromString(string value)
+    public void SetVectorSearchModeFromString(string value)
     {
         VectorSearchMode = VectorSearchModeHelper.Parse(value);
     }

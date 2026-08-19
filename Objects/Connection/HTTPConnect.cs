@@ -34,7 +34,7 @@ namespace NetworkMonitor.Connection
             _isFullGet = isFullGet;
             _isHtmlGet = isHtmlGet;
             _commandPath = commandPath;
-               _browserHost = browserHost;
+            _browserHost = browserHost;
         }
 
         public override async Task Connect()

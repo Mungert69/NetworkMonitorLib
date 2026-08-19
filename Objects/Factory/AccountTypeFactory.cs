@@ -38,7 +38,7 @@ public class AccountTypeFactory
                     { "call_quantum_expert", "quantum" },
                     { "call_camera_expert", "camera" },
                     { "call_memory_expert", "memory" },
-		    { "call_monitor_expert", "monitorsys"},
+            { "call_monitor_expert", "monitorsys"},
                     { "run_busybox_command", "busybox" }
                 };
     }
@@ -55,7 +55,7 @@ public class AccountTypeFactory
                     { "call_quantum_expert", "quantum" },
                     { "call_camera_expert", "camera" },
                     { "call_memory_expert", "memory" },
-		    { "call_monitor_expert", "monitorsys"},
+            { "call_monitor_expert", "monitorsys"},
                     { "run_busybox_command", "busybox" }
                 };
     }
@@ -77,7 +77,7 @@ public class AccountTypeFactory
                     {"call_connect_expert", "connect" },
                     {"call_camera_expert", "camera" },
                     {"call_memory_expert", "memory" },
-		    {"call_monitor_expert", "monitorsys" },
+            {"call_monitor_expert", "monitorsys" },
                     {"run_busybox_command", "busybox" }
                 };
     }
@@ -104,7 +104,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_camera_expert",
             "call_memory_expert",
-	    "call_monitor_expert",
+        "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -160,7 +160,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_camera_expert",
             "call_memory_expert",
-	    "call_monitor_expert",
+        "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -218,7 +218,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_camera_expert",
             "call_memory_expert",
-	    "call_monitor_expert",
+        "call_monitor_expert",
             "run_search_web",
             "run_crawl_page",
             "run_crawl_site",
@@ -279,7 +279,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_camera_expert",
             "call_memory_expert",
-	    "call_monitor_expert",
+        "call_monitor_expert",
             "run_busybox",
             "call_search_expert",
             "run_search_web",
@@ -344,7 +344,7 @@ public class AccountTypeFactory
             "call_quantum_expert",
             "call_camera_expert",
             "call_memory_expert",
-	    "call_monitor_expert",
+        "call_monitor_expert",
             "run_busybox",
             "call_search_expert",
             "run_search_web",
@@ -414,7 +414,7 @@ public class AccountTypeFactory
             "test_quantum_certificate",
             "call_quantum_expert",
             "call_memory_expert",
-	    "call_monitor_expert",
+        "call_monitor_expert",
             "call_monitor_sys",
             "call_security_basic_flow",
             "call_penetration_flow",

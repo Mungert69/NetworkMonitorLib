@@ -205,6 +205,27 @@ public sealed class MetaLiveCmdProcessorTests
     }
 
     [Fact]
+    public void DecodeResponse_ConvertsIntegerSessionMapKeysToStrings()
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new MessagePackWriter(buffer);
+        writer.WriteMapHeader(1);
+        writer.Write(1);
+        writer.WriteMapHeader(2);
+        writer.Write("type");
+        writer.Write("meterpreter");
+        writer.Write("info");
+        writer.Write("root @ target");
+        writer.Flush();
+
+        var response = MetasploitRpcClient.DecodeResponse(buffer.WrittenMemory);
+
+        var session = Assert.IsType<Dictionary<string, object?>>(response["1"]);
+        Assert.Equal("meterpreter", MetasploitRpcClient.GetString(session, "type"));
+        Assert.Equal("root @ target", MetasploitRpcClient.GetString(session, "info"));
+    }
+
+    [Fact]
     public async Task RunCommand_WithoutSessionId_FailsWithoutStartingMsfconsole()
     {
         var processor = new MetaLiveCmdProcessor(

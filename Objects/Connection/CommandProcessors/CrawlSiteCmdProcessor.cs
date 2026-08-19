@@ -26,7 +26,7 @@ namespace NetworkMonitor.Connection
         private static readonly Random _random = new Random();
 
         private readonly IBrowserHost _browserHost;
-      
+
         private readonly List<ArgSpec> _schema;
 
         public CrawlSiteCmdProcessor(

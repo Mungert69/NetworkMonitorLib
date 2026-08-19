@@ -228,8 +228,8 @@ namespace NetworkMonitor.Connection
         }
 
         public override string GetCommandHelp()
-{
-    return @"
+        {
+            return @"
 The BusyboxCmdProcessor leverages the BusyBox utility to execute a wide range of commands in Unix-like environments. 
 BusyBox combines tiny versions of many common UNIX utilities into a single executable, making it versatile for system administration and scripting tasks.
 
@@ -363,7 +363,7 @@ sh -c 'find /home -name ""*.log"" -print'
 ### Summary:
 The BusyboxCmdProcessor is an essential tool for executing a variety of system commands efficiently. It provides robust error handling, shell integration, and comprehensive support for BusyBox utilities, making it a versatile choice for system administration tasks.
 ";
-}
+        }
 
     }
 }

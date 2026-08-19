@@ -231,13 +231,13 @@ public abstract class QuantumTestBase : CmdProcessor
 
     }
 
-   public override string GetCommandHelp()
-{
-    var enabledAlgorithms = _algorithmInfoList
-        .Where(a => a.Enabled)
-        .Select(a => $"- {a.AlgorithmName}");
+    public override string GetCommandHelp()
+    {
+        var enabledAlgorithms = _algorithmInfoList
+            .Where(a => a.Enabled)
+            .Select(a => $"- {a.AlgorithmName}");
 
-    return $@"
+        return $@"
 Quantum Security Processor Help
 ===============================
 Tests TLS endpoints for quantum-safe cryptographic support.
@@ -267,7 +267,7 @@ Examples:
   example.com --algorithms Kyber512 --timeout 5000
   example.com --algorithms Kyber512,Dilithium2 --timeout 7000
 ";
-}
+    }
 
     protected record QuantumTestConfig(
         string Target,

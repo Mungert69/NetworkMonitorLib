@@ -10,7 +10,7 @@ namespace NetworkMonitor.Objects
         private string _address = "";
         private ushort _port = 0;
         private ushort _timeout = 0;
-        private string _endPointType="";
+        private string _endPointType = "";
 
         /// <summary>
         /// This field is required.

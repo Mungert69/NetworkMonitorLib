@@ -4,8 +4,8 @@ namespace NetworkMonitor.Objects
     public class QuantumHostObject : IConnectionObject
     {
         public QuantumHostObject() { }
-       
-         private string _address = "";
+
+        private string _address = "";
         private ushort _port = 0;
         private ushort _timeout = 10000;
 

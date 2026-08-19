@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 
 namespace NetworkMonitor.Utils.Helpers;
+
 public class PrintPropertiesAsJson
 {
     private static string NormalizeJsonFragment(string? json)
@@ -31,7 +32,7 @@ public class PrintPropertiesAsJson
         return "{" + part2 + ", " + part1 + "}";
     }
 
-     public static string MergeJsonStrings(string? jsonString1, string? jsonString2, string? jsonString3)
+    public static string MergeJsonStrings(string? jsonString1, string? jsonString2, string? jsonString3)
     {
         if (string.IsNullOrEmpty(jsonString1) && string.IsNullOrEmpty(jsonString2) && string.IsNullOrEmpty(jsonString3)) return "{}";
         if (string.IsNullOrEmpty(jsonString1)) return MergeJsonStrings(jsonString2, jsonString3);
@@ -42,7 +43,7 @@ public class PrintPropertiesAsJson
         return MergeJsonStrings(merged12, jsonString3);
     }
 
-     public static string PrintMessageIDProperties(string messageID)
+    public static string PrintMessageIDProperties(string messageID)
     {
         StringBuilder output = new StringBuilder();
 
@@ -117,12 +118,12 @@ public class PrintPropertiesAsJson
         return PrintUserInfoPropertiesWithDate(user, isUserLoggedIn, currentTime, detail);
     }
 
-     public static string PrintMonitorPingInfoDateRangeProperties(MonitorPingInfo monitorPingInfo, TimeZoneInfo clientTimeZone)
+    public static string PrintMonitorPingInfoDateRangeProperties(MonitorPingInfo monitorPingInfo, TimeZoneInfo clientTimeZone)
     {
         StringBuilder output = new StringBuilder();
 
         output.Append("{");
-          StringUtils.AppendFormattedDateTime(output, monitorPingInfo.DateStarted, clientTimeZone, "date_started");
+        StringUtils.AppendFormattedDateTime(output, monitorPingInfo.DateStarted, clientTimeZone, "date_started");
         StringUtils.AppendFormattedDateTime(output, monitorPingInfo.DateEnded, clientTimeZone, "date_ended");
         if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
         {
@@ -132,7 +133,7 @@ public class PrintPropertiesAsJson
 
         return output.ToString();
     }
-    public static string PrintMonitorPingInfoProperties(MonitorPingInfo monitorPingInfo,  bool detail)
+    public static string PrintMonitorPingInfoProperties(MonitorPingInfo monitorPingInfo, bool detail)
     {
         StringBuilder output = new StringBuilder();
 
@@ -141,9 +142,9 @@ public class PrintPropertiesAsJson
         output.Append("\"id\" : ").Append(monitorPingInfo.ID).Append(", ");
         output.Append("\"address\" : \"").Append(monitorPingInfo.Address).Append("\", ");
         output.Append("\"endpoint\" : \"").Append(monitorPingInfo.EndPointType).Append("\", ");
-        output.Append("\"agent_location\" : \"").Append(monitorPingInfo.AgentLocation).Append("\", "); 
+        output.Append("\"agent_location\" : \"").Append(monitorPingInfo.AgentLocation).Append("\", ");
         if (monitorPingInfo.Port != 0) output.Append("\"port\" : ").Append(monitorPingInfo.Port);
-       
+
         if (detail)
         {
             output.Append("\"dataset_id\" : ").Append(monitorPingInfo.DataSetID).Append(", ");
@@ -156,7 +157,7 @@ public class PrintPropertiesAsJson
             output.Append("\"alert_flag\" : ").Append(monitorPingInfo.MonitorStatus.AlertFlag.ToString().ToLowerInvariant()).Append(", ");
             output.Append("\"round_trip_time_maximum\" : ").Append(monitorPingInfo.RoundTripTimeMaximum).Append(", ");
             output.Append("\"round_trip_time_average\" : ").Append(monitorPingInfo.RoundTripTimeAverage).Append(", ");
-           }
+        }
 
         if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
         {
@@ -229,7 +230,7 @@ public class PrintPropertiesAsJson
             output.Append("\"send_agent_down_alert\" : ").Append(processorObj.SendAgentDownAlert.ToString().ToLowerInvariant()).Append(", ");
             output.Append("\"disabled_endpoints\" : ").Append(processorObj.DisabledEndPointTypesJson).Append(", ");
             output.Append("\"enabled_endpoints\" : ").Append(processorObj.EnabledEndPointTypesJson).Append(", ");
-        
+
         }
         if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
         {

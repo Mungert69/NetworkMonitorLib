@@ -19,7 +19,7 @@ namespace NetworkMonitor.Coordinator
 
     public interface IQueryCoordinator
     {
-        Task<string> ExecuteQueryAsync(QueryIndexRequest queryIndexRequest,TimeSpan? timeout = null);
+        Task<string> ExecuteQueryAsync(QueryIndexRequest queryIndexRequest, TimeSpan? timeout = null);
         void CompleteQuery(string messageId, string result, QueryIndexRequest? request = null);
         bool TryTakeCompletedRequest(string messageId, out QueryIndexRequest? request);
         void CancelQuery(string messageId);
@@ -137,8 +137,8 @@ namespace NetworkMonitor.Coordinator
         }
         public async Task<string> ExecuteQueryAsync(QueryIndexRequest queryIndexRequest, TimeSpan? timeout = null)
         {
-            var queryText=queryIndexRequest.QueryText;
-            var messageId=queryIndexRequest.MessageID;
+            var queryText = queryIndexRequest.QueryText;
+            var messageId = queryIndexRequest.MessageID;
             var cacheKey = BuildQueryCacheKey(queryIndexRequest);
             var hashKey = GetQueryHash(cacheKey);
             if (_queryCache.TryGetValue(hashKey, out var cached) &&

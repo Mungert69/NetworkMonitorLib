@@ -3,7 +3,7 @@ using System.IO;
 
 public class Logo
 {
-    private string _filePath="./logo.txt";
+    private string _filePath = "./logo.txt";
 
     // Constructor that takes the file path as a parameter
     public Logo()
@@ -21,8 +21,8 @@ public class Logo
             string fileContents = File.ReadAllText(FilePath);
             Console.WriteLine(fileContents);
         }
-       
-        catch 
+
+        catch
         {
             // just carry on as its not important to display the logo
         }

@@ -29,7 +29,7 @@ namespace NetworkMonitor.Objects
                 Timeout = monitorPingInfo.Timeout;
                 SkipCycles = monitorPingInfo.SkipCycles;
                 Enabled = monitorPingInfo.Enabled;
-                SiteHash=monitorPingInfo.SiteHash;
+                SiteHash = monitorPingInfo.SiteHash;
             }
 
             //UserID = monitorPingInfo.UserID;

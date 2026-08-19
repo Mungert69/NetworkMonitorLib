@@ -17,7 +17,7 @@
             this.success = success;
             this.data = null;
         }
-        private string message="";
+        private string message = "";
         private bool success;
         private object? data;
 

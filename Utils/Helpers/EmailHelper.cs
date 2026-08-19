@@ -10,7 +10,7 @@ namespace NetworkMonitor.Utils.Helpers
 {
     public static class EmailHelper
     {
-        public static (bool IsUpdated, string ?Email) NormalizeEmail(string? email)
+        public static (bool IsUpdated, string? Email) NormalizeEmail(string? email)
         {
             if (email == null) return (IsUpdated: false, Email: email);
 

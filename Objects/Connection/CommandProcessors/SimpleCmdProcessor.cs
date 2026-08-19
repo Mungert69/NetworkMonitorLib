@@ -46,7 +46,7 @@ namespace NetworkMonitor.Connection
 
                 using (var process = new Process())
                 {
-                     process.StartInfo.FileName = "ls";
+                    process.StartInfo.FileName = "ls";
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardOutput = true;
                     process.StartInfo.RedirectStandardError = true; // Add this to capture standard error

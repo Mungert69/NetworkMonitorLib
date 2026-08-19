@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace NetworkMonitor.Objects;
+
 public sealed record CredentialList(
     [property: JsonPropertyName("webauthnCredentials")] List<WebAuthnCredentialDetails>? WebauthnCredentials,
     [property: JsonPropertyName("credentials")] List<WebAuthnCredentialDetails>? Credentials

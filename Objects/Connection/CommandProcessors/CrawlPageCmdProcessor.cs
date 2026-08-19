@@ -13,7 +13,7 @@ namespace NetworkMonitor.Connection
 {
     public class CrawlPageCmdProcessor : CmdProcessor
     {
-               private readonly IBrowserHost _browserHost;
+        private readonly IBrowserHost _browserHost;
         private readonly List<ArgSpec> _schema;
 
         private const int DefaultMicroTimeoutMs = 10_000; // per-step waits
@@ -27,7 +27,7 @@ namespace NetworkMonitor.Connection
             IBrowserHost? browserHost = null
         ) : base(logger, cmdProcessorStates, rabbitRepo, netConfig)
         {
-            _browserHost  = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
+            _browserHost = browserHost ?? throw new ArgumentNullException(nameof(browserHost));
 
             _schema = new()
             {
@@ -91,7 +91,7 @@ namespace NetworkMonitor.Connection
                     return new ResultObj { Success = false, Message = await SendMessage(err, processorScanDataObj) };
                 }
 
-                var url          = parseResult.GetString("url"); // validated URL
+                var url = parseResult.GetString("url"); // validated URL
                 var microTimeout = parseResult.GetInt("timeout", DefaultMicroTimeoutMs);
                 var macroTimeout = parseResult.GetInt("macro_timeout", DefaultMacroTimeoutMs);
 

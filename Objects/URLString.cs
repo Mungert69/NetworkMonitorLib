@@ -7,9 +7,9 @@ namespace NetworkMonitor.Objects
 {
     public class URLString
     {
-        public URLString(){}
-        public string ID{get;set;}="";
-        public string Url { get; set; }="";
+        public URLString() { }
+        public string ID { get; set; } = "";
+        public string Url { get; set; } = "";
 
     }
 }

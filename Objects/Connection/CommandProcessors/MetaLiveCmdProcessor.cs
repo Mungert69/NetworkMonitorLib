@@ -6,6 +6,7 @@ using NetworkMonitor.Objects.ServiceMessage;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
@@ -226,10 +227,23 @@ internal sealed class MetasploitRpcClient : IMetasploitRpcClient
         var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < count; index++)
         {
-            var key = ReadText(ref reader);
+            var key = ReadMapKey(ref reader);
             result[key] = ReadValue(ref reader);
         }
         return result;
+    }
+
+    private static string ReadMapKey(ref MessagePackReader reader)
+    {
+        return reader.NextMessagePackType switch
+        {
+            MessagePackType.String => reader.ReadString() ?? "",
+            MessagePackType.Binary => Encoding.UTF8.GetString(
+                reader.ReadBytes()?.ToArray() ?? Array.Empty<byte>()),
+            MessagePackType.Integer => reader.ReadInt64().ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidDataException(
+                $"Expected MessagePack string, binary, or integer map key, got {reader.NextMessagePackType}.")
+        };
     }
 
     private static string ReadText(ref MessagePackReader reader)

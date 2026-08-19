@@ -31,38 +31,38 @@ namespace NetworkMonitor.Objects
             Owner = other.Owner;
             LastAccessDate = other.LastAccessDate;
             RabbitHost = other.RabbitHost;
-            RabbitPort=other.RabbitPort;
+            RabbitPort = other.RabbitPort;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
             IsReady = other.IsReady;
             IsReportSent = other.IsReportSent;
             // Set AuthKey based on the showAuthKey parameter
-            AuthKey = showAuthKey ? other.AuthKey : "hidden" ;
+            AuthKey = showAuthKey ? other.AuthKey : "hidden";
         }
-public void SetAllFields(ProcessorObj other)
-{
-    ID = other.ID;
-    AppID = other.AppID;
-    Location = other.Location;
-    Load = other.Load;
-    MaxLoad = other.MaxLoad;
-    IsPrivate = other.IsPrivate;
-    IsEnabled = other.IsEnabled;
-    DateCreated = other.DateCreated;
-    ScheduleStr = other.ScheduleStr;
-    SendAgentDownAlert = other.SendAgentDownAlert;
-    Owner = other.Owner;
-    LastAccessDate = other.LastAccessDate;
-    RabbitHost = other.RabbitHost;
-    RabbitPort=other.RabbitPort;
-    DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
-   DisabledCommands = new List<string>(other.DisabledCommands);
-    CustomConnects = new List<string>(other.CustomConnects);
-    AuthKey =  other.AuthKey;
-    IsReady = other.IsReady;
-    IsReportSent = other.IsReportSent;
-}
+        public void SetAllFields(ProcessorObj other)
+        {
+            ID = other.ID;
+            AppID = other.AppID;
+            Location = other.Location;
+            Load = other.Load;
+            MaxLoad = other.MaxLoad;
+            IsPrivate = other.IsPrivate;
+            IsEnabled = other.IsEnabled;
+            DateCreated = other.DateCreated;
+            ScheduleStr = other.ScheduleStr;
+            SendAgentDownAlert = other.SendAgentDownAlert;
+            Owner = other.Owner;
+            LastAccessDate = other.LastAccessDate;
+            RabbitHost = other.RabbitHost;
+            RabbitPort = other.RabbitPort;
+            DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
+            DisabledCommands = new List<string>(other.DisabledCommands);
+            CustomConnects = new List<string>(other.CustomConnects);
+            AuthKey = other.AuthKey;
+            IsReady = other.IsReady;
+            IsReportSent = other.IsReportSent;
+        }
 
         private int _iD;
         private string _appID = "";
@@ -80,7 +80,7 @@ public void SetAllFields(ProcessorObj other)
         private string _owner = "";
         private DateTime _lastAccessDate;
         private string _rabbitHost;
-        private ushort _rabbitPort=55671;
+        private ushort _rabbitPort = 55671;
 
 
         /// <summary>
@@ -112,10 +112,10 @@ public void SetAllFields(ProcessorObj other)
             }
         }
 
-          public string EnabledEndPointTypesJson
+        public string EnabledEndPointTypesJson
         {
             get => JsonUtils.WriteJsonObjectToString<List<string>>(EnabledEndPointTypes);
-           
+
         }
 
 
@@ -168,7 +168,7 @@ public void SetAllFields(ProcessorObj other)
             set => _customConnects = value ?? new List<string>();
         }
         private List<string> _customConnects = new List<string>();
-     
+
         /// <summary>
         /// A json object the contains the commands that are disabled on this agent.
         /// </summary>
@@ -209,20 +209,20 @@ public void SetAllFields(ProcessorObj other)
 
         public List<string> AvailableFunctions(string llmRunnerType)
         {
-            var functionCommandMap=AccountTypeFactory.GetFunctionCommandMap(llmRunnerType );
-           
-                // Get available functions based on disabled commands
-                return functionCommandMap
-                    .Where(fc => !_disabledCommands.Contains(fc.Value))
-                    .Select(fc => fc.Key)
-                    .ToList();
-            
+            var functionCommandMap = AccountTypeFactory.GetFunctionCommandMap(llmRunnerType);
+
+            // Get available functions based on disabled commands
+            return functionCommandMap
+                .Where(fc => !_disabledCommands.Contains(fc.Value))
+                .Select(fc => fc.Key)
+                .ToList();
+
         }
 
         /// <summary>
         /// A JSON object that contains the available functions for this agent.
         /// </summary>
-  
+
         public string AvailableFunctionsJson(string llmRunnerType)
         {
             return JsonUtils.WriteJsonObjectToString<List<string>>(AvailableFunctions(llmRunnerType));

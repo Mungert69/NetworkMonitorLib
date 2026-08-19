@@ -28,7 +28,7 @@ public class FunctionState
         _isFunctionStillRunning = false;
     }
 
-     public void SetAsCallError()
+    public void SetAsCallError()
     {
         _isFunctionCall = true;
         _isFunctionCallResponse = false;
@@ -37,7 +37,7 @@ public class FunctionState
         _isFunctionStillRunning = false;
     }
 
-     public void SetAsNotCall()
+    public void SetAsNotCall()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = false;
@@ -46,7 +46,7 @@ public class FunctionState
         _isFunctionStillRunning = false;
     }
 
-     public void SetOnlyResponse()
+    public void SetOnlyResponse()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = true;
@@ -58,10 +58,10 @@ public class FunctionState
         _isFunctionCallResponse = true;
         _isFunctionCallError = false;
         _isFunctionCallStatus = false;
-        _isFunctionStillRunning=true;
+        _isFunctionStillRunning = true;
     }
 
-     public void SetAsResponseComplete()
+    public void SetAsResponseComplete()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = true;
@@ -69,7 +69,7 @@ public class FunctionState
         _isFunctionCallStatus = false;
         _isFunctionStillRunning = false;
     }
-     public void SetAsResponseStatus()
+    public void SetAsResponseStatus()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = true;
@@ -78,7 +78,7 @@ public class FunctionState
         _isFunctionStillRunning = true;
     }
 
-      public void SetAsResponseStatusOnly()
+    public void SetAsResponseStatusOnly()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = false;
@@ -86,7 +86,7 @@ public class FunctionState
         _isFunctionCallStatus = true;
         _isFunctionStillRunning = true;
     }
-      public void SetAsResponseError()
+    public void SetAsResponseError()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = true;
@@ -94,7 +94,7 @@ public class FunctionState
         _isFunctionCallStatus = false;
         _isFunctionStillRunning = false;
     }
-      public void SetAsResponseErrorComplete()
+    public void SetAsResponseErrorComplete()
     {
         _isFunctionCall = false;
         _isFunctionCallResponse = true;

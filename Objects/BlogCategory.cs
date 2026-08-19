@@ -8,12 +8,12 @@ namespace NetworkMonitor.Objects
 {
     public class BlogCategory
     {
-        public BlogCategory(){}
+        public BlogCategory() { }
         [Key]
         public int ID { get; set; }
-        public string Category { get; set; }= "";
+        public string Category { get; set; } = "";
 
-        public virtual int BlogID{ get; set; } = 0;
+        public virtual int BlogID { get; set; } = 0;
     }
-   
+
 }

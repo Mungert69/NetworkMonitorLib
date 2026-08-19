@@ -1,5 +1,6 @@
 using System.Net.NetworkInformation;
 namespace NetworkMonitor.Objects;
+
 public class NetworkInterfaceInfo
 {
     public string? Name { get; set; }
@@ -9,7 +10,7 @@ public class NetworkInterfaceInfo
     public string? SubnetMask { get; set; }
     public int CIDR { get; set; }
     public bool IsPrivate { get; set; }
-      public long NetworkSize { get; set; }
+    public long NetworkSize { get; set; }
 
     public override string ToString()
     {

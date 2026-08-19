@@ -1,6 +1,7 @@
 using NetworkMonitor.Objects;
 
 namespace NetworkMonitor.Utils;
+
 public class SwapMonitorPingInfoComparer : IEqualityComparer<SwapMonitorPingInfo>
 {
     public bool Equals(SwapMonitorPingInfo? x, SwapMonitorPingInfo? y)

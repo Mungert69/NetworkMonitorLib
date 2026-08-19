@@ -1,4 +1,5 @@
 namespace NetworkMonitor.Objects;
+
 public class FunctionCallData
 {
     public string? function { get; set; }
@@ -16,10 +17,10 @@ public class FunctionCallData
         name = existing.name;
 
         // Perform deep copy for dictionaries if they are not null
-        arguments = existing.arguments != null 
+        arguments = existing.arguments != null
                     ? new Dictionary<string, object>(existing.arguments)
                     : null;
-        parameters = existing.parameters != null 
+        parameters = existing.parameters != null
                      ? new Dictionary<string, object>(existing.parameters)
                      : null;
     }

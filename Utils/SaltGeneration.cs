@@ -1,4 +1,4 @@
-  using System;
+using System;
 using System.Security.Cryptography;
 
 
@@ -26,11 +26,11 @@ namespace NetworkMonitor.Utils
             return Convert.ToBase64String(salt);
         }
 
-         public static uint GetRandomUInt()
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        RandomNumberGenerator.Fill(buffer);
-        return BitConverter.ToUInt32(buffer);
-    }
+        public static uint GetRandomUInt()
+        {
+            Span<byte> buffer = stackalloc byte[4];
+            RandomNumberGenerator.Fill(buffer);
+            return BitConverter.ToUInt32(buffer);
+        }
     }
 }
