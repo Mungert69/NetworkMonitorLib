@@ -403,24 +403,31 @@ Notes:
         {
             try
             {
-                // Prefer a stable selector
-                IElementHandle? handle = await page.QuerySelectorAsync(
-                    @"form[action$=""/start""] button[type=""submit""]");
+                // Hugging Face has changed the form action used by this control.
+                // Locate the control by its accessible/text content instead of the
+                // old form[action$="/start"] selector.
+                return await page.EvaluateFunctionAsync<bool>(@"() => {
+                    const normalize = value => (value || '')
+                        .replace(/\s+/g, ' ')
+                        .trim()
+                        .toLowerCase();
 
-                if (handle == null)
-                {
-                    // Fallback: find by exact text
-                    handle = await FindButtonByText(page, "Restart this Space", ct);
-                }
+                    const target = 'restart this space';
+                    const candidates = Array.from(document.querySelectorAll(
+                        'button, [role=""button""], input[type=""submit""]'));
 
-                if (handle == null)
-                {
-                    logger.LogDebug("Restart button not found.");
-                    return false;
-                }
+                    const control = candidates.find(element => {
+                        const label = element.getAttribute('aria-label');
+                        const text = element.innerText || element.value || element.textContent;
+                        return normalize(label).includes(target) || normalize(text).includes(target);
+                    });
 
-                await handle.ClickAsync();
-                return true;
+                    if (!control) return false;
+
+                    control.scrollIntoView({ block: 'center', inline: 'center' });
+                    control.click();
+                    return true;
+                }");
             }
             catch (Exception ex)
             {
