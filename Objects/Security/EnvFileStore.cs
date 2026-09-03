@@ -28,6 +28,8 @@ namespace NetworkMonitor.Security
             {
                 Directory.CreateDirectory(directory);
             }
+
+            EnsurePrivateUnixPermissions();
         }
 
         public string EnvFilePath { get; }
@@ -120,6 +122,7 @@ namespace NetworkMonitor.Security
                 }
 
                 await File.WriteAllLinesAsync(EnvFilePath, lines, cancellationToken).ConfigureAwait(false);
+                EnsurePrivateUnixPermissions();
                 Environment.SetEnvironmentVariable(key, normalizedValue);
                 _logger?.LogInformation("Updated environment variable {Key} in file {Path}", key, EnvFilePath);
             }
@@ -140,6 +143,18 @@ namespace NetworkMonitor.Security
 
             var currentKey = line.Substring(0, separatorIndex).Trim();
             return string.Equals(currentKey, key, StringComparison.Ordinal);
+        }
+
+        private void EnsurePrivateUnixPermissions()
+        {
+            if (!OperatingSystem.IsLinux() || !File.Exists(EnvFilePath))
+            {
+                return;
+            }
+
+            File.SetUnixFileMode(
+                EnvFilePath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
 
         private static string FormatLine(string key, string value)
