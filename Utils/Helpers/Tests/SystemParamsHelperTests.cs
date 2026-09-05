@@ -121,6 +121,8 @@ public class SystemParamsHelperTests
             { "ChangeConfidence", "55" },
             { "LlmThinking", "low" },
             { "LlmOpenAIThinking", "none" },
+            { "CpuUsageMonitorEnabled", "true" },
+            { "CpuUsageMonitorSampleIntervalSeconds", "3" },
             { "LlmRunnerRoutingKeys:TurboLLM", "execute.mock" }
         }, out var envPath);
 
@@ -134,6 +136,26 @@ public class SystemParamsHelperTests
             Assert.Equal("low", mlParams.LlmThinking);
             Assert.Equal("none", mlParams.LlmOpenAIThinking);
             Assert.Equal("execute.mock", mlParams.LlmRunnerRoutingKeys["TurboLLM"]);
+            Assert.True(mlParams.CpuUsageMonitorEnabled);
+            Assert.Equal(3, mlParams.CpuUsageMonitorSampleIntervalSeconds);
+        }
+        finally
+        {
+            File.Delete(envPath);
+        }
+    }
+
+    [Fact]
+    public void GetMLParams_DisablesCpuUsageMonitorByDefault()
+    {
+        var helper = CreateHelper(null, out var envPath);
+
+        try
+        {
+            var mlParams = helper.GetMLParams();
+
+            Assert.False(mlParams.CpuUsageMonitorEnabled);
+            Assert.Equal(10, mlParams.CpuUsageMonitorSampleIntervalSeconds);
         }
         finally
         {

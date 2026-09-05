@@ -21,6 +21,8 @@ public class MLParams
     private string _llmVersion = "";
     private string _gptModelVersion = "gpt";
     private int _llmThreads = 4;
+    private bool _cpuUsageMonitorEnabled;
+    private int _cpuUsageMonitorSampleIntervalSeconds = 10;
     private int _llmSystemPromptTimeout = 10;
     private int _llmUserPromptTimeout = 50;
     private int _llmSessionIdleTimeout = 60;
@@ -123,6 +125,8 @@ public class MLParams
     public string LlmContextFileName { get => _llmContextFileName; set => _llmContextFileName = value; }
     public string LlmSystemPrompt { get => _llmSystemPrompt; set => _llmSystemPrompt = value; }
     public int LlmThreads { get => _llmThreads; set => _llmThreads = value; }
+    public bool CpuUsageMonitorEnabled { get => _cpuUsageMonitorEnabled; set => _cpuUsageMonitorEnabled = value; }
+    public int CpuUsageMonitorSampleIntervalSeconds { get => _cpuUsageMonitorSampleIntervalSeconds; set => _cpuUsageMonitorSampleIntervalSeconds = value; }
     public int LlmSystemPromptTimeout { get => _llmSystemPromptTimeout; set => _llmSystemPromptTimeout = value; }
     public int LlmUserPromptTimeout { get => _llmUserPromptTimeout; set => _llmUserPromptTimeout = value; }
     public int LlmSessionIdleTimeout { get => _llmSessionIdleTimeout; set => _llmSessionIdleTimeout = value; }

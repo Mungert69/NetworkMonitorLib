@@ -416,6 +416,10 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.LlmOpenAIUrl = _config.GetValue<string>("LlmOpenAIUrl") ?? "";
             mlParams.LlmSystemPrompt = _config.GetValue<string>("LlmSystemPrompt") ?? "";
             mlParams.LlmThreads = int.TryParse(_config["LlmThreads"], out int llmThreads) ? llmThreads : 2;
+            mlParams.CpuUsageMonitorEnabled = _config.GetValue<bool?>("CpuUsageMonitorEnabled") ?? false;
+            mlParams.CpuUsageMonitorSampleIntervalSeconds = Math.Max(
+                1,
+                _config.GetValue<int?>("CpuUsageMonitorSampleIntervalSeconds") ?? 10);
             mlParams.LlmSystemPromptTimeout = int.TryParse(_config["LlmSystemPromptTimeout"], out int llmSystemPromptTimeout) ? llmSystemPromptTimeout : 10;
             mlParams.LlmCtxSize = int.TryParse(_config["LlmCtxSize"], out int llmCtxSize) ? llmCtxSize : 12000;
             mlParams.LlmResponseTokens = int.TryParse(_config["LlmResponseTokens"], out int llmResponseTokens) ? llmCtxSize : 4000;
