@@ -164,7 +164,9 @@ namespace NetworkMonitor.Objects.Repository.Helpers
         {
             using var chain = new X509Chain();
             chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+            chain.ChainPolicy.VerificationFlags = useCustomRootTrust
+                ? X509VerificationFlags.AllowUnknownCertificateAuthority
+                : X509VerificationFlags.NoFlag;
             chain.ChainPolicy.CustomTrustStore.Clear();
             chain.ChainPolicy.ExtraStore.Clear();
 
@@ -187,7 +189,13 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             logger?.LogDebug("{AttemptLabel} chain elems: {Elems}",
                 attemptLabel, builtSubjects.Count == 0 ? "<empty>" : string.Join(" -> ", builtSubjects));
 
-            if (ok) return true;
+            var anchored = chain.ChainElements.Cast<X509ChainElement>()
+                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
+
+            // AllowUnknownCertificateAuthority helps older Android runtimes build the
+            // supplied Let's Encrypt chain, but success is valid only when that chain
+            // actually terminates at the configured ISRG root.
+            if (ok && (!useCustomRootTrust || anchored)) return true;
 
             foreach (var status in chain.ChainStatus)
             {
@@ -198,9 +206,6 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             }
 
             // Accept if we anchored at our ISRG root and only saw benign flags
-            var anchored = chain.ChainElements.Cast<X509ChainElement>()
-                .Any(e => string.Equals(e.Certificate.Thumbprint, rootCert.Thumbprint, StringComparison.OrdinalIgnoreCase));
-
             bool onlyBenign = chain.ChainStatus.All(s =>
                 s.Status == X509ChainStatusFlags.UntrustedRoot ||
                 s.Status == X509ChainStatusFlags.PartialChain ||
