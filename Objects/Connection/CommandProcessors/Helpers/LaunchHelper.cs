@@ -283,15 +283,7 @@ namespace NetworkMonitor.Connection
                 // The processor needs raw/network capabilities for Nmap and
                 // ICMP. Run only Chromium through setpriv so it does not
                 // inherit those capabilities from the processor.
-                executablePath = "/usr/bin/setpriv";
-                launchArgs.InsertRange(0, new[]
-                {
-                    "--no-new-privs",
-                    "--bounding-set=-all",
-                    "--inh-caps=-all",
-                    "--ambient-caps=-all",
-                    chromeExecutable
-                });
+                executablePath = CreateCapabilityDroppedLauncher(chromeExecutable);
             }
 
             return new LaunchOptions
@@ -301,6 +293,19 @@ namespace NetworkMonitor.Connection
                 ExecutablePath = executablePath,
                 Args = launchArgs.ToArray()
             };
+        }
+
+        private static string CreateCapabilityDroppedLauncher(string chromeExecutable)
+        {
+            var launcherPath = Path.Combine(Path.GetTempPath(), $"networkmonitor-chromium-{Environment.ProcessId}.sh");
+            var quotedExecutable = "'" + chromeExecutable.Replace("'", "'\"'\"'") + "'";
+            var script = $"#!/bin/sh\nexec /usr/bin/setpriv --no-new-privs --bounding-set=-all --inh-caps=-all --ambient-caps=-all {quotedExecutable} \"$@\"\n";
+
+            File.WriteAllText(launcherPath, script);
+            File.SetUnixFileMode(
+                launcherPath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            return launcherPath;
         }
 
         private static Platform ResolvePuppeteerPlatform(ILogger? logger = null)
