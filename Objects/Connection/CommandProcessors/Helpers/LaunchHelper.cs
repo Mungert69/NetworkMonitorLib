@@ -16,6 +16,7 @@ using System.Xml.Linq;
 using System.IO;
 using System.Threading;
 using PuppeteerSharp;
+using PuppeteerSharp.BrowserData;
 using NetworkMonitor.Service.Services.OpenAI;
 
 namespace NetworkMonitor.Connection
@@ -146,6 +147,7 @@ namespace NetworkMonitor.Connection
             }
 
             var browserFetcher = new BrowserFetcher(bfo);
+            var desiredBuildId = Chrome.DefaultBuildId;
 
             var chromiumPath = Path.Combine(bfo.Path, "Chrome");
             var successMarker = Path.Combine(bfo.Path, ".chromium_downloaded");
@@ -179,17 +181,30 @@ namespace NetworkMonitor.Connection
                 }
             }
 
-            if (!File.Exists(successMarker) || executableMissingOrInvalid)
+            // The marker contains the PuppeteerSharp Chrome build ID that was
+            // installed.  This makes startup self-healing when PuppeteerSharp
+            // changes its compatible Chromium revision: an old marker causes
+            // one replacement download, while a current valid install is
+            // reused.
+            var installedBuildId = File.Exists(successMarker)
+                ? File.ReadAllText(successMarker).Trim()
+                : string.Empty;
+            var buildNeedsUpdate = !string.Equals(installedBuildId, desiredBuildId, StringComparison.Ordinal);
+
+            if (buildNeedsUpdate || executableMissingOrInvalid)
             {
-                logger?.LogWarning("Chromium not found or corrupted. Downloading...");
+                logger?.LogWarning(
+                    "Chromium is missing, invalid, or outdated (installed build {InstalledBuildId}, desired build {DesiredBuildId}). Downloading...",
+                    string.IsNullOrEmpty(installedBuildId) ? "none" : installedBuildId,
+                    desiredBuildId);
                 await SafeDownloadChromiumAsync(browserFetcher, downloadPath, logger);
 
-                File.WriteAllText(successMarker, DateTime.UtcNow.ToString("o"));
+                File.WriteAllText(successMarker, desiredBuildId);
                 chromeExecutable = FindChromeExecutable(chromiumPath);
             }
             else
             {
-                logger?.LogInformation("Chromium already downloaded. Skipping download.");
+                logger?.LogInformation("Chromium build {BuildId} already downloaded. Skipping download.", desiredBuildId);
             }
 
             if (string.IsNullOrEmpty(chromeExecutable))
