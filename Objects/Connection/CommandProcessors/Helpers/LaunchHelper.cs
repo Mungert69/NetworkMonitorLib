@@ -299,7 +299,7 @@ namespace NetworkMonitor.Connection
         {
             var launcherPath = Path.Combine(Path.GetTempPath(), $"networkmonitor-chromium-{Environment.ProcessId}.sh");
             var quotedExecutable = "'" + chromeExecutable.Replace("'", "'\"'\"'") + "'";
-            var script = $"#!/bin/sh\nexec /usr/bin/setpriv --no-new-privs --bounding-set=-all --inh-caps=-all --ambient-caps=-all {quotedExecutable} \"$@\"\n";
+            var script = $"#!/bin/sh\nexec /usr/bin/setpriv --no-new-privs --inh-caps=-all --ambient-caps=-all {quotedExecutable} \"$@\"\n";
 
             File.WriteAllText(launcherPath, script);
             File.SetUnixFileMode(
