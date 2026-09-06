@@ -262,22 +262,44 @@ namespace NetworkMonitor.Connection
 
         private static LaunchOptions CreateLaunchOptions(ViewPortOptions viewPortOptions, bool useHeadless, string chromeExecutable)
         {
+            var executablePath = chromeExecutable;
+            var launchArgs = new List<string>
+            {
+                // Keep the current browser launch behavior for now. Sandbox
+                // flags are intentionally unchanged while capability dropping
+                // is tested independently.
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-extensions",
+                "--disable-gpu",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-infobars",
+                "--user-agent=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36\""
+            };
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                // The processor needs raw/network capabilities for Nmap and
+                // ICMP. Run only Chromium through setpriv so it does not
+                // inherit those capabilities from the processor.
+                executablePath = "/usr/bin/setpriv";
+                launchArgs.InsertRange(0, new[]
+                {
+                    "--no-new-privs",
+                    "--bounding-set=-all",
+                    "--inh-caps=-all",
+                    "--ambient-caps=-all",
+                    chromeExecutable
+                });
+            }
+
             return new LaunchOptions
             {
                 Headless = useHeadless,
                 DefaultViewport = viewPortOptions,
-                ExecutablePath = chromeExecutable,
-                Args = new[]
-                {
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-extensions",
-                    "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                    "--user-agent=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36\""
-                }
+                ExecutablePath = executablePath,
+                Args = launchArgs.ToArray()
             };
         }
 
