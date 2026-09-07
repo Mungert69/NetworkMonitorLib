@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using NetworkMonitor.Objects;
 using PuppeteerSharp;
 
 namespace NetworkMonitor.Connection
@@ -21,6 +22,7 @@ namespace NetworkMonitor.Connection
         private readonly ILogger _logger;
         private readonly SemaphoreSlim _gate;
         private IBrowser? _browser;
+        private BrowserProfile? _profile;
         private bool _disposed;
 
         public BrowserHost(ILaunchHelper launchHelper, NetConnectConfig netConfig, ILogger<BrowserHost> logger, int maxConcurrentPages = 1)
@@ -38,8 +40,9 @@ namespace NetworkMonitor.Connection
                 // Lazy launch and relaunch-after-crash
                 if (_browser == null || _browser.IsClosed)
                 {
+                    _profile = StealthProfile.GetRandom();
                     bool headless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                    var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless);
+                    var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless, profile: _profile);
                     _browser = await Puppeteer.LaunchAsync(lo);
                     _logger.LogInformation("Shared Chromium launched.");
                     _browser.Disconnected += (_, __) =>
@@ -73,7 +76,10 @@ namespace NetworkMonitor.Connection
                     await WebAutomationHelper.PreparePageAsync(
                         page,
                         defaultPageTimeoutMs: DefaultPageTimeoutMs,
-                        options: null);
+                        options: new WebAutomationHelper.BrowserSessionOptions
+                        {
+                            UserAgent = _profile?.UserAgent ?? StealthProfile.GetRandom().UserAgent
+                        });
 
                     return await work(page);
                 }

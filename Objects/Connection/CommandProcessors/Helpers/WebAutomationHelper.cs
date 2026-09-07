@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using NetworkMonitor.Objects;
 using PuppeteerSharp;
 
 namespace NetworkMonitor.Connection
@@ -16,9 +17,7 @@ namespace NetworkMonitor.Connection
         public sealed class BrowserSessionOptions
         {
             public ViewPortOptions? Viewport { get; set; } = new() { Width = 1280, Height = 800 };
-            public string? UserAgent { get; set; } =
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
+            public string? UserAgent { get; set; }
             public Dictionary<string, string>? ExtraHeaders { get; set; } = new()
             {
                 ["Cache-Control"] = "no-cache, no-store, must-revalidate",
@@ -64,10 +63,11 @@ namespace NetworkMonitor.Connection
             int defaultPageTimeoutMs = 10_000,
             BrowserSessionOptions? options = null)
         {
-            options ??= new BrowserSessionOptions();
+            var profile = StealthProfile.GetRandom();
+            options ??= new BrowserSessionOptions { UserAgent = profile.UserAgent };
 
             bool headless = launchHelper.CheckDisplay(logger, netConfig.ForceHeadless);
-            var launchOptions = await launchHelper.GetLauncher(netConfig.CommandPath, logger, headless);
+            var launchOptions = await launchHelper.GetLauncher(netConfig.CommandPath, logger, headless, profile: profile);
 
             var browser = await Puppeteer.LaunchAsync(launchOptions);
             var page = await browser.NewPageAsync();

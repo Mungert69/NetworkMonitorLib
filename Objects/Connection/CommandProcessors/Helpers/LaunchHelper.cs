@@ -24,7 +24,7 @@ namespace NetworkMonitor.Connection
     public interface ILaunchHelper
     {
         bool CheckDisplay(ILogger logger, bool forceHeadless = false);
-        Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false);
+        Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false, BrowserProfile? profile = null);
     }
     public class LaunchHelper : ILaunchHelper
     {
@@ -103,8 +103,9 @@ namespace NetworkMonitor.Connection
             return useHeadless;
         }
 
-        public async Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false)
+        public async Task<LaunchOptions> GetLauncher(string commandPath, ILogger? logger = null, bool useHeadless = true, bool forceRedownload = false, BrowserProfile? profile = null)
         {
+            profile ??= StealthProfile.GetRandom();
             var vpo = new ViewPortOptions { Width = 1920, Height = 1280 };
             commandPath = Path.GetFullPath(commandPath.Replace('/', Path.DirectorySeparatorChar));
             var platform = ResolvePuppeteerPlatform(logger);
@@ -143,7 +144,7 @@ namespace NetworkMonitor.Connection
                 }
 
                 logger?.LogInformation("Using native Linux arm64 Chromium executable path {ExecutablePath}", arm64Executable);
-                return CreateLaunchOptions(vpo, useHeadless, arm64Executable);
+            return CreateLaunchOptions(vpo, useHeadless, arm64Executable, profile);
             }
 
             var browserFetcher = new BrowserFetcher(bfo);
@@ -211,7 +212,7 @@ namespace NetworkMonitor.Connection
                 throw new FileNotFoundException("Chrome executable not found");
 
             logger?.LogInformation($"Using Chrome executable path {chromeExecutable}");
-            return CreateLaunchOptions(vpo, useHeadless, chromeExecutable);
+            return CreateLaunchOptions(vpo, useHeadless, chromeExecutable, profile);
 
             string? FindChromeExecutable(string rootPath)
             {
@@ -260,7 +261,7 @@ namespace NetworkMonitor.Connection
             return null;
         }
 
-        private static LaunchOptions CreateLaunchOptions(ViewPortOptions viewPortOptions, bool useHeadless, string chromeExecutable)
+        private static LaunchOptions CreateLaunchOptions(ViewPortOptions viewPortOptions, bool useHeadless, string chromeExecutable, BrowserProfile profile)
         {
             var executablePath = chromeExecutable;
             var launchArgs = new List<string>
@@ -275,7 +276,7 @@ namespace NetworkMonitor.Connection
                 "--disable-gpu",
                 "--disable-blink-features=AutomationControlled",
                 "--disable-infobars",
-                "--user-agent=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36\""
+                $"--user-agent=\"{profile.UserAgent}\""
             };
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
