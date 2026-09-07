@@ -3,7 +3,7 @@ using NetworkMonitor.Utils;
 
 namespace NetworkMonitor.Objects.ServiceMessage;
 
-public class ProcessorScanDataObj
+public class ProcessorScanDataObj : IBackendSignedMessage
 {
     private bool _useDefaultEndpoint;
     private string _defaultEndpoint = "";
@@ -30,6 +30,7 @@ public class ProcessorScanDataObj
     private string _rawDataEncoding = "";
     private int _rawDataLength;
     private string _rawDataSha256 = "";
+    private string _backendSignature = "";
 
     public bool UseDefaultEndpoint { get => _useDefaultEndpoint; set => _useDefaultEndpoint = value; }
     public string DefaultEndpoint { get => _defaultEndpoint; set => _defaultEndpoint = value; }
@@ -58,6 +59,7 @@ public class ProcessorScanDataObj
     public string RawDataEncoding { get => _rawDataEncoding; set => _rawDataEncoding = value ?? ""; }
     public int RawDataLength { get => _rawDataLength; set => _rawDataLength = value; }
     public string RawDataSha256 { get => _rawDataSha256; set => _rawDataSha256 = value ?? ""; }
+    public string BackendSignature { get => _backendSignature; set => _backendSignature = value ?? ""; }
 
     public ProcessorScanDataObj()
     {

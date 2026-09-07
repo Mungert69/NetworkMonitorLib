@@ -2,7 +2,7 @@
 
 namespace NetworkMonitor.Objects.ServiceMessage
 {
-    public class ProcessorInitObj
+    public class ProcessorInitObj : IBackendSignedMessage
 
     {
         public ProcessorInitObj() { }
@@ -17,6 +17,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private string _appID = "";
         private string _authKey = "";
         private string _authKeySignature = "";
+        private string _backendSignature = "";
 
         private string _rabbitHostName = "";
         private int _rabbitPort;
@@ -30,6 +31,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string AppID { get => _appID; set => _appID = value; }
         public string AuthKey { get => _authKey; set => _authKey = value; }
         public string AuthKeySignature { get => _authKeySignature; set => _authKeySignature = value; }
+        public string BackendSignature { get => _backendSignature; set => _backendSignature = value; }
         public string RabbitHostName { get => _rabbitHostName; set => _rabbitHostName = value; }
         public int RabbitPort { get => _rabbitPort; set => _rabbitPort = value; }
     }
