@@ -16,6 +16,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private bool _totalReset = false;
         private string _appID = "";
         private string _authKey = "";
+        private string _authKeySignature = "";
 
         private string _rabbitHostName = "";
         private int _rabbitPort;
@@ -28,6 +29,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public bool TotalReset { get => _totalReset; set => _totalReset = value; }
         public string AppID { get => _appID; set => _appID = value; }
         public string AuthKey { get => _authKey; set => _authKey = value; }
+        public string AuthKeySignature { get => _authKeySignature; set => _authKeySignature = value; }
         public string RabbitHostName { get => _rabbitHostName; set => _rabbitHostName = value; }
         public int RabbitPort { get => _rabbitPort; set => _rabbitPort = value; }
     }

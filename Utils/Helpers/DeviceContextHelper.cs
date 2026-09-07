@@ -146,27 +146,18 @@ namespace NetworkMonitor.Utils.Helpers
 
         public static string BuildMonitorLocation(DeviceContext? context, string fallbackLocation)
         {
+            if (!string.IsNullOrWhiteSpace(fallbackLocation) &&
+                !fallbackLocation.StartsWith("Not set", StringComparison.OrdinalIgnoreCase))
+            {
+                return NormalizeNoComma(fallbackLocation);
+            }
+
             if (context == null)
             {
                 return NormalizeNoComma(fallbackLocation);
             }
 
-            if (!string.IsNullOrWhiteSpace(context.NearestTown) && !string.IsNullOrWhiteSpace(context.Country))
-            {
-                return NormalizeNoComma($"{context.NearestTown} {context.Country}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(context.NearestTown))
-            {
-                return NormalizeNoComma(context.NearestTown);
-            }
-
-            if (!string.IsNullOrWhiteSpace(fallbackLocation))
-            {
-                return NormalizeNoComma(fallbackLocation);
-            }
-
-            return "UnknownLocation";
+            return BuildGeographicLocation(context) ?? "UnknownLocation";
         }
 
         public static string BuildLlmDeviceContextSummary(DeviceContext? context, string fallbackLocation)
@@ -182,6 +173,12 @@ namespace NetworkMonitor.Utils.Helpers
                 $"host={NormalizeNoComma(context.Hostname)}",
                 $"platform={NormalizeNoComma(context.Platform)}"
             };
+
+            var geographicLocation = BuildGeographicLocation(context);
+            if (!string.IsNullOrWhiteSpace(geographicLocation))
+            {
+                parts.Add($"geographic_location={geographicLocation}");
+            }
 
             if (!string.IsNullOrWhiteSpace(context.PrimaryIPv4))
             {
@@ -268,6 +265,18 @@ namespace NetworkMonitor.Utils.Helpers
 
         private static string NormalizeNoComma(string value)
             => (value ?? string.Empty).Replace(",", " ").Trim();
+
+        private static string? BuildGeographicLocation(DeviceContext context)
+        {
+            if (!string.IsNullOrWhiteSpace(context.NearestTown) && !string.IsNullOrWhiteSpace(context.Country))
+            {
+                return NormalizeNoComma($"{context.NearestTown} {context.Country}");
+            }
+
+            return string.IsNullOrWhiteSpace(context.NearestTown)
+                ? null
+                : NormalizeNoComma(context.NearestTown);
+        }
 
         private static string GetGatewayAddress(IPInterfaceProperties? props)
         {
