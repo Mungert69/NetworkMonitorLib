@@ -536,7 +536,6 @@ namespace NetworkMonitor.Objects.Repository
             await _publishSemaphore.WaitAsync();
             try
             {
-                await BackendMessageSigner.SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
                 await IsConnectionAndChannelOkAsync(exchangeName);
                 await IsExchangeOk(exchangeName);
                 string guid = Guid.NewGuid().ToString();
@@ -596,8 +595,6 @@ namespace NetworkMonitor.Objects.Repository
             await _publishSemaphore.WaitAsync();
             try
             {
-                await BackendMessageSigner.SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
-
                 await IsConnectionAndChannelOkAsync(exchangeName);
                 await IsExchangeOk(exchangeName);
                 string guid = Guid.NewGuid().ToString();
