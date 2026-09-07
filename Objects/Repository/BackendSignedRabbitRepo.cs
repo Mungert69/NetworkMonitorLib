@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NetworkMonitor.Objects;
@@ -28,6 +29,11 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
         "restorePingInfosForAllUsers", "initData", "callAgentFunction", "processorCustomConnectUpdate"
     };
 
+    private static readonly string[] ProcessorStateOperations =
+    {
+        "addProcessor", "updateProcessor", "fullProcessorList"
+    };
+
     private readonly IRabbitRepo _inner;
     private readonly IBackendMessageSignatureService _signatureService;
 
@@ -41,6 +47,14 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
 
     public async Task PublishAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class
     {
+        if (string.Equals(exchangeName, "fullProcessorList", StringComparison.Ordinal) && obj is List<ProcessorObj> processors)
+        {
+            var snapshot = new ProcessorStateSnapshot { Processors = processors };
+            await SignIfRequiredAsync(exchangeName, snapshot).ConfigureAwait(false);
+            await _inner.PublishAsync(exchangeName, snapshot, routingKey).ConfigureAwait(false);
+            return;
+        }
+
         await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
     }
@@ -73,6 +87,16 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
             {
                 operation = candidate;
                 target = "data";
+                return true;
+            }
+        }
+
+        foreach (var candidate in ProcessorStateOperations)
+        {
+            if (string.Equals(exchangeName, candidate, StringComparison.Ordinal))
+            {
+                operation = candidate;
+                target = "processor-state";
                 return true;
             }
         }

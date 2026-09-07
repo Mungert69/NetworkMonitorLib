@@ -9,10 +9,11 @@ using System.Collections.Generic;
 using System.Text.Json;
 using NetworkMonitor.Utils;
 using NetworkMonitor.Objects.Factory;
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects
 {
-    public class ProcessorObj
+    public class ProcessorObj : IBackendSignedMessage
     {
         public ProcessorObj() { }
 
@@ -292,5 +293,13 @@ namespace NetworkMonitor.Objects
         public bool SendAgentDownAlert { get => _sendAgentDownAlert; set => _sendAgentDownAlert = value; }
         public string RabbitHost { get => _rabbitHost; set => _rabbitHost = value; }
         public ushort RabbitPort { get => _rabbitPort; set => _rabbitPort = value; }
+
+        /// <summary>
+        /// ML-DSA signature applied when processor state is distributed between
+        /// trusted backend services. This is transport metadata and is not
+        /// persisted to the processor database record.
+        /// </summary>
+        [NotMapped]
+        public string BackendSignature { get; set; } = "";
     }
 }

@@ -21,7 +21,7 @@ namespace NetworkMonitor.Objects.Repository
     {
         Task<ResultObj> AddProcessor(ProcessorObj? processorObj);
         Task<ResultObj> UpdateProcessor(ProcessorObj? processorObj);
-        Task<ResultObj> FullProcessorList(List<ProcessorObj>? processorObjs);
+        Task<ResultObj> FullProcessorList(ProcessorStateSnapshot? processorStateSnapshot);
         Task Shutdown();
         Task<ResultObj> Setup();
         Task<ResultObj> Setup(CancellationToken cancellationToken);
@@ -32,16 +32,18 @@ namespace NetworkMonitor.Objects.Repository
     {
         private IProcessorState _processorState = new ProcessorState();
         private IFileRepo _fileRepo;
+        private readonly IBackendMessageSignatureVerifier _backendMessageSignatureVerifier;
         private readonly SemaphoreSlim _processorLock = new SemaphoreSlim(1, 1);
 
 
 
-        public ProcessorStateRabbitListner(ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IFileRepo fileRepo)
+        public ProcessorStateRabbitListner(ILogger<RabbitListenerBase> logger, ISystemParamsHelper systemParamsHelper, IProcessorState processorState, IFileRepo fileRepo, IBackendMessageSignatureVerifier backendMessageSignatureVerifier)
             : base(logger, DeriveSystemUrl(systemParamsHelper))
         {
 
             _processorState = processorState;
             _fileRepo = fileRepo;
+            _backendMessageSignatureVerifier = backendMessageSignatureVerifier;
         }
         private static SystemUrl DeriveSystemUrl(ISystemParamsHelper systemParamsHelper)
         {
@@ -112,7 +114,7 @@ namespace NetworkMonitor.Objects.Repository
                             case "fullProcessorList":
                                 await RegisterConsumerHandlerAsync(rabbitMQObj, 10, "fullProcessorList", async (model, ea) =>
                                 {
-                                    var tResult = await FullProcessorList(ConvertToList<List<ProcessorObj>>(model, ea));
+                                    var tResult = await FullProcessorList(ConvertToObject<ProcessorStateSnapshot>(model, ea));
                                     result.Success = tResult.Success;
                                     result.Message = tResult.Message;
                                     result.Data = tResult.Data;
@@ -136,11 +138,25 @@ namespace NetworkMonitor.Objects.Repository
             return result;
         }
 
+        private async Task<bool> ValidateBackendSignatureAsync(string operation, IBackendSignedMessage? message, ResultObj result)
+        {
+            if (message != null && await _backendMessageSignatureVerifier.VerifyAsync(operation, "processor-state", message).ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            result.Success = false;
+            result.Message += " Error : invalid ML-DSA processor-state signature.";
+            _logger.LogError("Processor-state message rejected. Operation={Operation}. Reason={Reason}", operation, message == null ? "payload is null" : "signature validation failed");
+            return false;
+        }
+
         public async Task<ResultObj> AddProcessor(ProcessorObj? processorObj)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : AddProcessor : ";
+            if (!await ValidateBackendSignatureAsync("addProcessor", processorObj, result)) return result;
             await _processorLock.WaitAsync();
             try
             {
@@ -204,6 +220,7 @@ namespace NetworkMonitor.Objects.Repository
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : UpdateProcessor : ";
+            if (!await ValidateBackendSignatureAsync("updateProcessor", processorObj, result)) return result;
             await _processorLock.WaitAsync();
             try
             {
@@ -309,11 +326,13 @@ namespace NetworkMonitor.Objects.Repository
               return result;
           }*/
 
-        public async Task<ResultObj> FullProcessorList(List<ProcessorObj>? processorObjs)
+        public async Task<ResultObj> FullProcessorList(ProcessorStateSnapshot? processorStateSnapshot)
         {
             ResultObj result = new ResultObj();
             result.Success = false;
             result.Message = "MessageAPI : FullProcessorList : ";
+            if (!await ValidateBackendSignatureAsync("fullProcessorList", processorStateSnapshot, result)) return result;
+            var processorObjs = processorStateSnapshot?.Processors;
             await _processorLock.WaitAsync();
             try
             {

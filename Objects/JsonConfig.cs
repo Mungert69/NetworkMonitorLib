@@ -102,6 +102,7 @@ namespace NetworkMonitor.Objects
     [JsonSerializable(typeof(RabbitMQObj))]
     [JsonSerializable(typeof(ProcessorObj))]
     [JsonSerializable(typeof(List<ProcessorObj>))]
+    [JsonSerializable(typeof(ProcessorStateSnapshot))]
     [JsonSerializable(typeof(MonitorStatusAlert))]
     [JsonSerializable(typeof(PredictStatusAlert))]
     [JsonSerializable(typeof(List<MonitorStatusAlert>))]
