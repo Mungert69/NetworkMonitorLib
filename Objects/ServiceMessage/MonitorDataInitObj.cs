@@ -7,8 +7,9 @@ namespace NetworkMonitor.Objects.ServiceMessage
 {
 
 
-    public class MonitorDataInitObj
-    {
+public class MonitorDataInitObj : IBackendSignedMessage
+{
+    public string BackendSignature { get; set; } = "";
         public MonitorDataInitObj() { }
         private bool _isDataReady;
         private bool _isDataSaveReady;

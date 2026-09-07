@@ -124,6 +124,7 @@ namespace NetworkMonitor.Objects
     [JsonSerializable(typeof(MonitorMLCheckObj))]
     [JsonSerializable(typeof(MonitorMLInitObj))]
     [JsonSerializable(typeof(ProcessorQueueDicObj))]
+    [JsonSerializable(typeof(BackendControlCommand))]
     [JsonSerializable(typeof(ProcessorDataObj))]
     [JsonSerializable(typeof(ProcessorScanDataObj))]
     [JsonSerializable(typeof(FunctionRegistryReply))]
