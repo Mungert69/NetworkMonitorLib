@@ -226,9 +226,7 @@ The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extrac
             crawlQueue.Enqueue((startUrl, 0));
 
             bool isCookieClicked = false;
-            var userAgent = UserAgents.GetRandomUserAgent();
-            var platform = UserAgents.GetPlatformFromUserAgent(userAgent);
-            string plugins = UserAgents.GetPluginsForUserAgent(userAgent);
+            var profile = StealthProfile.GetRandom();
 
             PuppeteerSharp.CookieParam[] storedCookies = Array.Empty<PuppeteerSharp.CookieParam>();
 
@@ -251,9 +249,9 @@ The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extrac
                         await page.EvaluateFunctionOnNewDocumentAsync($@"() => {{
                             Object.defineProperty(navigator, 'webdriver', {{ get: () => false }});
                             Object.defineProperty(navigator, 'languages', {{ get: () => ['en-US', 'en'] }});
-                            Object.defineProperty(navigator, 'platform', {{ get: () => '{platform}' }});
+                            Object.defineProperty(navigator, 'platform', {{ get: () => '{profile.Platform}' }});
                             Object.defineProperty(navigator, 'plugins', {{
-                                get: () => {plugins}
+                                get: () => {profile.Plugins}
                             }});
                         }}");
                     }
@@ -262,7 +260,12 @@ The CrawlSiteCmdProcessor is ideal for simulating user browsing behavior, extrac
                         _logger.LogError($"Error injecting script on new document: {ex.Message}");
                     }
 
-                    await page.SetUserAgentAsync(userAgent);
+                    await page.SetViewportAsync(new ViewPortOptions { Width = profile.Width, Height = profile.Height });
+                    await page.SetUserAgentAsync(profile.UserAgent);
+                    await page.SetExtraHttpHeadersAsync(new Dictionary<string, string>
+                    {
+                        ["Accept-Language"] = profile.AcceptLanguage
+                    });
                     await page.SetJavaScriptEnabledAsync(true);
 
                     string? previousUrl = null;

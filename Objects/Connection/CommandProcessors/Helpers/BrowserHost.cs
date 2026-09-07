@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,7 @@ namespace NetworkMonitor.Connection
         private readonly ILogger _logger;
         private readonly SemaphoreSlim _gate;
         private IBrowser? _browser;
-        private BrowserProfile? _profile;
+        private BrowserProfile? _launchProfile;
         private bool _disposed;
 
         public BrowserHost(ILaunchHelper launchHelper, NetConnectConfig netConfig, ILogger<BrowserHost> logger, int maxConcurrentPages = 1)
@@ -40,9 +41,9 @@ namespace NetworkMonitor.Connection
                 // Lazy launch and relaunch-after-crash
                 if (_browser == null || _browser.IsClosed)
                 {
-                    _profile = StealthProfile.GetRandom();
+                    _launchProfile = StealthProfile.GetRandom();
                     bool headless = _launchHelper.CheckDisplay(_logger, _netConfig.ForceHeadless);
-                    var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless, profile: _profile);
+                    var lo = await _launchHelper.GetLauncher(_netConfig.CommandPath, _logger, headless, profile: _launchProfile);
                     _browser = await Puppeteer.LaunchAsync(lo);
                     _logger.LogInformation("Shared Chromium launched.");
                     _browser.Disconnected += (_, __) =>
@@ -67,6 +68,7 @@ namespace NetworkMonitor.Connection
             try
             {
                 var browser = await GetBrowserAsync(ct);
+                var profile = StealthProfile.GetRandom();
 
                 // Per-task page (fallback to default context for broad compatibility)
                 var page = await browser.NewPageAsync();
@@ -78,7 +80,12 @@ namespace NetworkMonitor.Connection
                         defaultPageTimeoutMs: DefaultPageTimeoutMs,
                         options: new WebAutomationHelper.BrowserSessionOptions
                         {
-                            UserAgent = _profile?.UserAgent ?? StealthProfile.GetRandom().UserAgent
+                            UserAgent = profile.UserAgent,
+                            Viewport = new ViewPortOptions { Width = profile.Width, Height = profile.Height },
+                            ExtraHeaders = new Dictionary<string, string>
+                            {
+                                ["Accept-Language"] = profile.AcceptLanguage
+                            }
                         });
 
                     return await work(page);
