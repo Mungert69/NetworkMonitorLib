@@ -63,6 +63,8 @@ namespace NetworkMonitor.Connection
             int defaultPageTimeoutMs = 10_000,
             BrowserSessionOptions? options = null)
         {
+            var profileCache = string.IsNullOrWhiteSpace(netConfig.CommandPath) ? null : Path.Combine(netConfig.CommandPath, "stealth-profiles.json");
+            await StealthProfile.RefreshAsync(profileCache, logger).ConfigureAwait(false);
             var profile = StealthProfile.GetRandom();
             options ??= new BrowserSessionOptions { UserAgent = profile.UserAgent };
 

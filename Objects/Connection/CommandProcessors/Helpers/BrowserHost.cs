@@ -38,6 +38,8 @@ namespace NetworkMonitor.Connection
         {
             try
             {
+                var profileCache = string.IsNullOrWhiteSpace(_netConfig.CommandPath) ? null : Path.Combine(_netConfig.CommandPath, "stealth-profiles.json");
+                await StealthProfile.RefreshAsync(profileCache, _logger).ConfigureAwait(false);
                 // Lazy launch and relaunch-after-crash
                 if (_browser == null || _browser.IsClosed)
                 {
