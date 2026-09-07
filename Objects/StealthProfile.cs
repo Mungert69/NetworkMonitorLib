@@ -30,7 +30,9 @@ public static class StealthProfile
                 using var response = await client.GetAsync(VersionsUrl).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
                 await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-                var document = await JsonSerializer.DeserializeAsync<ChromeVersionsDocument>(stream).ConfigureAwait(false);
+                var document = await JsonSerializer.DeserializeAsync<ChromeVersionsDocument>(
+                    stream,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }).ConfigureAwait(false);
                 var refreshed = BuildProfiles(document?.Versions?.Select(v => v.Version).Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v!) ?? Array.Empty<string>());
                 if (refreshed.Length > 0)
                 {
