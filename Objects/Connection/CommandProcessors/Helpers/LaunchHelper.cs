@@ -266,11 +266,8 @@ namespace NetworkMonitor.Connection
             var executablePath = chromeExecutable;
             var launchArgs = new List<string>
             {
-                // Keep the current browser launch behavior for now. Sandbox
-                // flags are intentionally unchanged while capability dropping
-                // is tested independently.
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
+                // Chromium runs as the unprivileged appuser in the processor
+                // container, so keep its native process sandbox enabled.
                 "--disable-dev-shm-usage",
                 "--disable-extensions",
                 "--disable-gpu",
