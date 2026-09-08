@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace NetworkMonitor.Objects.ServiceMessage
 {
 
-    public class AlertServiceAlertObj
+    public class AlertServiceAlertObj : IBackendSignedMessage
     {
         public AlertServiceAlertObj() { }
 
@@ -17,5 +17,6 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string AppID { get => _appID; set => _appID = value; }
         public string AuthKey { get => _authKey; set => _authKey = value; }
         public List<AlertFlagObj> AlertFlagObjs { get => _alertFlagObjs; set => _alertFlagObjs = value; }
+        public string BackendSignature { get; set; } = "";
     }
 }

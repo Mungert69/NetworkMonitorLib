@@ -34,13 +34,15 @@ namespace NetworkMonitor.Objects.Repository
         private readonly SystemUrl _sys;             // for ephemeral consumer connection
         private readonly string _routingKey;         // shard/tenant routing you already use
         private readonly ILogger _log;
+        private readonly GradLlmHmacProtocol? _hmac;
 
-        public RabbitTransport(IRabbitRepo rabbitRepo, SystemUrl sys, string routingKey, ILogger log)
+        public RabbitTransport(IRabbitRepo rabbitRepo, SystemUrl sys, string routingKey, ILogger log, GradLlmHmacProtocol? hmac = null)
         {
             _rabbitRepo = rabbitRepo ?? throw new ArgumentNullException(nameof(rabbitRepo));
             _sys = sys ?? throw new ArgumentNullException(nameof(sys));
             _routingKey = routingKey ?? "execute.api";
             _log = log;
+            _hmac = hmac;
         }
 
         public IAsyncEnumerable<string> CreateChatCompletionStreamAsync(object openAiChatRequest, CancellationToken ct = default)
@@ -85,7 +87,9 @@ namespace NetworkMonitor.Objects.Repository
             await ch.QueueBindAsync(qok.QueueName, replyExchange, replyKey);
 
             // 3) publish the request via your RabbitRepo (it CloudEvent-wraps for you)
-            var requestWithReply = MergeWithReplyKey(openAiRequest, replyKey);
+            object requestWithReply = _hmac == null
+                ? MergeWithReplyKey(openAiRequest, replyKey)
+                : _hmac.CreateRequest(requestExchange, _routingKey, replyKey, JsonSerializer.SerializeToUtf8Bytes(openAiRequest));
             _log.LogDebug("RabbitTransport publish {Exchange} rk='{RoutingKey}' reply='{ReplyKey}'", requestExchange, _routingKey, replyKey);
             await _rabbitRepo.PublishAsync(requestExchange, requestWithReply, routingKey: _routingKey);
             _log.LogDebug("RabbitTransport publish {Exchange} completed", requestExchange);
@@ -93,6 +97,7 @@ namespace NetworkMonitor.Objects.Repository
             // 4) start consuming and stream out CloudEvent.data as raw JSON
             var outChan = Channel.CreateUnbounded<string>();
             var consumer = new AsyncEventingBasicConsumer(ch);
+            long expectedSequence = 0;
 
             consumer.ReceivedAsync += async (_, ea) =>
             {
@@ -109,17 +114,34 @@ namespace NetworkMonitor.Objects.Repository
                         return;
                     }
 
-                    if (dataEl.ValueKind == JsonValueKind.Object &&
-                        dataEl.TryGetProperty("object", out var objEl) &&
-                        objEl.GetString() == "stream.end")
+                    if (_hmac == null)
                     {
-                        await outChan.Writer.WriteAsync("__STREAM_END__", ct);
-                        _log.LogDebug("RabbitTransport received stream.end for reply '{ReplyKey}'", replyKey);
+                        if (dataEl.ValueKind == JsonValueKind.Object && dataEl.TryGetProperty("object", out var objectElement) && objectElement.GetString() == "stream.end")
+                            await outChan.Writer.WriteAsync("__STREAM_END__", ct);
+                        else
+                            await outChan.Writer.WriteAsync(dataEl.GetRawText(), ct);
                         await ch.BasicAckAsync(ea.DeliveryTag, false);
                         return;
                     }
 
-                    var payload = dataEl.GetRawText();
+                    var envelope = dataEl.Deserialize<GradLlmHmacEnvelope>();
+                    if (envelope == null || !_hmac.VerifyResponse(envelope, replyExchange, replyKey, expectedSequence))
+                    {
+                        _log.LogWarning("Rejected unauthenticated or out-of-order GradLLM reply for '{ReplyKey}' sequence {Sequence}", replyKey, expectedSequence);
+                        await ch.BasicNackAsync(ea.DeliveryTag, false, requeue: false);
+                        return;
+                    }
+                    expectedSequence++;
+
+                    if (envelope.Final)
+                    {
+                        await outChan.Writer.WriteAsync("__STREAM_END__", ct);
+                        _log.LogDebug("RabbitTransport received authenticated stream end for reply '{ReplyKey}'", replyKey);
+                        await ch.BasicAckAsync(ea.DeliveryTag, false);
+                        return;
+                    }
+
+                    var payload = Encoding.UTF8.GetString(Convert.FromBase64String(envelope.PayloadBase64));
                     _log.LogTrace("RabbitTransport chunk reply '{ReplyKey}': {Payload}", replyKey, payload);
                     await outChan.Writer.WriteAsync(payload, ct);
                     await ch.BasicAckAsync(ea.DeliveryTag, false);
@@ -155,7 +177,6 @@ namespace NetworkMonitor.Objects.Repository
 
         private static object MergeWithReplyKey(object request, string replyKey)
         {
-            // Re-hydrate to dict so we can add reply_key in a provider-agnostic way
             using var doc = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(request));
             var dict = JsonSerializer.Deserialize<Dictionary<string, object?>>(doc.RootElement.GetRawText())
                        ?? new Dictionary<string, object?>();

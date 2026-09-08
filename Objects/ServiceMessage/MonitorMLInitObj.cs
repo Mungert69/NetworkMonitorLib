@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace NetworkMonitor.Objects.ServiceMessage;
 
-public class MonitorMLInitObj
+public class MonitorMLInitObj : IBackendSignedMessage
 {
     public MonitorMLInitObj() { }
     private bool _isMLReady;
@@ -13,5 +13,6 @@ public class MonitorMLInitObj
 
     public bool IsMLReady { get => _isMLReady; set => _isMLReady = value; }
     public bool TotalReset { get => _totalReset; set => _totalReset = value; }
+    public string BackendSignature { get; set; } = "";
 
 }

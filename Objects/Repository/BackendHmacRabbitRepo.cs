@@ -12,7 +12,10 @@ public sealed class BackendHmacRabbitRepo : IRabbitRepo
     {
         "updateUserSubscription", "boostTokenForUser", "updateUserCustomerId", "paymentComplete",
         "registerUser", "updateProducts", "updateUserPingInfos", "pingInfosComplete", "dataService_agentflow",
-        "createIndex", "createSnapshot"
+        "createIndex", "createSnapshot",
+        "mlCheck", "mlCheckHost", "mlCheckLatestHosts", "predictPingInfos",
+        "predictAlertFlag", "predictAlertSent", "predictResetAlerts",
+        "alertMessageResetPredictAlerts", "alertUpdatePredictStatusAlerts", "predictServiceReady"
     };
 
     private readonly IRabbitRepo _inner;
@@ -29,6 +32,8 @@ public sealed class BackendHmacRabbitRepo : IRabbitRepo
 
     public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
     {
+        if (obj is null && TryResolve(exchangeName, out _, out _))
+            obj = new BackendControlCommand();
         await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
     }
@@ -55,6 +60,15 @@ public sealed class BackendHmacRabbitRepo : IRabbitRepo
     public Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken) => _inner.ConnectAndSetUp(cancellationToken);
     public Task<ResultObj> ConnectAndSetUp(CancellationToken cancellationToken, int? maxRetriesOverride) => _inner.ConnectAndSetUp(cancellationToken, maxRetriesOverride);
     public Task<ResultObj> ShutdownRepo() => _inner.ShutdownRepo();
-    public Task<string> PublishJsonZAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class => _inner.PublishJsonZAsync(exchangeName, obj, routingKey);
-    public Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class => _inner.PublishJsonZWithIDAsync(exchangeName, obj, id, routingKey);
+    public async Task<string> PublishJsonZAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class
+    {
+        await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
+        return await _inner.PublishJsonZAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
+    }
+
+    public async Task<string> PublishJsonZWithIDAsync<T>(string exchangeName, T obj, string id, string routingKey = "") where T : class
+    {
+        await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
+        return await _inner.PublishJsonZWithIDAsync(exchangeName, obj, id, routingKey).ConfigureAwait(false);
+    }
 }

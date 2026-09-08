@@ -2,7 +2,7 @@
 
 namespace NetworkMonitor.Objects.ServiceMessage
 {
-    public class ProcessorDataObj : IDisposable
+    public class ProcessorDataObj : IDisposable, IBackendSignedMessage
     {
         public ProcessorDataObj()
         {
@@ -38,6 +38,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public List<PredictStatusAlert> PredictStatusAlerts { get => _predictStatusAlerts; set => _predictStatusAlerts = value; }
         public List<MonitorIP> MonitorIPs { get => _monitorIPs; set => _monitorIPs = value; }
         public string RabbitPassword { get => _rabbitPassword; set => _rabbitPassword = value; }
+        public string BackendSignature { get; set; } = "";
 
         public void Dispose()
         {

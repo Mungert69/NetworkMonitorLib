@@ -1,7 +1,7 @@
 
 namespace NetworkMonitor.Objects.ServiceMessage
 {
-    public class MonitorMLCheckObj
+    public class MonitorMLCheckObj : IBackendSignedMessage
     {
         public MonitorMLCheckObj() { }
         private int _monitorIPID;
@@ -13,5 +13,6 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public DateTime DateStart { get => _dateStart; set => _dateStart = value; }
         public DateTime DateEnd { get => _dateEnd; set => _dateEnd = value; }
         public int DataSetID { get => _dataSetID; set => _dataSetID = value; }
+        public string BackendSignature { get; set; } = "";
     }
 }
