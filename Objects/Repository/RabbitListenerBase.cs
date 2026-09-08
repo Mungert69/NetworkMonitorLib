@@ -419,7 +419,7 @@ namespace NetworkMonitor.Objects.Repository
             result.Message = " RabbitListener DeclareQueues : ";
             var success = true;
             var declaredQueues = new ConcurrentBag<string>();
-            var errors = new ConcurrentBag<string>();
+            var errors = new ConcurrentBag<(string Message, bool IsOptional)>();
 
             try
             {
@@ -436,7 +436,17 @@ namespace NetworkMonitor.Objects.Repository
                         // --- Queue Naming ---
                         string queueName;
                         List<string>? routingKeys = rabbitMQObj.RoutingKeys;
-                        if (routingKeys == null || routingKeys.Count == 0)
+                        if (rabbitMQObj.UseExplicitQueueName)
+                        {
+                            if (string.IsNullOrWhiteSpace(rabbitMQObj.QueueName))
+                            {
+                                throw new InvalidOperationException(
+                                    "An explicit RabbitMQ queue name was requested but no name was provided.");
+                            }
+                            queueName = rabbitMQObj.QueueName;
+                            routingKeys ??= new List<string>();
+                        }
+                        else if (routingKeys == null || routingKeys.Count == 0)
                         {
                             // No routing keys: treat as fanout (single queue, no suffix)
                             routingKeys = new List<string> { "" };
@@ -452,7 +462,7 @@ namespace NetworkMonitor.Objects.Repository
 
                         if (rabbitMQObj.ConnectChannel == null)
                         {
-                            errors.Add($"Error creating {rabbitMQObj.QueueName}: connection was null");
+                            errors.Add(($"Error creating {rabbitMQObj.QueueName}: connection was null", rabbitMQObj.IsOptional));
                             return;
                         }
 
@@ -485,7 +495,7 @@ namespace NetworkMonitor.Objects.Repository
                     }
                     catch (Exception ex)
                     {
-                        errors.Add($"Error processing {rabbitMQObj.ExchangeName}: {ex.Message}");
+                        errors.Add(($"Error processing {rabbitMQObj.ExchangeName}: {ex.Message}", rabbitMQObj.IsOptional));
                     }
                 });
 
@@ -497,8 +507,11 @@ namespace NetworkMonitor.Objects.Repository
 
                 foreach (var error in errors)
                 {
-                    result.Message += $" {error}";
-                    success = false;
+                    result.Message += $" {error.Message}";
+                    if (!error.IsOptional)
+                    {
+                        success = false;
+                    }
                 }
 
                 result.Message += success

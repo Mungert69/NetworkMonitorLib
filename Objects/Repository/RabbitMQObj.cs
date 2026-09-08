@@ -23,6 +23,10 @@ namespace NetworkMonitor.Objects.Repository
         public AsyncEventingBasicConsumer? Consumer { get => _consumer; set => _consumer = value; }
         public string ExchangeName { get => _exchangeName; set => _exchangeName = value; }
         public string QueueName { get => _queueName; set => _queueName = value; }
+        public bool UseExplicitQueueName { get; set; }
+        // Optional topology objects must not take down mandatory/legacy consumers
+        // when the current OAuth token does not yet contain their permissions.
+        public bool IsOptional { get; set; }
         public string FuncName { get => funcName; set => funcName = value; }
         public int MessageTimeout { get => _messageTimeout; set => _messageTimeout = value; }
         public List<string> RoutingKeys { get; set; } = new List<string>();

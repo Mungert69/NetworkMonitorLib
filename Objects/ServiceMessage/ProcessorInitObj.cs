@@ -21,6 +21,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
 
         private string _rabbitHostName = "";
         private int _rabbitPort;
+        private int _rabbitTopologyVersion;
 
         public List<MonitorIP> MonitorIPs { get => _monitorIPs; set => _monitorIPs = value; }
         public List<MonitorPingInfo> SavedMonitorPingInfos { get => _savedMonitorPingInfos; set => _savedMonitorPingInfos = value; }
@@ -34,5 +35,6 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string BackendSignature { get => _backendSignature; set => _backendSignature = value; }
         public string RabbitHostName { get => _rabbitHostName; set => _rabbitHostName = value; }
         public int RabbitPort { get => _rabbitPort; set => _rabbitPort = value; }
+        public int RabbitTopologyVersion { get => _rabbitTopologyVersion; set => _rabbitTopologyVersion = value; }
     }
 }

@@ -4,6 +4,7 @@ using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Factory;
 using NetworkMonitor.Connection;
 using NetworkMonitor.Utils.Helpers;
+using NetworkMonitor.Objects.Repository.Helpers;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.IO;
@@ -122,6 +123,7 @@ namespace NetworkMonitor.Connection
         private List<FilterStrategyConfig> _filterStrategies = new List<FilterStrategyConfig>();
         private string _rabbitPassword = string.Empty;
         private DeviceContext _deviceContext = new DeviceContext();
+        private int _rabbitTopologyVersion = ProcessorRabbitTopology.LegacyVersion;
 
 
         public int MaxTaskQueueSize
@@ -238,6 +240,16 @@ namespace NetworkMonitor.Connection
         public string TranscribeAudioUrl { get => _transcribeAudioUrl; set => _transcribeAudioUrl = value; }
         public string NativeLibDir { get => _nativeLibDir; }
         public string AppName { get => _appName; set => _appName = value; }
+        public int RabbitTopologyVersion
+        {
+            get => _rabbitTopologyVersion;
+            set => SetProperty(
+                ref _rabbitTopologyVersion,
+                ProcessorRabbitTopology.NormalizeVersion(value));
+        }
+        // Runtime-negotiated topology. This is deliberately not loaded from or
+        // persisted to configuration: capability does not imply successful ACLs.
+        public int ActiveRabbitTopologyVersion { get; set; } = ProcessorRabbitTopology.LegacyVersion;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -267,6 +279,11 @@ namespace NetworkMonitor.Connection
                 _appDataDirectory = appDataDirectory;
                 _nativeLibDir = nativeLibDir;
                 AppID = config["AppID"] ?? "";
+                RabbitTopologyVersion = int.TryParse(
+                    config["RabbitTopologyVersion"],
+                    out int rabbitTopologyVersion)
+                    ? rabbitTopologyVersion
+                    : ProcessorRabbitTopology.Version;
                 BaseFusionAuthURL = config["BaseFusionAuthURL"] ?? "";
                 ClientId = config["ClientId"] ?? "";
                 var rabbitPassword = GetConfigHelper.GetConfigValue(config, "LocalSystemUrl:RabbitPassword", "");

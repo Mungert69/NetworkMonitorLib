@@ -142,6 +142,13 @@ namespace NetworkMonitor.Objects.Repository
 #pragma warning restore CS8618
         public string GetExchangeType(string exchangeName)
         {
+            if (string.Equals(
+                exchangeName,
+                ProcessorRabbitTopology.CommandsExchange,
+                StringComparison.Ordinal))
+            {
+                return ExchangeType.Topic;
+            }
             if (exchangeName.StartsWith("oa.", StringComparison.OrdinalIgnoreCase))
             {
                 // Default to direct for oa.* exchanges

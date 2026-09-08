@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.ServiceMessage;
+using NetworkMonitor.Objects.Repository.Helpers;
 
 namespace NetworkMonitor.Objects.Repository;
 
@@ -69,7 +70,7 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
             return;
         }
 
-        await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
+        await SignIfRequiredAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
     }
 
@@ -83,20 +84,27 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
             return;
         }
 
-        await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
+        await SignIfRequiredAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
     }
 
-    private async Task SignIfRequiredAsync(string exchangeName, object? obj)
+    private async Task SignIfRequiredAsync(string exchangeName, object? obj, string routingKey = "")
     {
-        if (!TryResolveTarget(exchangeName, out var operation, out var target)) return;
+        if (!TryResolveTarget(exchangeName, routingKey, out var operation, out var target)) return;
         if (obj is not IBackendSignedMessage message)
             throw new InvalidOperationException($"Protected RabbitMQ operation '{exchangeName}' requires an IBackendSignedMessage payload.");
         message.BackendSignature = await _signatureService.SignAsync(operation, target, message).ConfigureAwait(false);
     }
 
     public static bool TryResolveTarget(string exchangeName, out string operation, out string target)
+        => TryResolveTarget(exchangeName, string.Empty, out operation, out target);
+
+    public static bool TryResolveTarget(string exchangeName, string routingKey, out string operation, out string target)
     {
+        if (string.Equals(exchangeName, ProcessorRabbitTopology.CommandsExchange, StringComparison.Ordinal))
+        {
+            return ProcessorRabbitTopology.TryParseRoutingKey(routingKey, out target, out operation);
+        }
         foreach (var candidate in DataControlOperations)
         {
             if (string.Equals(exchangeName, candidate, StringComparison.Ordinal))

@@ -33,6 +33,7 @@ namespace NetworkMonitor.Objects
             LastAccessDate = other.LastAccessDate;
             RabbitHost = other.RabbitHost;
             RabbitPort = other.RabbitPort;
+            RabbitTopologyVersion = other.RabbitTopologyVersion;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
@@ -57,6 +58,7 @@ namespace NetworkMonitor.Objects
             LastAccessDate = other.LastAccessDate;
             RabbitHost = other.RabbitHost;
             RabbitPort = other.RabbitPort;
+            RabbitTopologyVersion = other.RabbitTopologyVersion;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
@@ -82,6 +84,7 @@ namespace NetworkMonitor.Objects
         private DateTime _lastAccessDate;
         private string _rabbitHost;
         private ushort _rabbitPort = 55671;
+        private int _rabbitTopologyVersion = 1;
 
 
         /// <summary>
@@ -293,6 +296,16 @@ namespace NetworkMonitor.Objects
         public bool SendAgentDownAlert { get => _sendAgentDownAlert; set => _sendAgentDownAlert = value; }
         public string RabbitHost { get => _rabbitHost; set => _rabbitHost = value; }
         public ushort RabbitPort { get => _rabbitPort; set => _rabbitPort = value; }
+        /// <summary>
+        /// RabbitMQ processor command topology supported by this agent.
+        /// Version 1 is the legacy per-operation exchange layout. Version 2 uses
+        /// the shared monitorProcessor.commands.v2 topic exchange.
+        /// </summary>
+        public int RabbitTopologyVersion
+        {
+            get => _rabbitTopologyVersion;
+            set => _rabbitTopologyVersion = value;
+        }
 
         /// <summary>
         /// ML-DSA signature applied when processor state is distributed between
