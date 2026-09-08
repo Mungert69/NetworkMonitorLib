@@ -29,12 +29,13 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public string SubscribeInstructions { get => _subscribeInstructions; set => _subscribeInstructions = value; }
     }
 
-    public class UpdateProductObj
+    public class UpdateProductObj : IBackendSignedMessage
     {
         private string paymentServerUrl = "";
         private List<ProductObj> _products = new List<ProductObj>();
 
         public List<ProductObj> Products { get => _products; set => _products = value; }
         public string PaymentServerUrl { get => paymentServerUrl; set => paymentServerUrl = value; }
+        public string BackendSignature { get; set; } = "";
     }
 }

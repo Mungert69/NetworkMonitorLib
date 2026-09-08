@@ -1,5 +1,7 @@
 using System.Text;
+using System.Collections.Generic;
 using NetworkMonitor.Utils;
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects;
 
@@ -20,7 +22,7 @@ public interface IGenericEmailObj
     string ExtraMessage { get; set; }
     UserInfo UserInfo { get; set; }
 }
-public class GenericEmailObj : IGenericEmailObj
+public class GenericEmailObj : IGenericEmailObj, IBackendSignedMessage
 {
     public Guid ID { get; set; }
     public string MainContent { get; set; } = "";
@@ -35,5 +37,12 @@ public class GenericEmailObj : IGenericEmailObj
     public string HeaderImageAlt { get; set; } = "Quantum Network Monitor Logo";
     public string ExtraMessage { get; set; }
     public UserInfo UserInfo { get; set; } = new UserInfo();
+    public string BackendSignature { get; set; } = "";
 
+}
+
+public sealed class GenericEmailBatch : IBackendSignedMessage
+{
+    public List<GenericEmailObj> Emails { get; set; } = new();
+    public string BackendSignature { get; set; } = "";
 }

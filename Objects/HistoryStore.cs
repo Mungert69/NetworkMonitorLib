@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects;
 
@@ -10,7 +11,7 @@ public enum HistoryStoreOperation
     list
 }
 
-public class HistoryStoreRequest
+public class HistoryStoreRequest : IBackendSignedMessage
 {
     public HistoryStoreOperation Operation { get; set; } = HistoryStoreOperation.upsert;
     public string AppID { get; set; } = "";
@@ -26,6 +27,7 @@ public class HistoryStoreRequest
     public string ResponseExchange { get; set; } = "";
     public string RoutingKey { get; set; } = "";
     public int Limit { get; set; } = 100;
+    public string BackendSignature { get; set; } = "";
 }
 
 public class HistoryStoreResultItem

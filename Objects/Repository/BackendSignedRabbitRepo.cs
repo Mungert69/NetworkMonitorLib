@@ -34,6 +34,12 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
         "addProcessor", "updateProcessor", "fullProcessorList"
     };
 
+    private static readonly string[] AdministrativeOperations =
+    {
+        "createHostSummaryReport", "sendHostReport", "sendGenericEmail",
+        "userHostExpire", "userProcessorExpire", "userUpgrade"
+    };
+
     private readonly IRabbitRepo _inner;
     private readonly IBackendMessageSignatureService _signatureService;
 
@@ -55,13 +61,21 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
             return;
         }
 
+        if (IsEmailBatchOperation(exchangeName) && obj is List<GenericEmailObj> emails)
+        {
+            var batch = new GenericEmailBatch { Emails = emails };
+            await SignIfRequiredAsync(exchangeName, batch).ConfigureAwait(false);
+            await _inner.PublishAsync(exchangeName, batch, routingKey).ConfigureAwait(false);
+            return;
+        }
+
         await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
     }
 
     public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
     {
-        if (obj == null && IsDataControlOperation(exchangeName))
+        if (obj == null && IsPayloadFreeSignedOperation(exchangeName))
         {
             var command = new BackendControlCommand();
             await SignIfRequiredAsync(exchangeName, command).ConfigureAwait(false);
@@ -75,7 +89,9 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
 
     private async Task SignIfRequiredAsync(string exchangeName, object? obj)
     {
-        if (obj is not IBackendSignedMessage message || !TryResolveTarget(exchangeName, out var operation, out var target)) return;
+        if (!TryResolveTarget(exchangeName, out var operation, out var target)) return;
+        if (obj is not IBackendSignedMessage message)
+            throw new InvalidOperationException($"Protected RabbitMQ operation '{exchangeName}' requires an IBackendSignedMessage payload.");
         message.BackendSignature = await _signatureService.SignAsync(operation, target, message).ConfigureAwait(false);
     }
 
@@ -101,6 +117,16 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
             }
         }
 
+        foreach (var candidate in AdministrativeOperations)
+        {
+            if (string.Equals(exchangeName, candidate, StringComparison.Ordinal))
+            {
+                operation = candidate;
+                target = candidate == "createHostSummaryReport" ? "data" : "alert";
+                return true;
+            }
+        }
+
         foreach (var candidate in ProcessorOperations)
         {
             if (exchangeName.StartsWith(candidate, StringComparison.Ordinal) && exchangeName.Length > candidate.Length)
@@ -116,14 +142,20 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
         return false;
     }
 
-    private static bool IsDataControlOperation(string exchangeName)
+    private static bool IsPayloadFreeSignedOperation(string exchangeName)
     {
         foreach (var operation in DataControlOperations)
         {
             if (string.Equals(exchangeName, operation, StringComparison.Ordinal)) return true;
         }
+        if (string.Equals(exchangeName, "createHostSummaryReport", StringComparison.Ordinal)) return true;
         return false;
     }
+
+    private static bool IsEmailBatchOperation(string exchangeName) =>
+        string.Equals(exchangeName, "userHostExpire", StringComparison.Ordinal) ||
+        string.Equals(exchangeName, "userProcessorExpire", StringComparison.Ordinal) ||
+        string.Equals(exchangeName, "userUpgrade", StringComparison.Ordinal);
 
     public string GetExchangeType(string exchangeName) => _inner.GetExchangeType(exchangeName);
     public Task Shutdown() => _inner.Shutdown();

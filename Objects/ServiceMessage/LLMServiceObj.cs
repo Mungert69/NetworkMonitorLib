@@ -3,7 +3,7 @@ using NetworkMonitor.Objects;
 using NetworkMonitor.Utils;
 namespace NetworkMonitor.Objects.ServiceMessage
 {
-    public class LLMServiceObj
+    public class LLMServiceObj : IBackendSignedMessage
     {
 #pragma warning disable CS8618
         public LLMServiceObj()
@@ -416,6 +416,8 @@ namespace NetworkMonitor.Objects.ServiceMessage
                 return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             }
         }
+
+        public string BackendSignature { get; set; } = "";
 
     }
 }

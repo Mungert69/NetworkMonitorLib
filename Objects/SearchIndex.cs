@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects;
 
-public class CreateIndexRequest
+public class CreateIndexRequest : IBackendSignedMessage
 {
     public string IndexName { get; set; } = "";
     public string JsonMapping { get; set; } = "";
@@ -18,6 +19,7 @@ public class CreateIndexRequest
     public string Message { get; set; } = "";
     public bool CreateFromJsonDataDir { get; set; } = false;
     public string ResponseExchange { get; set; } = "";
+    public string BackendSignature { get; set; } = "";
 }
 public enum VectorSearchMode
 {
@@ -50,7 +52,7 @@ public static class VectorSearchModeHelper
         return Enum.GetNames(typeof(VectorSearchMode));
     }
 }
-public class QueryIndexRequest
+public class QueryIndexRequest : IBackendSignedMessage
 {
     public string IndexName { get; set; } = "";
     public VectorSearchMode VectorSearchMode { get; set; } = VectorSearchMode.content;
@@ -80,6 +82,7 @@ public class QueryIndexRequest
     public bool Success { get; set; }
     public string Message { get; set; } = "";
     public string RoutingKey { get; set; } = "";
+    public string BackendSignature { get; set; } = "";
 
     // String property for easy setting
     public void SetVectorSearchModeFromString(string value)
@@ -97,9 +100,10 @@ public class QueryResultObj
 }
 
 
-public class CreateSnapshotRequest
+public class CreateSnapshotRequest : IBackendSignedMessage
 {
     public string SnapshotRepo { get; set; } = "local_backup";
     public string SnapshotName { get; set; } = "";
     public string Indices { get; set; } = "documents,mitre,securitybooks,blogs";
+    public string BackendSignature { get; set; } = "";
 }

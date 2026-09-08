@@ -2,7 +2,7 @@
 
 namespace NetworkMonitor.Objects.ServiceMessage
 {
-    public class PaymentTransaction
+    public class PaymentTransaction : IBackendSignedMessage
     {
         public PaymentTransaction() { }
         private bool _isUpdate = false;
@@ -39,5 +39,6 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public bool IsCreate { get => _isCreate; set => _isCreate = value; }
         public string PriceId { get => _priceId; set => _priceId = value; }
         public bool IsPayment { get => _isPayment; set => _isPayment = value; }
+        public string BackendSignature { get; set; } = "";
     }
 }
