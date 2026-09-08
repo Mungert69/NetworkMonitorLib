@@ -467,10 +467,13 @@ namespace NetworkMonitor.Objects.Repository
                         }
 
                         // Sequential operations for this queue (must be in this order)
-                        await rabbitMQObj.ConnectChannel.ExchangeDeclareAsync(
-                            exchange: rabbitMQObj.ExchangeName,
-                            type: rabbitMQObj.Type,
-                            durable: true);
+                        if (rabbitMQObj.DeclareExchange)
+                        {
+                            await rabbitMQObj.ConnectChannel.ExchangeDeclareAsync(
+                                exchange: rabbitMQObj.ExchangeName,
+                                type: rabbitMQObj.Type,
+                                durable: true);
+                        }
 
                         await rabbitMQObj.ConnectChannel.QueueDeclareAsync(
                             queue: rabbitMQObj.QueueName,

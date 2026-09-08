@@ -27,6 +27,9 @@ namespace NetworkMonitor.Objects.Repository
         // Optional topology objects must not take down mandatory/legacy consumers
         // when the current OAuth token does not yet contain their permissions.
         public bool IsOptional { get; set; }
+        // Broker-managed exchanges are provisioned by definitions and must not
+        // be configured by application clients.
+        public bool DeclareExchange { get; set; } = true;
         public string FuncName { get => funcName; set => funcName = value; }
         public int MessageTimeout { get => _messageTimeout; set => _messageTimeout = value; }
         public List<string> RoutingKeys { get; set; } = new List<string>();
