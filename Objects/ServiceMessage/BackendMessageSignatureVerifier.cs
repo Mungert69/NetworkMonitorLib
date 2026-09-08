@@ -42,10 +42,12 @@ public sealed class BackendMessageSignatureVerifier : IBackendMessageSignatureVe
         {
             await File.WriteAllBytesAsync(signaturePath, signature, cancellationToken).ConfigureAwait(false);
             await File.WriteAllTextAsync(publicKeyPath, BackendSigningTrustAnchor.PublicKeyPem, cancellationToken).ConfigureAwait(false);
+            var payloadPath = prefix + ".payload";
+            var payload = BackendMessageSignaturePayload.Create(operation, target, message);
+            await File.WriteAllBytesAsync(payloadPath, payload, cancellationToken).ConfigureAwait(false);
             var startInfo = new ProcessStartInfo
             {
                 FileName = _openSslPath,
-                RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -54,6 +56,8 @@ public sealed class BackendMessageSignatureVerifier : IBackendMessageSignatureVe
             startInfo.ArgumentList.Add("pkeyutl");
             startInfo.ArgumentList.Add("-verify");
             startInfo.ArgumentList.Add("-rawin");
+            startInfo.ArgumentList.Add("-in");
+            startInfo.ArgumentList.Add(payloadPath);
             startInfo.ArgumentList.Add("-pubin");
             startInfo.ArgumentList.Add("-inkey");
             startInfo.ArgumentList.Add(publicKeyPath);
@@ -64,10 +68,6 @@ public sealed class BackendMessageSignatureVerifier : IBackendMessageSignatureVe
 
             using var process = new Process { StartInfo = startInfo };
             if (!process.Start()) return false;
-            var payload = BackendMessageSignaturePayload.Create(operation, target, message);
-            await process.StandardInput.BaseStream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-            await process.StandardInput.BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            process.StandardInput.Close();
 
             var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var error = process.StandardError.ReadToEndAsync(cancellationToken);
@@ -88,6 +88,9 @@ public sealed class BackendMessageSignatureVerifier : IBackendMessageSignatureVe
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
             try { File.Delete(publicKeyPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            try { File.Delete(prefix + ".payload"); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
