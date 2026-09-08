@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using NetworkMonitor.Utils.Helpers;
 
 namespace NetworkMonitor.Objects.ServiceMessage;
 
@@ -14,7 +15,7 @@ public abstract class MessageHmacServiceBase : IBackendMessageHmacService
 
     protected MessageHmacServiceBase(IConfiguration configuration, string configurationKey)
     {
-        var configuredKey = configuration[configurationKey];
+        var configuredKey = GetConfigHelper.GetConfigValue(configuration, configurationKey, "");
         if (string.IsNullOrWhiteSpace(configuredKey))
             throw new InvalidOperationException($"{configurationKey} is required.");
         _key = Encoding.UTF8.GetBytes(configuredKey);
