@@ -22,23 +22,26 @@ public sealed class LlmHmacRabbitRepo : IRabbitRepo
 
     public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
     {
+        if (obj is null && TryResolve(exchangeName, out var operation, out _) &&
+            MessageSecurityPolicyRegistry.IsPayloadFreeLlmHmac(operation))
+            obj = new BackendControlCommand();
         await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
     }
 
     private async Task SignIfRequiredAsync(string exchangeName, object? value)
     {
-        if (value is QueryIndexRequest query &&
-            TryResolve(exchangeName, out var resolvedOperation, out _) &&
-            resolvedOperation == "queryIndexResult")
-        {
-            query.BackendSignature = await _hmac.SignAsync("queryIndexResult", query.AppID, query).ConfigureAwait(false);
-            return;
-        }
         if (!TryResolve(exchangeName, out var operation, out var target)) return;
         if (value is not IBackendSignedMessage message)
             throw new InvalidOperationException($"Protected LLM RabbitMQ operation '{exchangeName}' requires an IBackendSignedMessage payload.");
-        if (value is QueryIndexRequest queryRequest) target = queryRequest.AppID;
+        target = value switch
+        {
+            QueryIndexRequest request => request.AppID,
+            MemoryQueryRequest request => request.AppID,
+            MemoryTurnWindowRequest request => request.AppID,
+            MemoryTurnRangeRequest request => request.AppID,
+            _ => target
+        };
         message.BackendSignature = await _hmac.SignAsync(operation, target, message).ConfigureAwait(false);
     }
 

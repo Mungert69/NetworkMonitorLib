@@ -3,11 +3,14 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects
 {
-    public class UserInfo
+    public class UserInfo : IBackendSignedMessage
     {
+        [NotMapped]
+        public string BackendSignature { get; set; } = "";
 #pragma warning disable IL2026
         public UserInfo() { }
 

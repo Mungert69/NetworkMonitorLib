@@ -22,7 +22,7 @@ public sealed class BackendHmacRabbitRepo : IRabbitRepo
 
     public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
     {
-        if (obj is null && TryResolve(exchangeName, out _, out _))
+        if (obj is null && MessageSecurityPolicyRegistry.IsPayloadFreeBackendHmac(exchangeName))
             obj = new BackendControlCommand();
         await SignIfRequiredAsync(exchangeName, obj).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);

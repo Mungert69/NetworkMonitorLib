@@ -1,8 +1,10 @@
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects
 {
-    public class AlertMessage
+    public class AlertMessage : IBackendSignedMessage
     {
+        public string BackendSignature { get; set; } = "";
         public AlertMessage() { }
         private UserInfo _userInfo = new UserInfo();
         private bool _verifyLink;

@@ -2,7 +2,7 @@
 namespace NetworkMonitor.Objects.ServiceMessage
 {
 
-    public class MonitorServiceInitObj
+    public class MonitorServiceInitObj : IBackendSignedMessage
     {
         public MonitorServiceInitObj() { }
         private bool _isServiceReady;
@@ -12,6 +12,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
         private bool _initUpdateAlertMessage;
         private bool _initTotalResetAlertMessage;
 
+        public string BackendSignature { get; set; } = string.Empty;
         public bool InitResetProcessor { get => _initResetProcessor; set => _initResetProcessor = value; }
         public bool InitTotalResetProcesser { get => _initTotalResetProcesser; set => _initTotalResetProcesser = value; }
         public bool InitTotalResetAlertMessage { get => _initTotalResetAlertMessage; set => _initTotalResetAlertMessage = value; }

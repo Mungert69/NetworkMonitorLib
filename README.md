@@ -15,6 +15,13 @@ LLM services, and UI clients.
 - `Objects/Connection/` connection types, command processors, and factories.
 - `Utils/` and `Helpers/` cross-cutting utilities.
 
+## RabbitMQ message security
+
+The shared [RabbitMQ message security policy](Objects/Repository/README.md) is the
+single source of truth for ML-DSA, backend-HMAC, and LLM-HMAC protected operations.
+Publishers and listeners must use `MessageSecurityPolicyRegistry` rather than keeping
+local operation lists.
+
 ## Dynamic connect types
 Connects are periodic checks used by monitored hosts. Dynamic connects can be added at runtime via the connect provider:
 - Class naming: `{ConnectType}Connect`

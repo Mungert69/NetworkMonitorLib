@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using NetworkMonitor.Objects.ServiceMessage;
 
 namespace NetworkMonitor.Objects;
 
-public class MemoryQueryRequest
+public class MemoryQueryRequest : IBackendSignedMessage
 {
+    public string BackendSignature { get; set; } = string.Empty;
     public string QueryText { get; set; } = "";
     public string UserId { get; set; } = "";
     public string SessionId { get; set; } = "";
@@ -51,8 +53,9 @@ public class MemoryContextTurn
     public long TurnUnixTime { get; set; }
 }
 
-public class MemoryTurnWindowRequest
+public class MemoryTurnWindowRequest : IBackendSignedMessage
 {
+    public string BackendSignature { get; set; } = string.Empty;
     public string SessionId { get; set; } = "";
     public int TurnIndex { get; set; }
     public int WidthBefore { get; set; } = 2;
@@ -71,8 +74,9 @@ public class MemoryTurnWindowRequest
     public string Message { get; set; } = "";
 }
 
-public class MemoryTurnRangeRequest
+public class MemoryTurnRangeRequest : IBackendSignedMessage
 {
+    public string BackendSignature { get; set; } = string.Empty;
     public string SessionId { get; set; } = "";
     public int StartTurnIndex { get; set; }
     public int EndTurnIndex { get; set; }

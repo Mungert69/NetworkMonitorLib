@@ -5,8 +5,9 @@ using System.Threading.Tasks;
 
 namespace NetworkMonitor.Objects.ServiceMessage
 {
-    public class AlertServiceInitObj
+    public class AlertServiceInitObj : IBackendSignedMessage
     {
+        public string BackendSignature { get; set; } = "";
         public AlertServiceInitObj() { }
         private bool _isAlertServiceReady;
         private bool _totalReset = false;

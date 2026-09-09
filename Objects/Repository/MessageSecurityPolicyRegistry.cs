@@ -16,7 +16,8 @@ public enum MessageRouteMatch
 {
     Exact,
     Prefix,
-    QueryIndexResult
+    QueryIndexResult,
+    Suffix
 }
 
 public sealed record MessageSecurityPolicy(
@@ -75,23 +76,48 @@ public static class MessageSecurityPolicyRegistry
         BackendHmac("updateUserCustomerId"), BackendHmac("paymentComplete"),
         BackendHmac("registerUser"), BackendHmac("updateProducts"),
         BackendHmac("updateUserPingInfos"), BackendHmac("pingInfosComplete"),
+        BackendHmac("paymentWakeUp", payloadFree: true),
+        BackendHmac("paymentCheck", payloadFree: true),
+        BackendHmac("paymentServiceReady"), BackendHmac("alertServiceReady"),
+        BackendHmac("monitorServiceReady"), BackendHmac("monitorDataReady"),
         BackendHmac("dataService_agentflow"), BackendHmac("createIndex"),
         BackendHmac("createSnapshot"), BackendHmac("mlCheck"),
-        BackendHmac("mlCheckHost"), BackendHmac("mlCheckLatestHosts"),
+        BackendHmac("mlCheckHost"), BackendHmac("mlCheckLatestHosts", payloadFree: true),
         BackendHmac("predictPingInfos"), BackendHmac("predictAlertFlag"),
         BackendHmac("predictAlertSent"), BackendHmac("predictResetAlerts"),
         BackendHmac("alertMessageResetPredictAlerts"),
         BackendHmac("alertUpdatePredictStatusAlerts"), BackendHmac("predictServiceReady"),
+        BackendHmac("dataCheck"), BackendHmac("systemLlmOutput"),
+        BackendHmac("systemLlmStarted"), BackendHmac("systemLlmStopped"),
+        BackendHmac("monitorCheck", payloadFree: true),
+        BackendHmac("getProducts", payloadFree: true),
+        BackendHmac("refreshUsers", payloadFree: true),
+        BackendHmac("saveDataToFile"), BackendHmac("systemLlmInput"),
+        BackendHmac("systemLlmStart"), BackendHmac("systemLlmStop"),
+        BackendHmac("serviceWakeUp", payloadFree: true),
+        BackendHmac("monitorAlert", payloadFree: true),
+        BackendHmac("predictAlert", payloadFree: true),
+        BackendHmac("alertMessageInit"), BackendHmac("alertMessage"),
+        BackendHmac("updateUserInfoAlertMessage"),
 
         // Messages in the separate LLM HMAC trust domain.
         LlmHmacExact("llmServiceFunction"), LlmHmacExact("llmServiceMessage"),
         LlmHmacExact("llmServiceTimeout"), LlmHmacExact("llmUpdateTokensUsed"),
         LlmHmacExact("llmServiceStarted"), LlmHmacExact("historyStore"),
+        LlmHmacExact("functionRegistryReply"),
         LlmHmacExact("queryIndex", dynamicTarget: true),
+        LlmHmacExact("queryMemory", dynamicTarget: true),
+        LlmHmacExact("queryMemoryTurnWindow", dynamicTarget: true),
+        LlmHmacExact("queryMemoryTurnRange", dynamicTarget: true),
         new("queryIndexResult", "queryIndexResult", MessageProtection.LlmHmac,
             MessageRouteMatch.QueryIndexResult, AllowsDynamicTarget: true),
+        LlmHmacSuffix("MemoryQueryResult"),
+        LlmHmacSuffix("MemoryTurnWindowResult"),
+        LlmHmacSuffix("MemoryTurnRangeResult"),
         LlmHmacPrefix("llmStartSession"), LlmHmacPrefix("llmUserInput"),
-        LlmHmacPrefix("llmStopRequest"), LlmHmacPrefix("llmRemoveSession")
+        LlmHmacPrefix("llmStopRequest"), LlmHmacPrefix("llmRemoveSession"),
+        LlmHmacPrefix("getFunctionRegistryFiltered", payloadFree: true),
+        LlmHmacPrefix("getFunctionRegistry", payloadFree: true)
     };
 
     public static IReadOnlyList<MessageSecurityPolicy> All => Policies;
@@ -141,6 +167,14 @@ public static class MessageSecurityPolicyRegistry
                 target = policy.Target;
                 return true;
             }
+            if (policy.RouteMatch == MessageRouteMatch.Suffix &&
+                exchange.EndsWith(policy.Operation, StringComparison.Ordinal) &&
+                exchange.Length > policy.Operation.Length)
+            {
+                operation = policy.Operation;
+                target = exchange[..^policy.Operation.Length];
+                return true;
+            }
         }
 
         operation = string.Empty;
@@ -161,6 +195,14 @@ public static class MessageSecurityPolicyRegistry
         policy.Protection == MessageProtection.MlDsa && policy.IsPayloadFree &&
         string.Equals(policy.Operation, operation, StringComparison.Ordinal));
 
+    public static bool IsPayloadFreeBackendHmac(string operation) => Policies.Any(policy =>
+        policy.Protection == MessageProtection.BackendHmac && policy.IsPayloadFree &&
+        string.Equals(policy.Operation, operation, StringComparison.Ordinal));
+
+    public static bool IsPayloadFreeLlmHmac(string operation) => Policies.Any(policy =>
+        policy.Protection == MessageProtection.LlmHmac && policy.IsPayloadFree &&
+        string.Equals(policy.Operation, operation, StringComparison.Ordinal));
+
     public static bool WrapsEmailBatch(string operation) => Policies.Any(policy =>
         policy.Protection == MessageProtection.MlDsa && policy.WrapsEmailBatch &&
         string.Equals(policy.Operation, operation, StringComparison.Ordinal));
@@ -175,12 +217,17 @@ public static class MessageSecurityPolicyRegistry
         bool wrapsEmailBatch = false) =>
         new(operation, target, MessageProtection.MlDsa, MessageRouteMatch.Exact, payloadFree, wrapsEmailBatch);
 
-    private static MessageSecurityPolicy BackendHmac(string operation) =>
-        new(operation, operation, MessageProtection.BackendHmac);
+    private static MessageSecurityPolicy BackendHmac(string operation, bool payloadFree = false) =>
+        new(operation, operation, MessageProtection.BackendHmac, IsPayloadFree: payloadFree);
 
     private static MessageSecurityPolicy LlmHmacExact(string operation, bool dynamicTarget = false) =>
         new(operation, operation, MessageProtection.LlmHmac, AllowsDynamicTarget: dynamicTarget);
 
-    private static MessageSecurityPolicy LlmHmacPrefix(string operation) =>
-        new(operation, string.Empty, MessageProtection.LlmHmac, MessageRouteMatch.Prefix);
+    private static MessageSecurityPolicy LlmHmacPrefix(string operation, bool payloadFree = false) =>
+        new(operation, string.Empty, MessageProtection.LlmHmac, MessageRouteMatch.Prefix,
+            IsPayloadFree: payloadFree, AllowsDynamicTarget: true);
+
+    private static MessageSecurityPolicy LlmHmacSuffix(string operation) =>
+        new(operation, string.Empty, MessageProtection.LlmHmac, MessageRouteMatch.Suffix,
+            AllowsDynamicTarget: true);
 }
