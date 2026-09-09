@@ -23,6 +23,12 @@
   </PropertyGroup>
   <!-- </snippet_SuppressWarnings> -->
   <ItemGroup>
+    <None Include="Schemas\agent_schema.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
       <PackageReference Include="DotNetEnv" Version="3.2.0" />
       <PackageReference Include="FluentFTP" Version="54.2.1" />
     <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />

@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/agent-graph.schema.json",
+  "title": "Agenic-Flow Graph",
+  "type": "object",
+  "required": ["version", "startNode", "nodes", "toolSpecs"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "startNode": { "type": "string", "minLength": 1 },
+    "initState": { "type": "object", "additionalProperties": true },
+    "runtimeInputs": {
+      "type": "array",
+      "description": "Names that must be supplied when the flow is run",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/NodeConfig" }
+    },
+    "toolSpecs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/ToolBuilderSpec" },
+          {
+            "type": "object",
+            "required": ["$ref"],
+            "additionalProperties": false,
+            "properties": { "$ref": { "type": "string", "minLength": 1 } }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "NodeConfig": {
+      "type": "object",
+      "required": ["id", "type", "toolSpecId", "promptTemplate"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["template-llm", "branch-llm"] },
+        "toolSpecId": { "type": "string", "minLength": 1 },
+        "promptTemplate": { "type": "string", "minLength": 1 },
+        "next": { "type": ["string", "null"] },
+        "outputs": {
+          "type": "array",
+          "description": "Saved to state (template-llm only)",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "constants": { "type": "object", "additionalProperties": { "type": "string" } },
+        "defaults": { "type": "object", "additionalProperties": { "type": "string" } },
+        "requires": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "timeoutSec": { "type": "integer", "minimum": 1 },
+        "branches": {
+          "type": "object",
+          "description": "Status→next-node map (branch-llm only)",
+          "additionalProperties": { "type": ["string", "null"] }
+        }
+      },
+      "oneOf": [
+        { "properties": { "type": { "const": "template-llm" } } },
+        {
+          "properties": { "type": { "const": "branch-llm" } },
+          "not": { "required": ["outputs"] }
+        }
+      ]
+    },
+    "ToolBuilderSpec": {
+      "type": "object",
+      "required": ["id", "systemPrompt"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "systemPrompt": { "type": "string", "minLength": 1 },
+        "functions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "cmdProcessorFunctions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CmdProcessorFunctionSpec" }
+        }
+      }
+    },
+    "CmdProcessorFunctionSpec": {
+      "type": "object",
+      "required": ["name", "parameters"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "parameters": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/CmdProcessorFunctionParameter" }
+        }
+      }
+    },
+    "CmdProcessorFunctionParameter": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}
