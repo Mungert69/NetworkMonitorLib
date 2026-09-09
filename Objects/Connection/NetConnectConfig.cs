@@ -303,6 +303,11 @@ namespace NetworkMonitor.Connection
                     RabbitUserName = config["LocalSystemUrl:RabbitUserName"] ?? "",
                     RabbitPassword = rabbitPassword,
                     RabbitVHost = config["LocalSystemUrl:RabbitVHost"] ?? "",
+                    RequirePublisherUserId = bool.TryParse(
+                        config["RequirePublisherUserId"] ?? config["LocalSystemUrl:RequirePublisherUserId"],
+                        out bool requirePublisherUserId)
+                        ? requirePublisherUserId
+                        : true,
                     MaxLoad = int.TryParse(config["LocalSystemUrl:MaxLoad"], out int maxLoad) ? maxLoad : 1500,
                     MaxRuntime = int.TryParse(config["LocalSystemUrl:MaxRuntime"], out int maxRuntime) ? maxRuntime : 60,
                     // Default to true unless explicitly set at SystemUrl level
