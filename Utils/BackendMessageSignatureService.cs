@@ -39,40 +39,51 @@ public sealed class BackendMessageSignatureService : IBackendMessageSignatureSer
             throw new InvalidOperationException("AuthKey signing private key cannot be read.");
         }
 
-        var startInfo = new ProcessStartInfo
+        // ML-DSA is a one-shot algorithm. OpenSSL must know the input size, so
+        // its pkeyutl implementation cannot sign a payload supplied through stdin.
+        var payloadPath = Path.Combine(Path.GetTempPath(), $"networkmonitor-backend-{Guid.NewGuid():N}.bin");
+        try
         {
-            FileName = _openSslPath,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-        startInfo.ArgumentList.Add("pkeyutl");
-        startInfo.ArgumentList.Add("-sign");
-        startInfo.ArgumentList.Add("-rawin");
-        startInfo.ArgumentList.Add("-inkey");
-        startInfo.ArgumentList.Add(_privateKeyPath);
-        startInfo.ArgumentList.Add("-provider");
-        startInfo.ArgumentList.Add("default");
+            await File.WriteAllBytesAsync(payloadPath, payload, cancellationToken).ConfigureAwait(false);
 
-        using var process = new Process { StartInfo = startInfo };
-        if (!process.Start()) throw new InvalidOperationException("Unable to start OpenSSL for backend signing.");
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = _openSslPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("pkeyutl");
+            startInfo.ArgumentList.Add("-sign");
+            startInfo.ArgumentList.Add("-rawin");
+            startInfo.ArgumentList.Add("-in");
+            startInfo.ArgumentList.Add(payloadPath);
+            startInfo.ArgumentList.Add("-inkey");
+            startInfo.ArgumentList.Add(_privateKeyPath);
+            startInfo.ArgumentList.Add("-provider");
+            startInfo.ArgumentList.Add("default");
 
-        await process.StandardInput.BaseStream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-        await process.StandardInput.BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-        process.StandardInput.Close();
+            using var process = new Process { StartInfo = startInfo };
+            if (!process.Start()) throw new InvalidOperationException("Unable to start OpenSSL for backend signing.");
 
-        await using var signature = new MemoryStream();
-        var copySignature = process.StandardOutput.BaseStream.CopyToAsync(signature, cancellationToken);
-        var readError = process.StandardError.ReadToEndAsync(cancellationToken);
-        await Task.WhenAll(copySignature, readError, process.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
-        if (process.ExitCode != 0)
-        {
-            _logger.LogError("OpenSSL failed to sign {Description}: {Error}", description, (await readError).Trim());
-            throw new InvalidOperationException($"OpenSSL failed to sign {description}.");
+            await using var signature = new MemoryStream();
+            var copySignature = process.StandardOutput.BaseStream.CopyToAsync(signature, cancellationToken);
+            var readError = process.StandardError.ReadToEndAsync(cancellationToken);
+            await Task.WhenAll(copySignature, readError, process.WaitForExitAsync(cancellationToken)).ConfigureAwait(false);
+            if (process.ExitCode != 0)
+            {
+                _logger.LogError("OpenSSL failed to sign {Description}: {Error}", description, (await readError).Trim());
+                throw new InvalidOperationException($"OpenSSL failed to sign {description}.");
+            }
+
+            return Convert.ToBase64String(signature.ToArray());
         }
-
-        return Convert.ToBase64String(signature.ToArray());
+        finally
+        {
+            try { File.Delete(payloadPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 }
