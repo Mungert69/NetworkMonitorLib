@@ -118,6 +118,30 @@ namespace NetworkMonitor.Utils.Helpers
             SystemParams systemParams = new SystemParams();
 #pragma warning disable IL2026
             systemParams.SystemUrls = _config.GetSection("SystemUrls").Get<List<SystemUrl>>() ?? new List<SystemUrl>();
+
+            // SystemUrls is an array, so normal IConfiguration binding does not
+            // resolve the .env sentinel used by scalar configuration values.
+            // Resolve each per-system RabbitPassword explicitly while retaining
+            // the existing convention: ".env" means the RabbitPassword env
+            // variable, and ".env:NAME" means the named variable.
+            for (int i = 0; i < systemParams.SystemUrls.Count; i++)
+            {
+                var configuredPassword = _config[$"SystemUrls:{i}:RabbitPassword"];
+                if (string.Equals(configuredPassword, ".env", StringComparison.Ordinal))
+                {
+                    systemParams.SystemUrls[i].RabbitPassword =
+                        GetConfigHelper.GetConfigValue("RabbitPassword", "");
+                }
+                else if (!string.IsNullOrWhiteSpace(configuredPassword) &&
+                         configuredPassword.StartsWith(".env:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var envName = configuredPassword[".env:".Length..].Trim();
+                    systemParams.SystemUrls[i].RabbitPassword =
+                        string.IsNullOrWhiteSpace(envName)
+                            ? ""
+                            : Environment.GetEnvironmentVariable(envName) ?? "";
+                }
+            }
             systemParams.EnabledRegions = _config.GetSection("EnabledRegions").Get<List<string>>() ?? new List<string>();
             systemParams.AudioServiceUrls = _config.GetSection("AudioServiceUrls").Get<List<string>>() ?? new List<string>();
             systemParams.FrontEndUrl = _config.GetValue<string>("FrontEndUrl") ?? AppConstants.FrontendUrl;
