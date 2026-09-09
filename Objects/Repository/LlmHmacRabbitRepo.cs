@@ -8,13 +8,6 @@ namespace NetworkMonitor.Objects.Repository;
 /// <summary>Signs RabbitMQ messages belonging to the less-trusted LLM trust domain.</summary>
 public sealed class LlmHmacRabbitRepo : IRabbitRepo
 {
-    private static readonly string[] ExactOperations =
-    {
-        "llmServiceFunction", "llmServiceMessage", "llmServiceTimeout", "llmUpdateTokensUsed", "llmServiceStarted",
-        "historyStore", "queryIndex"
-    };
-    private static readonly string[] PrefixedOperations = { "llmStartSession", "llmUserInput", "llmStopRequest", "llmRemoveSession" };
-
     private readonly IRabbitRepo _inner;
     private readonly ILlmMessageHmacService _hmac;
 
@@ -35,7 +28,9 @@ public sealed class LlmHmacRabbitRepo : IRabbitRepo
 
     private async Task SignIfRequiredAsync(string exchangeName, object? value)
     {
-        if (value is QueryIndexRequest query && IsQueryIndexResultExchange(exchangeName))
+        if (value is QueryIndexRequest query &&
+            TryResolve(exchangeName, out var resolvedOperation, out _) &&
+            resolvedOperation == "queryIndexResult")
         {
             query.BackendSignature = await _hmac.SignAsync("queryIndexResult", query.AppID, query).ConfigureAwait(false);
             return;
@@ -48,18 +43,8 @@ public sealed class LlmHmacRabbitRepo : IRabbitRepo
     }
 
     public static bool TryResolve(string exchange, out string operation, out string target)
-    {
-        foreach (var candidate in ExactOperations)
-            if (string.Equals(exchange, candidate, StringComparison.Ordinal)) { operation = candidate; target = candidate; return true; }
-        foreach (var candidate in PrefixedOperations)
-            if (exchange.StartsWith(candidate, StringComparison.Ordinal) && exchange.Length > candidate.Length) { operation = candidate; target = exchange[candidate.Length..]; return true; }
-        operation = target = string.Empty;
-        return false;
-    }
-
-    private static bool IsQueryIndexResultExchange(string exchange) =>
-        exchange.EndsWith("QueryIndexResult", StringComparison.Ordinal) ||
-        exchange.StartsWith("queryIndexResult", StringComparison.Ordinal);
+        => MessageSecurityPolicyRegistry.TryResolve(
+            exchange, string.Empty, MessageProtection.LlmHmac, out operation, out target);
 
     public string GetExchangeType(string exchangeName) => _inner.GetExchangeType(exchangeName);
     public Task Shutdown() => _inner.Shutdown();

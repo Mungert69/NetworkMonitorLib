@@ -15,32 +15,6 @@ namespace NetworkMonitor.Objects.Repository;
 /// </summary>
 public sealed class BackendSignedRabbitRepo : IRabbitRepo
 {
-    private static readonly string[] ProcessorOperations =
-    {
-        "getCmdProcessorSource", "getCmdProcessorHelp", "getCmdProcessorList",
-        "deleteCmdProcessor", "addCmdProcessor", "processorCommand",
-        "processorQueueDic", "processorScan", "cancelCommand",
-        "getConnectSource", "getConnectList", "deleteConnect", "addConnect",
-        "processorInit"
-    };
-
-    private static readonly string[] DataControlOperations =
-    {
-        "dataPurge", "fillUserTokens", "saveData", "processBlogList",
-        "restorePingInfosForAllUsers", "initData", "callAgentFunction", "processorCustomConnectUpdate"
-    };
-
-    private static readonly string[] ProcessorStateOperations =
-    {
-        "addProcessor", "updateProcessor", "fullProcessorList"
-    };
-
-    private static readonly string[] AdministrativeOperations =
-    {
-        "createHostSummaryReport", "sendHostReport", "sendGenericEmail",
-        "userHostExpire", "userProcessorExpire", "userUpgrade"
-    };
-
     private readonly IRabbitRepo _inner;
     private readonly IBackendMessageSignatureService _signatureService;
 
@@ -62,7 +36,7 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
             return;
         }
 
-        if (IsEmailBatchOperation(exchangeName) && obj is List<GenericEmailObj> emails)
+        if (MessageSecurityPolicyRegistry.WrapsEmailBatch(exchangeName) && obj is List<GenericEmailObj> emails)
         {
             var batch = new GenericEmailBatch { Emails = emails };
             await SignIfRequiredAsync(exchangeName, batch).ConfigureAwait(false);
@@ -76,7 +50,7 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
 
     public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
     {
-        if (obj == null && IsPayloadFreeSignedOperation(exchangeName))
+        if (obj == null && MessageSecurityPolicyRegistry.IsPayloadFreeMlDsa(exchangeName))
         {
             var command = new BackendControlCommand();
             await SignIfRequiredAsync(exchangeName, command).ConfigureAwait(false);
@@ -100,70 +74,8 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
         => TryResolveTarget(exchangeName, string.Empty, out operation, out target);
 
     public static bool TryResolveTarget(string exchangeName, string routingKey, out string operation, out string target)
-    {
-        if (string.Equals(exchangeName, ProcessorRabbitTopology.CommandsExchange, StringComparison.Ordinal))
-        {
-            return ProcessorRabbitTopology.TryParseRoutingKey(routingKey, out target, out operation);
-        }
-        foreach (var candidate in DataControlOperations)
-        {
-            if (string.Equals(exchangeName, candidate, StringComparison.Ordinal))
-            {
-                operation = candidate;
-                target = "data";
-                return true;
-            }
-        }
-
-        foreach (var candidate in ProcessorStateOperations)
-        {
-            if (string.Equals(exchangeName, candidate, StringComparison.Ordinal))
-            {
-                operation = candidate;
-                target = "processor-state";
-                return true;
-            }
-        }
-
-        foreach (var candidate in AdministrativeOperations)
-        {
-            if (string.Equals(exchangeName, candidate, StringComparison.Ordinal))
-            {
-                operation = candidate;
-                target = candidate == "createHostSummaryReport" ? "data" : "alert";
-                return true;
-            }
-        }
-
-        foreach (var candidate in ProcessorOperations)
-        {
-            if (exchangeName.StartsWith(candidate, StringComparison.Ordinal) && exchangeName.Length > candidate.Length)
-            {
-                operation = candidate;
-                target = exchangeName[candidate.Length..];
-                return true;
-            }
-        }
-
-        operation = string.Empty;
-        target = string.Empty;
-        return false;
-    }
-
-    private static bool IsPayloadFreeSignedOperation(string exchangeName)
-    {
-        foreach (var operation in DataControlOperations)
-        {
-            if (string.Equals(exchangeName, operation, StringComparison.Ordinal)) return true;
-        }
-        if (string.Equals(exchangeName, "createHostSummaryReport", StringComparison.Ordinal)) return true;
-        return false;
-    }
-
-    private static bool IsEmailBatchOperation(string exchangeName) =>
-        string.Equals(exchangeName, "userHostExpire", StringComparison.Ordinal) ||
-        string.Equals(exchangeName, "userProcessorExpire", StringComparison.Ordinal) ||
-        string.Equals(exchangeName, "userUpgrade", StringComparison.Ordinal);
+        => MessageSecurityPolicyRegistry.TryResolve(
+            exchangeName, routingKey, MessageProtection.MlDsa, out operation, out target);
 
     public string GetExchangeType(string exchangeName) => _inner.GetExchangeType(exchangeName);
     public Task Shutdown() => _inner.Shutdown();

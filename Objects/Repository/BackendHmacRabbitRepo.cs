@@ -8,16 +8,6 @@ namespace NetworkMonitor.Objects.Repository;
 /// <summary>Signs selected high-volume backend messages with payload-bound HMAC-SHA-256.</summary>
 public sealed class BackendHmacRabbitRepo : IRabbitRepo
 {
-    private static readonly string[] ExactOperations =
-    {
-        "updateUserSubscription", "boostTokenForUser", "updateUserCustomerId", "paymentComplete",
-        "registerUser", "updateProducts", "updateUserPingInfos", "pingInfosComplete", "dataService_agentflow",
-        "createIndex", "createSnapshot",
-        "mlCheck", "mlCheckHost", "mlCheckLatestHosts", "predictPingInfos",
-        "predictAlertFlag", "predictAlertSent", "predictResetAlerts",
-        "alertMessageResetPredictAlerts", "alertUpdatePredictStatusAlerts", "predictServiceReady"
-    };
-
     private readonly IRabbitRepo _inner;
     private readonly IBackendMessageHmacService _hmac;
 
@@ -47,12 +37,8 @@ public sealed class BackendHmacRabbitRepo : IRabbitRepo
     }
 
     public static bool TryResolve(string exchange, out string operation, out string target)
-    {
-        foreach (var candidate in ExactOperations)
-            if (string.Equals(exchange, candidate, StringComparison.Ordinal)) { operation = candidate; target = candidate; return true; }
-        operation = target = string.Empty;
-        return false;
-    }
+        => MessageSecurityPolicyRegistry.TryResolve(
+            exchange, string.Empty, MessageProtection.BackendHmac, out operation, out target);
 
     public string GetExchangeType(string exchangeName) => _inner.GetExchangeType(exchangeName);
     public Task Shutdown() => _inner.Shutdown();

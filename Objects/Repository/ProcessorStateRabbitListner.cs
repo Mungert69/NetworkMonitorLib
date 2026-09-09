@@ -140,7 +140,8 @@ namespace NetworkMonitor.Objects.Repository
 
         private async Task<bool> ValidateBackendSignatureAsync(string operation, IBackendSignedMessage? message, ResultObj result)
         {
-            if (message != null && await _backendMessageSignatureVerifier.VerifyAsync(operation, "processor-state", message).ConfigureAwait(false))
+            if (MessageSecurityPolicyRegistry.Requires(operation, "processor-state", MessageProtection.MlDsa) &&
+                message != null && await _backendMessageSignatureVerifier.VerifyAsync(operation, "processor-state", message).ConfigureAwait(false))
             {
                 return true;
             }
