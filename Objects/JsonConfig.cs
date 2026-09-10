@@ -128,6 +128,8 @@ namespace NetworkMonitor.Objects
     [JsonSerializable(typeof(ProcessorQueueDicObj))]
     [JsonSerializable(typeof(BackendControlCommand))]
     [JsonSerializable(typeof(BackendIntListMessage))]
+    [JsonSerializable(typeof(RefreshAuthKeyObj))]
+    [JsonSerializable(typeof(GradLlmHmacEnvelope))]
     [JsonSerializable(typeof(ProcessorDataObj))]
     [JsonSerializable(typeof(ProcessorScanDataObj))]
     [JsonSerializable(typeof(FunctionRegistryReply))]
