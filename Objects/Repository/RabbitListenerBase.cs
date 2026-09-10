@@ -37,12 +37,14 @@ namespace NetworkMonitor.Objects.Repository
         private readonly CancellationTokenSource _shutdownCts = new();
         private volatile bool _isShuttingDown = false;
         private volatile bool _isRecoveryMonitorRunning = false;
+        private readonly IRabbitConnectionPool? _connectionPool;
 
-        public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null)
+        public RabbitListenerBase(ILogger logger, SystemUrl systemUrl, IRabbitListenerState? state = null, IRabbitConnectionPool? connectionPool = null)
         {
             _logger = logger;
             _systemUrl = systemUrl;
             _state = state ?? new RabbitListenerState();
+            _connectionPool = connectionPool;
             _isTls = systemUrl.UseTls;
             _logger?.LogInformation($" Use Tls in RabbitListenerBase ctor {_isTls}");
 
@@ -89,8 +91,11 @@ namespace NetworkMonitor.Objects.Repository
                     try
                     {
                         _connection.ConnectionShutdownAsync -= OnConnectionShutdown;
-                        await _connection.CloseAsync();
-                        _connection.Dispose();
+                        if (_connectionPool == null)
+                        {
+                            await _connection.CloseAsync();
+                            _connection.Dispose();
+                        }
                     }
                     catch (EndOfStreamException)
                     {
@@ -148,20 +153,6 @@ namespace NetworkMonitor.Objects.Repository
             }
             _instanceName = _systemUrl.RabbitInstanceName;
             cancellationToken.ThrowIfCancellationRequested();
-            _factory = new ConnectionFactory
-            {
-                HostName = _systemUrl.RabbitHostName,
-                UserName = _systemUrl.RabbitUserName,
-                Password = _systemUrl.RabbitPassword,
-                VirtualHost = _systemUrl.RabbitVHost,
-                AutomaticRecoveryEnabled = true,
-                TopologyRecoveryEnabled = true,
-                Port = _systemUrl.RabbitPort,
-                RequestedHeartbeat = TimeSpan.FromSeconds(120),
-                HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
-
-                Ssl = BuildSslOption()
-            };
             _state.IsRabbitConnected = false;
             var result = new ResultObj();
             result.Message = " Rabbit Setup : ";
@@ -169,11 +160,31 @@ namespace NetworkMonitor.Objects.Repository
             InitRabbitMQObjs();
             try
             {
-                var effectiveMaxRetries = maxRetriesOverride ?? -1;
-                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger, effectiveMaxRetries, cancellationToken: cancellationToken);
-                if (success && connection != null)
+                if (_connectionPool != null)
                 {
-                    _connection = connection;
+                    _connection = await _connectionPool.GetConnectionAsync(_systemUrl, RabbitConnectionRole.Consumer, _logger, cancellationToken);
+                }
+                else
+                {
+                    _factory = new ConnectionFactory
+                    {
+                        HostName = _systemUrl.RabbitHostName,
+                        UserName = _systemUrl.RabbitUserName,
+                        Password = _systemUrl.RabbitPassword,
+                        VirtualHost = _systemUrl.RabbitVHost,
+                        AutomaticRecoveryEnabled = true,
+                        TopologyRecoveryEnabled = true,
+                        Port = _systemUrl.RabbitPort,
+                        RequestedHeartbeat = TimeSpan.FromSeconds(120),
+                        HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
+                        Ssl = BuildSslOption()
+                    };
+                    var effectiveMaxRetries = maxRetriesOverride ?? -1;
+                    var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitListner", _factory, _logger, effectiveMaxRetries, cancellationToken: cancellationToken);
+                    if (success) _connection = connection;
+                }
+                if (_connection != null)
+                {
                     _connection.ConnectionShutdownAsync += OnConnectionShutdown;
                 }
                 else

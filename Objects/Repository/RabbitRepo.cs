@@ -55,6 +55,7 @@ namespace NetworkMonitor.Objects.Repository
         private CancellationTokenSource _shutdownCts = new();
         private volatile bool _isShuttingDown = false;
         private volatile bool _hasConnectedOnce = false;
+        private readonly IRabbitConnectionPool? _connectionPool;
 
 
         public bool IsRunning
@@ -91,8 +92,8 @@ namespace NetworkMonitor.Objects.Repository
         private readonly SemaphoreSlim _publishSemaphore = new SemaphoreSlim(1, 1);
 
 
-        public RabbitRepo(ILogger<RabbitRepo> logger, SystemParams systemParams)
-        : this(logger, systemParams.ThisSystemUrl)
+        public RabbitRepo(ILogger<RabbitRepo> logger, SystemParams systemParams, IRabbitConnectionPool? connectionPool = null)
+        : this(logger, systemParams.ThisSystemUrl, connectionPool)
         {
             _exchangeTypes = systemParams.ExchangeTypes ?? new Dictionary<string, string>();
 
@@ -122,12 +123,13 @@ namespace NetworkMonitor.Objects.Repository
 
         }
 
-        public RabbitRepo(ILogger<RabbitRepo> logger, SystemUrl systemUrl)
+        public RabbitRepo(ILogger<RabbitRepo> logger, SystemUrl systemUrl, IRabbitConnectionPool? connectionPool = null)
         {
             try
             {
                 _logger = logger;
                 _systemUrl = systemUrl;
+                _connectionPool = connectionPool;
                 _isTls = systemUrl.UseTls;
                 _logger?.LogInformation($" Use Tls in RabbitRepo SystemUrl ctor {_isTls}");
                 _retryDelayMilliseconds = RetryDelayMilliseconds;
@@ -188,8 +190,17 @@ namespace NetworkMonitor.Objects.Repository
                 if (_connection != null)
                 {
                     _connection.ConnectionShutdownAsync -= OnConnectionShutdown;
-                    await _connection.CloseAsync();
-                    _connection.Dispose();
+                    if (_publishChannel != null)
+                    {
+                        await _publishChannel.CloseAsync();
+                        _publishChannel.Dispose();
+                        _publishChannel = null;
+                    }
+                    if (_connectionPool == null)
+                    {
+                        await _connection.CloseAsync();
+                        _connection.Dispose();
+                    }
                     _connection = null;
                 }
                 result.Success = true;
@@ -254,22 +265,29 @@ namespace NetworkMonitor.Objects.Repository
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _factory = new ConnectionFactory
+                if (_connectionPool != null)
                 {
-                    HostName = _systemUrl.RabbitHostName,
-                    UserName = _systemUrl.RabbitUserName,
-                    Password = _systemUrl.RabbitPassword,
-                    VirtualHost = _systemUrl.RabbitVHost,
-                    AutomaticRecoveryEnabled = true,
-                    TopologyRecoveryEnabled = true,
-                    Port = _systemUrl.RabbitPort,
-                    RequestedHeartbeat = TimeSpan.FromSeconds(120),
-                    HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
-
-                    Ssl = BuildSslOption()
-                };
-                var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, effectiveMaxRetries, _retryDelayMilliseconds, cancellationToken);
-                if (!success || connection == null)
+                    replacementConnection = await _connectionPool.GetConnectionAsync(_systemUrl, RabbitConnectionRole.Publisher, _logger, cancellationToken);
+                }
+                else
+                {
+                    _factory = new ConnectionFactory
+                    {
+                        HostName = _systemUrl.RabbitHostName,
+                        UserName = _systemUrl.RabbitUserName,
+                        Password = _systemUrl.RabbitPassword,
+                        VirtualHost = _systemUrl.RabbitVHost,
+                        AutomaticRecoveryEnabled = true,
+                        TopologyRecoveryEnabled = true,
+                        Port = _systemUrl.RabbitPort,
+                        RequestedHeartbeat = TimeSpan.FromSeconds(120),
+                        HandshakeContinuationTimeout = TimeSpan.FromSeconds(40),
+                        Ssl = BuildSslOption()
+                    };
+                    var (success, connection) = await RabbitConnectHelper.TryConnectAsync("RabbitRepo", _factory, _logger, effectiveMaxRetries, _retryDelayMilliseconds, cancellationToken);
+                    if (success) replacementConnection = connection;
+                }
+                if (replacementConnection == null)
                 {
                     var maxRetriesDisplay = effectiveMaxRetries == -1 ? "infinite" : effectiveMaxRetries.ToString();
                     result.Message += ($" Error : Rabbot Repo failed to establish connection to RabbitMQ server running at {_systemUrl.RabbitHostName}:{_systemUrl.RabbitPort} after {maxRetriesDisplay} retries.");
@@ -278,7 +296,6 @@ namespace NetworkMonitor.Objects.Repository
                     return result;
                 }
 
-                replacementConnection = connection;
                 cancellationToken.ThrowIfCancellationRequested();
                 replacementPublishChannel = await replacementConnection.CreateChannelAsync(cancellationToken: cancellationToken);
 
@@ -339,7 +356,8 @@ namespace NetworkMonitor.Objects.Repository
                 previousConnection.ConnectionShutdownAsync -= OnConnectionShutdown;
             }
 
-            replacementConnection.ConnectionShutdownAsync += OnConnectionShutdown;
+            if (_connectionPool == null)
+                replacementConnection.ConnectionShutdownAsync += OnConnectionShutdown;
             _connection = replacementConnection;
             _publishChannel = replacementPublishChannel;
             _exchangeCache.Clear();
@@ -373,7 +391,7 @@ namespace NetworkMonitor.Objects.Repository
                     }
                 }
 
-                if (connection.IsOpen)
+                if (_connectionPool == null && connection.IsOpen)
                 {
                     await connection.CloseAsync();
                 }
@@ -802,8 +820,18 @@ namespace NetworkMonitor.Objects.Repository
                 if (_connection != null)
                 {
                     _connection.ConnectionShutdownAsync -= OnConnectionShutdown;
-                    await _connection.CloseAsync();
-                    _connection.Dispose();
+                    if (_publishChannel != null)
+                    {
+                        await _publishChannel.CloseAsync();
+                        _publishChannel.Dispose();
+                        _publishChannel = null;
+                    }
+                    if (_connectionPool == null)
+                    {
+                        await _connection.CloseAsync();
+                        _connection.Dispose();
+                    }
+                    _connection = null;
                 }
 
 
