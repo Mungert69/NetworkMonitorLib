@@ -46,6 +46,16 @@ namespace NetworkMonitor.Utils.Helpers
             return GetSectionInternal(_config!, _logger, key);
         }
 
+        /// <summary>
+        /// Get a configuration section from an explicitly supplied configuration.
+        /// This is safe for hosts which run more than one isolated configuration
+        /// graph in the same process.
+        /// </summary>
+        public static IConfigurationSection GetSection(IConfiguration config, ILogger? logger, string key)
+        {
+            return GetSectionInternal(config ?? throw new ArgumentNullException(nameof(config)), logger, key);
+        }
+
         // ---------- Existing (explicit) APIs remain available ----------
 
         public static string GetValueOrLogError(string key, string defaultValue, ILogger logger, IConfiguration config)

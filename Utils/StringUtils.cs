@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Text;
+using System.Threading;
 using NanoidDotNet;
 
 
@@ -22,8 +23,9 @@ public static class StringUtils
     }
 
     private const string Base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    private static int _toolCallIdLength = 26;
-    private static string _toolCallIdPrefix = "call_";
+    private sealed record ToolCallIdOptions(string Prefix, int Length);
+    private static readonly AsyncLocal<ToolCallIdOptions?> CurrentToolCallIdOptions = new();
+    private static readonly ToolCallIdOptions DefaultToolCallIdOptions = new("call_", 26);
 
     // Default to 26; keep overload for custom sizes if you want
     private static string GetNanoidSized(int size = 26) =>
@@ -31,13 +33,18 @@ public static class StringUtils
 
     public static void ConfigureToolCallId(string? prefix, int length)
     {
-        if (!string.IsNullOrWhiteSpace(prefix)) _toolCallIdPrefix = prefix;
-        else _toolCallIdPrefix = "";
-        if (length > 0) _toolCallIdLength = length;
+        var current = CurrentToolCallIdOptions.Value ?? DefaultToolCallIdOptions;
+        CurrentToolCallIdOptions.Value = new ToolCallIdOptions(
+            string.IsNullOrWhiteSpace(prefix) ? "" : prefix,
+            length > 0 ? length : current.Length);
     }
 
     // Uniform tool_call_id creator
-    public static string NewToolCallId() => _toolCallIdPrefix + GetNanoidSized(_toolCallIdLength);
+    public static string NewToolCallId()
+    {
+        var options = CurrentToolCallIdOptions.Value ?? DefaultToolCallIdOptions;
+        return options.Prefix + GetNanoidSized(options.Length);
+    }
 
     public static string Base36Encode(long value)
     {
