@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace NetworkMonitor.Objects.Repository.Helpers
 {
@@ -70,6 +72,18 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Derives the opaque, RabbitMQ-safe address for a processor. AppID is
+        /// an identity value (and may be an email address or exceed 160
+        /// characters), so it must never be used directly as a v2 route.
+        /// </summary>
+        public static string GetRoutingId(string appId)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(appId);
+            return "p_" + Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(appId))).ToLowerInvariant();
         }
 
         public static string BuildRoutingKey(string routingId, string operation)

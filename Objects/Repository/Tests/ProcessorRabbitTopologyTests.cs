@@ -43,6 +43,44 @@ public class ProcessorRabbitTopologyTests
     }
 
     [Fact]
+    public void DerivesAStableSafeRoutingIdForAnEmailAppId()
+    {
+        const string appId = "user@example.com-workstation";
+
+        string routingId = ProcessorRabbitTopology.GetRoutingId(appId);
+
+        Assert.Equal(routingId, ProcessorRabbitTopology.GetRoutingId(appId));
+        Assert.Equal(66, routingId.Length);
+        Assert.StartsWith("p_", routingId);
+        Assert.True(ProcessorRabbitTopology.IsValidRoutingId(routingId));
+    }
+
+    [Fact]
+    public void UsesTheDerivedRoutingIdAsTheSignatureTargetForBothTopologies()
+    {
+        const string appId = "user@example.com-workstation";
+        string routingId = ProcessorRabbitTopology.GetRoutingId(appId);
+
+        Assert.True(MessageSecurityPolicyRegistry.TryResolve(
+            "processorCommand" + appId,
+            string.Empty,
+            MessageProtection.MlDsa,
+            out string legacyOperation,
+            out string legacyTarget));
+        Assert.Equal("processorCommand", legacyOperation);
+        Assert.Equal(routingId, legacyTarget);
+
+        Assert.True(MessageSecurityPolicyRegistry.TryResolve(
+            ProcessorRabbitTopology.CommandsExchange,
+            ProcessorRabbitTopology.BuildRoutingKey(routingId, "processorCommand"),
+            MessageProtection.MlDsa,
+            out string v2Operation,
+            out string v2Target));
+        Assert.Equal("processorCommand", v2Operation);
+        Assert.Equal(routingId, v2Target);
+    }
+
+    [Fact]
     public void RejectsUnknownOperation()
     {
         Assert.False(ProcessorRabbitTopology.IsSupportedOperation("arbitraryOperation"));
@@ -88,11 +126,12 @@ public class ProcessorRabbitTopologyTests
     public async Task V2PublisherUsesSharedExchangeAndProcessorRoute()
     {
         var rabbitRepo = new Mock<IRabbitRepo>();
-        var message = new ProcessorObj { AppID = "user_123-agent-7" };
+        const string appId = "user_123-agent-7";
+        var message = new ProcessorObj { AppID = appId };
 
         await ProcessorRabbitPublisher.PublishAsync(
             rabbitRepo.Object,
-            "user_123-agent-7",
+            appId,
             "processorCommand",
             message,
             ProcessorRabbitTopology.Version);
@@ -100,7 +139,9 @@ public class ProcessorRabbitTopologyTests
         rabbitRepo.Verify(repo => repo.PublishAsync(
             ProcessorRabbitTopology.CommandsExchange,
             message,
-            "user_123-agent-7.processorCommand"), Times.Once);
+            ProcessorRabbitTopology.BuildRoutingKey(
+                ProcessorRabbitTopology.GetRoutingId(appId),
+                "processorCommand")), Times.Once);
         rabbitRepo.VerifyNoOtherCalls();
     }
 
@@ -121,5 +162,27 @@ public class ProcessorRabbitTopologyTests
             "processorCommandagent-1",
             message,
             ""), Times.Once);
+    }
+
+    [Fact]
+    public async Task V2PublisherUsesAHashedRouteForAnEmailAppId()
+    {
+        var rabbitRepo = new Mock<IRabbitRepo>();
+        var message = new ProcessorObj { AppID = "legacy.app@example.com" };
+
+        await ProcessorRabbitPublisher.PublishAsync(
+            rabbitRepo.Object,
+            "legacy.app@example.com",
+            "processorCommand",
+            message,
+            ProcessorRabbitTopology.Version);
+
+        rabbitRepo.Verify(repo => repo.PublishAsync(
+            ProcessorRabbitTopology.CommandsExchange,
+            message,
+            ProcessorRabbitTopology.BuildRoutingKey(
+                ProcessorRabbitTopology.GetRoutingId("legacy.app@example.com"),
+                "processorCommand")), Times.Once);
+        rabbitRepo.VerifyNoOtherCalls();
     }
 }

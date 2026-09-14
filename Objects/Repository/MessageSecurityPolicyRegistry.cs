@@ -156,7 +156,10 @@ public static class MessageSecurityPolicyRegistry
                 exchange.Length > policy.Operation.Length)
             {
                 operation = policy.Operation;
-                target = exchange[policy.Operation.Length..];
+                string legacyTarget = exchange[policy.Operation.Length..];
+                target = ProcessorRabbitTopology.IsSupportedOperation(operation)
+                    ? ProcessorRabbitTopology.GetRoutingId(legacyTarget)
+                    : legacyTarget;
                 return true;
             }
             if (policy.RouteMatch == MessageRouteMatch.QueryIndexResult &&

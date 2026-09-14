@@ -26,10 +26,11 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 return rabbitRepo.PublishAsync(operation + routingId, message);
             }
 
+            string processorRoutingId = ProcessorRabbitTopology.GetRoutingId(routingId);
             return rabbitRepo.PublishAsync(
                 ProcessorRabbitTopology.CommandsExchange,
                 message,
-                ProcessorRabbitTopology.BuildRoutingKey(routingId, operation));
+                ProcessorRabbitTopology.BuildRoutingKey(processorRoutingId, operation));
         }
 
         public static Task PublishAsync(
@@ -45,10 +46,11 @@ namespace NetworkMonitor.Objects.Repository.Helpers
                 return rabbitRepo.PublishAsync(operation + routingId, message);
             }
 
+            string processorRoutingId = ProcessorRabbitTopology.GetRoutingId(routingId);
             return rabbitRepo.PublishAsync(
                 ProcessorRabbitTopology.CommandsExchange,
                 message,
-                ProcessorRabbitTopology.BuildRoutingKey(routingId, operation));
+                ProcessorRabbitTopology.BuildRoutingKey(processorRoutingId, operation));
         }
     }
 }
