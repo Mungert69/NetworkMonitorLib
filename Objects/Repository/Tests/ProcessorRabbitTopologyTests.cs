@@ -56,6 +56,20 @@ public class ProcessorRabbitTopologyTests
     }
 
     [Fact]
+    public void PreservesFusionAuthUserIdPrefixWhileHashingTheFullAppId()
+    {
+        const string userId = "84ab1c49-e8f2-4bb0-b347-06a3713c4798";
+        const string appId = userId + "-workstation";
+
+        string routingId = ProcessorRabbitTopology.GetRoutingId(appId);
+
+        Assert.StartsWith("u_" + userId + "_p_", routingId);
+        Assert.Equal(105, routingId.Length);
+        Assert.True(ProcessorRabbitTopology.IsValidRoutingId(routingId));
+        Assert.NotEqual(ProcessorRabbitTopology.GetRoutingId(userId), routingId);
+    }
+
+    [Fact]
     public void UsesTheDerivedRoutingIdAsTheSignatureTargetForBothTopologies()
     {
         const string appId = "user@example.com-workstation";

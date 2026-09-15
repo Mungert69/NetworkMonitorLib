@@ -75,15 +75,39 @@ namespace NetworkMonitor.Objects.Repository.Helpers
         }
 
         /// <summary>
-        /// Derives the opaque, RabbitMQ-safe address for a processor. AppID is
-        /// an identity value (and may be an email address or exceed 160
-        /// characters), so it must never be used directly as a v2 route.
+        /// Derives a RabbitMQ-safe address for a processor. User-owned AppIDs
+        /// conventionally start with the FusionAuth UUID followed by a hyphen.
+        /// Preserve that safe owner prefix for OAuth scope authorization while
+        /// hashing the complete AppID so the remaining identity is never used
+        /// directly as a RabbitMQ resource name. Other AppIDs use an opaque
+        /// hash-only route.
         /// </summary>
         public static string GetRoutingId(string appId)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(appId);
-            return "p_" + Convert.ToHexString(
+            string appIdHash = Convert.ToHexString(
                 SHA256.HashData(Encoding.UTF8.GetBytes(appId))).ToLowerInvariant();
+            if (TryGetFusionAuthUserIdPrefix(appId, out string userId))
+            {
+                return $"u_{userId}_p_{appIdHash}";
+            }
+
+            return "p_" + appIdHash;
+        }
+
+        private static bool TryGetFusionAuthUserIdPrefix(string appId, out string userId)
+        {
+            userId = string.Empty;
+            const int GuidLength = 36;
+            if (appId.Length < GuidLength ||
+                (appId.Length > GuidLength && appId[GuidLength] != '-') ||
+                !Guid.TryParseExact(appId[..GuidLength], "D", out Guid parsedUserId))
+            {
+                return false;
+            }
+
+            userId = parsedUserId.ToString("D");
+            return true;
         }
 
         public static string BuildRoutingKey(string routingId, string operation)
