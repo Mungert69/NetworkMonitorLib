@@ -16,6 +16,7 @@ namespace NetworkMonitor.Objects
         public int MaxRuntime { get; set; } = 60;
         public bool UseTls { get; set; } = true;
         public bool RequirePublisherUserId { get; set; } = true;
+        public bool EnableMqttProcessorIngress { get; set; } = false;
         public string Country { get; set; } = "US";
         public string Region { get; set; } = "America";
         public string AndroidVersion { get; set; } = string.Empty;

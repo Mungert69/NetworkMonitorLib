@@ -183,6 +183,9 @@ namespace NetworkMonitor.Utils.Helpers
             systemParams.ThisSystemUrl = _config.GetSection("LocalSystemUrl").Get<SystemUrl>() ?? throw new Exception(" Check config no LocalSystemUrl found");
             // Compatibility: allow setting this either under LocalSystemUrl or as a top-level key.
             systemParams.ThisSystemUrl.RequirePublisherUserId = _config.GetValue<bool?>("RequirePublisherUserId") ?? true;
+            systemParams.ThisSystemUrl.EnableMqttProcessorIngress =
+                _config.GetValue<bool?>("EnableMqttProcessorIngress") ??
+                systemParams.ThisSystemUrl.EnableMqttProcessorIngress;
 
             if (!string.IsNullOrEmpty(rabbitPassword))
             {

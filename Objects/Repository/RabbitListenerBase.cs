@@ -574,12 +574,13 @@ namespace NetworkMonitor.Objects.Repository
             }
             return result;
         }
-        protected T? ConvertToObject<T>(object? sender, BasicDeliverEventArgs @event) where T : class
+        protected T? ConvertToObject<T>(object? sender, BasicDeliverEventArgs @event,
+            string? mqttProcessorRoute = null) where T : class
         {
             T? result = null;
             try
             {
-                if (!HasValidatedPublisherUserId(@event))
+                if (!HasValidatedPublisherUserId(@event, mqttProcessorRoute))
                 {
                     return null;
                 }
@@ -611,12 +612,13 @@ namespace NetworkMonitor.Objects.Repository
             }
             return result;
         }
-        protected string? ConvertToString(object? sender, BasicDeliverEventArgs @event)
+        protected string? ConvertToString(object? sender, BasicDeliverEventArgs @event,
+            string? mqttProcessorRoute = null)
         {
             string? result = null;
             try
             {
-                if (!HasValidatedPublisherUserId(@event))
+                if (!HasValidatedPublisherUserId(@event, mqttProcessorRoute))
                 {
                     return null;
                 }
@@ -634,12 +636,13 @@ namespace NetworkMonitor.Objects.Repository
             }
             return result;
         }
-        protected T? ConvertToList<T>(object? sender, BasicDeliverEventArgs @event) where T : class
+        protected T? ConvertToList<T>(object? sender, BasicDeliverEventArgs @event,
+            string? mqttProcessorRoute = null) where T : class
         {
             T? result = null;
             try
             {
-                if (!HasValidatedPublisherUserId(@event))
+                if (!HasValidatedPublisherUserId(@event, mqttProcessorRoute))
                 {
                     return null;
                 }
@@ -663,7 +666,12 @@ namespace NetworkMonitor.Objects.Repository
             return result;
         }
 
-        private bool HasValidatedPublisherUserId(BasicDeliverEventArgs @event)
+        protected bool IsMqttProcessorIngress(BasicDeliverEventArgs @event, string route) =>
+            _systemUrl.EnableMqttProcessorIngress &&
+            ProcessorMqttTopology.IsIngress(@event, route);
+
+        private bool HasValidatedPublisherUserId(BasicDeliverEventArgs @event,
+            string? mqttProcessorRoute)
         {
             if (!_systemUrl.RequirePublisherUserId)
             {
@@ -672,6 +680,11 @@ namespace NetworkMonitor.Objects.Repository
 
             string? publisherUserId = @event.BasicProperties?.UserId;
             if (!string.IsNullOrWhiteSpace(publisherUserId))
+            {
+                return true;
+            }
+            if (mqttProcessorRoute != null &&
+                IsMqttProcessorIngress(@event, mqttProcessorRoute))
             {
                 return true;
             }

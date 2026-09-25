@@ -308,6 +308,9 @@ namespace NetworkMonitor.Connection
                         out bool requirePublisherUserId)
                         ? requirePublisherUserId
                         : true,
+                    EnableMqttProcessorIngress = bool.TryParse(
+                        config["EnableMqttProcessorIngress"] ?? config["LocalSystemUrl:EnableMqttProcessorIngress"],
+                        out bool enableMqttProcessorIngress) && enableMqttProcessorIngress,
                     MaxLoad = int.TryParse(config["LocalSystemUrl:MaxLoad"], out int maxLoad) ? maxLoad : 1500,
                     MaxRuntime = int.TryParse(config["LocalSystemUrl:MaxRuntime"], out int maxRuntime) ? maxRuntime : 60,
                     // Default to true unless explicitly set at SystemUrl level
