@@ -129,6 +129,7 @@ namespace NetworkMonitor.Objects
     [JsonSerializable(typeof(BackendControlCommand))]
     [JsonSerializable(typeof(ProcessorSignedCommand))]
     [JsonSerializable(typeof(ProcessorFirmwareUpdateRequest))]
+    [JsonSerializable(typeof(ProcessorDeleteRequest))]
     [JsonSerializable(typeof(ProcessorFirmwareUpdateCommand))]
     [JsonSerializable(typeof(ProcessorFirmwareHealthAck))]
     [JsonSerializable(typeof(CProcessorReadyObj))]
