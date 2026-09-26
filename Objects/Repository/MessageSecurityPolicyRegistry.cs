@@ -58,6 +58,7 @@ public static class MessageSecurityPolicyRegistry
         MlDsaExact("callAgentFunction", "data"),
         MlDsaExact("processorCustomConnectUpdate", "data"),
         MlDsaExact("processorFirmwareUpdateRequest", "data"),
+        MlDsaExact("processorDeleteRequest", "data"),
 
         // Shared processor state.
         MlDsaExact("addProcessor", "processor-state"),
