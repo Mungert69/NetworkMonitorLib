@@ -57,6 +57,7 @@ public static class MessageSecurityPolicyRegistry
         MlDsaExact("initData", "data"),
         MlDsaExact("callAgentFunction", "data"),
         MlDsaExact("processorCustomConnectUpdate", "data"),
+        MlDsaExact("processorFirmwareUpdateRequest", "data"),
 
         // Shared processor state.
         MlDsaExact("addProcessor", "processor-state"),
@@ -121,6 +122,13 @@ public static class MessageSecurityPolicyRegistry
     };
 
     public static IReadOnlyList<MessageSecurityPolicy> All => Policies;
+
+    // Mirrors the existing processor command policy, plus the separate AuthKey
+    // check and the C-only OTA operations. Does not change any ML-DSA policy.
+    public static bool RequiresProcessorSignature(string operation) =>
+        (ProcessorRabbitTopology.IsSupportedOperation(operation) &&
+         Requires(operation, string.Empty, MessageProtection.MlDsa)) ||
+        operation is "processorAuthKey" or "processorFirmwareUpdate" or "processorFirmwareHealthAck";
 
     public static bool TryResolve(
         string exchange,

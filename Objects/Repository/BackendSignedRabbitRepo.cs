@@ -17,17 +17,21 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
 {
     private readonly IRabbitRepo _inner;
     private readonly IBackendMessageSignatureService _signatureService;
+    private readonly IProcessorCommandSigner? _processorSigner;
 
-    public BackendSignedRabbitRepo(IRabbitRepo inner, IBackendMessageSignatureService signatureService)
+    public BackendSignedRabbitRepo(IRabbitRepo inner, IBackendMessageSignatureService signatureService,
+        IProcessorCommandSigner? processorSigner = null)
     {
         _inner = inner;
         _signatureService = signatureService;
+        _processorSigner = processorSigner;
     }
 
     public SystemUrl SystemUrl { get => _inner.SystemUrl; set => _inner.SystemUrl = value; }
 
     public async Task PublishAsync<T>(string exchangeName, T obj, string routingKey = "") where T : class
     {
+        if (await PublishProcessorProfileAsync(exchangeName, obj, routingKey)) return;
         if (string.Equals(exchangeName, "fullProcessorList", StringComparison.Ordinal) && obj is List<ProcessorObj> processors)
         {
             var snapshot = new ProcessorStateSnapshot { Processors = processors };
@@ -50,6 +54,7 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
 
     public async Task PublishAsync(string exchangeName, object? obj, string routingKey = "")
     {
+        if (await PublishProcessorProfileAsync(exchangeName, obj, routingKey)) return;
         if (obj == null && MessageSecurityPolicyRegistry.IsPayloadFreeMlDsa(exchangeName))
         {
             var command = new BackendControlCommand();
@@ -60,6 +65,27 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
 
         await SignIfRequiredAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
         await _inner.PublishAsync(exchangeName, obj, routingKey).ConfigureAwait(false);
+    }
+
+    private async Task<bool> PublishProcessorProfileAsync(string exchange, object? obj, string routingKey)
+    {
+        if (_processorSigner == null) return false;
+        string operation, target;
+        if (exchange == ProcessorRabbitTopology.CommandsExchange) {
+            if (!ProcessorRabbitTopology.TryParseRoutingKey(routingKey, out target, out operation)) return false;
+        } else {
+            if (!TryResolveTarget(exchange, routingKey, out operation, out target) ||
+                !ProcessorRabbitTopology.IsSupportedOperation(operation)) return false;
+        }
+        if (!MessageSecurityPolicyRegistry.RequiresProcessorSignature(operation)) return false;
+        bool useEcdsa = _processorSigner.RequiresEcdsa(target);
+        if (!useEcdsa && operation is "processorFirmwareUpdate" or "processorFirmwareHealthAck")
+            throw new InvalidOperationException("ESP32 firmware commands require IsQuantumCapable=false in processor state.");
+        if (!useEcdsa) return false;
+        if (obj == null) throw new InvalidOperationException("Signed processor command requires a payload.");
+        var envelope = _processorSigner.Sign(operation, target, obj);
+        await _inner.PublishAsync(exchange, envelope, routingKey).ConfigureAwait(false);
+        return true;
     }
 
     private async Task SignIfRequiredAsync(string exchangeName, object? obj, string routingKey = "")

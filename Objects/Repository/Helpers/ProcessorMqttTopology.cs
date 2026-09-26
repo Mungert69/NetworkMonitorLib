@@ -7,6 +7,7 @@ public static class ProcessorMqttTopology
 {
     public const string Exchange = "monitorProcessor.mqtt.v1";
     public const string Ready = "processor.out.ready";
+    public const string FirmwareStatus = "processor.out.firmware-status";
     public const string Data = "processor.out.data";
     public const string StatusAlerts = "processor.out.status-alerts";
     public const string ResetAlerts = "processor.out.reset-alerts";

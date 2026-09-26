@@ -22,6 +22,8 @@ namespace NetworkMonitor.Objects.Repository.Helpers
             "processorConnect",
             "removePingInfos",
             "processorInit",
+            "processorFirmwareUpdate",
+            "processorFirmwareHealthAck",
             "processorAlertFlag",
             "processorAlertSent",
             "processorQueueDic",

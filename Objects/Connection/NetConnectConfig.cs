@@ -250,6 +250,7 @@ namespace NetworkMonitor.Connection
         // Runtime-negotiated topology. This is deliberately not loaded from or
         // persisted to configuration: capability does not imply successful ACLs.
         public int ActiveRabbitTopologyVersion { get; set; } = ProcessorRabbitTopology.LegacyVersion;
+        public bool IsQuantumCapable { get; set; } = true;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -279,6 +280,8 @@ namespace NetworkMonitor.Connection
                 _appDataDirectory = appDataDirectory;
                 _nativeLibDir = nativeLibDir;
                 AppID = config["AppID"] ?? "";
+                IsQuantumCapable = bool.TryParse(config["IsQuantumCapable"], out bool quantumCapable)
+                    ? quantumCapable : true;
                 RabbitTopologyVersion = int.TryParse(
                     config["RabbitTopologyVersion"],
                     out int rabbitTopologyVersion)

@@ -22,6 +22,17 @@ public static class BackendMessageSignaturePayload
             message.BackendSignature = signature;
         }
 
+        return Pack(operation, appId, json);
+    }
+
+    public static byte[] CreateForProcessor(string operation, string target, object message)
+    {
+        if (message is IBackendSignedMessage signed) return Create(operation, target, signed);
+        return Pack(operation, target, JsonSerializer.Serialize(message, message.GetType(), SourceGenerationContext.Default));
+    }
+
+    private static byte[] Pack(string operation, string appId, string json)
+    {
         var operationBytes = Encoding.UTF8.GetBytes(operation ?? string.Empty);
         var appIdBytes = Encoding.UTF8.GetBytes(appId ?? string.Empty);
         var messageBytes = Encoding.UTF8.GetBytes(json);

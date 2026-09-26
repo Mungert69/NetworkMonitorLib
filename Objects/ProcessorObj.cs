@@ -16,6 +16,7 @@ namespace NetworkMonitor.Objects
     public class ProcessorObj : IBackendSignedMessage
     {
         public ProcessorObj() { }
+        public bool IsQuantumCapable { get; set; } = true;
 
         public ProcessorObj(ProcessorObj other, bool showAuthKey)
         {
@@ -34,6 +35,7 @@ namespace NetworkMonitor.Objects
             RabbitHost = other.RabbitHost;
             RabbitPort = other.RabbitPort;
             RabbitTopologyVersion = other.RabbitTopologyVersion;
+            IsQuantumCapable = other.IsQuantumCapable;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
@@ -59,6 +61,7 @@ namespace NetworkMonitor.Objects
             RabbitHost = other.RabbitHost;
             RabbitPort = other.RabbitPort;
             RabbitTopologyVersion = other.RabbitTopologyVersion;
+            IsQuantumCapable = other.IsQuantumCapable;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
