@@ -49,6 +49,35 @@ public class LLMServiceObjTests
         Assert.Single(copy.LlmStack);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NestedCall_ReturnsToSameCallerAcrossRepeatedJsonHops(bool sourceGenerated)
+    {
+        var expected = CreateServiceObj(2);
+        var actual = new LLMServiceObj(expected);
+        for (var level = 2; level >= 0; level--)
+        {
+            for (var hop = 0; hop < 3; hop++)
+            {
+                actual = sourceGenerated
+                    ? (LLMServiceObj)System.Text.Json.JsonSerializer.Deserialize(
+                        System.Text.Json.JsonSerializer.Serialize(actual, typeof(LLMServiceObj), NetworkMonitor.Objects.SourceGenerationContext.Default),
+                        typeof(LLMServiceObj), NetworkMonitor.Objects.SourceGenerationContext.Default)!
+                    : System.Text.Json.JsonSerializer.Deserialize<LLMServiceObj>(System.Text.Json.JsonSerializer.Serialize(actual))!;
+                actual = new LLMServiceObj(actual);
+                AssertStackOrderEqual(expected, actual);
+                AssertCurrentStateEqual(expected, actual);
+                Assert.Equal(expected.RootMessageID, actual.RootMessageID);
+                Assert.Equal(expected.LlmChainStartName, actual.LlmChainStartName);
+                Assert.Equal(expected.FirstFunctionName, actual.FirstFunctionName);
+            }
+            expected.PopLlm();
+            actual.PopLlm();
+            AssertCurrentStateEqual(expected, actual);
+        }
+    }
+
     private static LLMServiceObj CreateServiceObj(int levels)
     {
         var serviceObj = new LLMServiceObj

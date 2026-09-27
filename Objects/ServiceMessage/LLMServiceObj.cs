@@ -276,15 +276,20 @@ namespace NetworkMonitor.Objects.ServiceMessage
         }
 
         public string FunctionCallId { get => functionCallId; set => functionCallId = value; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StackJsonConverter<string>))]
         public Stack<string> LlmStack { get => llmStack; set => llmStack = value; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StackJsonConverter<string>))]
         public Stack<string> FunctionCallIdStack { get => functionCallIdStack; set => functionCallIdStack = value; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StackJsonConverter<string>))]
         public Stack<string> FunctionNameStack { get => functionNameStack; set => functionNameStack = value; }
+        [System.Text.Json.Serialization.JsonConverter(typeof(StackJsonConverter<string>))]
         public Stack<string> MessageIDStack { get => messageIDStack; set => messageIDStack = value; }
 
         public string MessageID { get => messageID; set => messageID = value; }
         public string LlmSessionStartName { get => llmSessionStartName; set => llmSessionStartName = value; }
         public bool IsFuncAck { get => isFuncAck; set => isFuncAck = value; }
         public bool IsProcessed { get; set; } // The current state of processing
+        [System.Text.Json.Serialization.JsonConverter(typeof(StackJsonConverter<bool>))]
         public Stack<bool> IsProcessedStack { get => isProcessedStack; set => isProcessedStack = value; }
         public bool IsSystemLlm { get => isSystemLlm; set => isSystemLlm = value; }
         public DateTime StartTimeUTC { get => startTimeUTC; set => startTimeUTC = value; }
