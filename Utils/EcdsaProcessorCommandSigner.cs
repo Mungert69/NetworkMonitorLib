@@ -35,8 +35,10 @@ public sealed class EcdsaProcessorCommandSigner : IProcessorCommandSigner
         if (key.ExportParameters(false).Curve.Oid.Value != "1.2.840.10045.3.1.7")
             throw new InvalidOperationException("Processor signing requires ECDSA P-256.");
         byte[] payload = BackendMessageSignaturePayload.CreateForProcessor(operation, target, message);
-        // Leaves room for base64, signature and the outer CloudEvent in the 64 KiB device buffer.
-        if (payload.Length > 45000) throw new InvalidOperationException("Signed processor command exceeds device limit.");
+        // The ESP32 accepts a 384 KiB MQTT command and at most 256 KiB of signed
+        // bytes. Base64 expands 256 KiB to ~342 KiB, leaving room for the
+        // signature and CloudEvent envelope. Keep this in sync with the device.
+        if (payload.Length > 256 * 1024) throw new InvalidOperationException("Signed processor command exceeds device limit.");
         return new ProcessorSignedCommand {
             Payload = Convert.ToBase64String(payload),
             Signature = Convert.ToBase64String(key.SignData(payload, HashAlgorithmName.SHA256,
