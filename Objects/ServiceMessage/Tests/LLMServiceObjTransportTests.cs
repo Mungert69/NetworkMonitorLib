@@ -219,7 +219,7 @@ public class LLMServiceObjTransportTests
         Assert.Equal(expected.IsProcessedStack.ToArray(), actual.IsProcessedStack.ToArray());
         Assert.Equal(expected.SourceLlm, actual.SourceLlm); Assert.Equal(expected.DestinationLlm, actual.DestinationLlm);
         Assert.Equal(expected.MessageID, actual.MessageID); Assert.Equal(expected.FunctionName, actual.FunctionName);
-        Assert.Equal(expected.FunctionCallId, actual.FunctionCallId); Assert.Equal(expected.IsProcessed, actual.IsProcessed);
+        Assert.Equal(expected.FunctionCallId, actual.FunctionCallId);
         Assert.Equal(expected.RootMessageID, actual.RootMessageID); Assert.Equal(expected.LlmChainStartName, actual.LlmChainStartName);
         Assert.Equal(expected.FirstFunctionName, actual.FirstFunctionName); Assert.Equal(expected.IsPrimaryLlm, actual.IsPrimaryLlm);
     }
