@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.RegularExpressions;
 
 namespace NetworkMonitor.Connection
 {
@@ -19,6 +20,9 @@ namespace NetworkMonitor.Connection
         public bool SignatureQuantumSafe { get; init; }
         public bool PublicKeyQuantumSafe { get; init; }
         public int ChainLength { get; init; }
+        // null means the OpenSSL output did not contain a verification result.
+        // Trust is informational; it never changes the PQ algorithm classification.
+        public bool? IsTrusted { get; init; }
 
         public bool IsQuantumSafeCertificate => SignatureQuantumSafe || PublicKeyQuantumSafe;
 
@@ -33,7 +37,8 @@ namespace NetworkMonitor.Connection
 
             return $"Certificate PQC: {pqc} (sig={sigPqc}, key={keyPqc}); " +
                    $"SigAlg={SignatureAlgorithm}; KeyAlg={PublicKeyAlgorithm}; " +
-                   $"Expires={expires}; Subject={Subject}; Issuer={Issuer}; ChainLength={ChainLength}";
+                   $"Expires={expires}; Subject={Subject}; Issuer={Issuer}; ChainLength={ChainLength}" +
+                   (IsTrusted == false ? "; Certificate trust: not trusted" : "");
         }
     }
 
@@ -108,7 +113,8 @@ namespace NetworkMonitor.Connection
                     PublicKeyAlgorithmOid = keyAlgOid,
                     SignatureQuantumSafe = sigPqc,
                     PublicKeyQuantumSafe = keyPqc,
-                    ChainLength = certs.Count
+                    ChainLength = certs.Count,
+                    IsTrusted = ReadCertificateTrust(opensslOutput)
                 };
 
                 return true;
@@ -120,6 +126,20 @@ namespace NetworkMonitor.Connection
                     certs[i].Dispose();
                 }
             }
+        }
+
+        private static bool? ReadCertificateTrust(string output)
+        {
+            // Prefer OpenSSL's final verification result over intermediate output.
+            var results = Regex.Matches(output, @"Verify return code:\s*(\d+)",
+                RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+            if (results.Count > 0)
+                return int.TryParse(results[^1].Groups[1].Value,
+                    NumberStyles.None, CultureInfo.InvariantCulture, out var code) && code == 0;
+            if (Regex.IsMatch(output, @"verify error:num=\s*[1-9]\d*|Verification error:",
+                RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+                return false;
+            return null;
         }
 
         private static List<X509Certificate2> ExtractCertificates(string output)

@@ -47,6 +47,8 @@ public static class MessageSecurityPolicyRegistry
         MlDsaPrefix("cancelCommand"), MlDsaPrefix("getConnectSource"),
         MlDsaPrefix("getConnectList"), MlDsaPrefix("deleteConnect"),
         MlDsaPrefix("addConnect"), MlDsaPrefix("processorInit"),
+        MlDsaPrefix("processorAuthKey"), MlDsaPrefix("processorFirmwareUpdate"),
+        MlDsaPrefix("processorFirmwareHealthAck"),
 
         // Data control operations.
         MlDsaExact("dataPurge", "data", payloadFree: true),
@@ -150,16 +152,24 @@ public static class MessageSecurityPolicyRegistry
             return isProtected;
         }
 
+        // Exact operation names must win over prefix routes. For example,
+        // processorFirmwareUpdateRequest is an exact backend operation while
+        // processorFirmwareUpdate is a prefix for per-device routes.
         foreach (var policy in Policies)
         {
-            if (policy.Protection != protection) continue;
-            if (policy.RouteMatch == MessageRouteMatch.Exact &&
+            if (policy.Protection == protection &&
+                policy.RouteMatch == MessageRouteMatch.Exact &&
                 string.Equals(exchange, policy.Operation, StringComparison.Ordinal))
             {
                 operation = policy.Operation;
                 target = policy.Target;
                 return true;
             }
+        }
+
+        foreach (var policy in Policies)
+        {
+            if (policy.Protection != protection) continue;
             if (policy.RouteMatch == MessageRouteMatch.Prefix &&
                 exchange.StartsWith(policy.Operation, StringComparison.Ordinal) &&
                 exchange.Length > policy.Operation.Length)

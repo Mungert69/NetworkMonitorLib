@@ -79,8 +79,6 @@ public sealed class BackendSignedRabbitRepo : IRabbitRepo
         }
         if (!MessageSecurityPolicyRegistry.RequiresProcessorSignature(operation)) return false;
         bool useEcdsa = _processorSigner.RequiresEcdsa(target);
-        if (!useEcdsa && operation is "processorFirmwareUpdate" or "processorFirmwareHealthAck")
-            throw new InvalidOperationException("ESP32 firmware commands require IsQuantumCapable=false in processor state.");
         if (!useEcdsa) return false;
         if (obj == null) throw new InvalidOperationException("Signed processor command requires a payload.");
         var envelope = _processorSigner.Sign(operation, target, obj);
