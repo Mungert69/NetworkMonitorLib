@@ -40,6 +40,7 @@ public static class ProcessorMqttRegistration
         return new ProcessorObj {
             AppID = input.AppID, Owner = owner, IsPrivate = true,
             Location = input.Location, MaxLoad = input.MaxLoad,
+            PType = input.PType,
             IsQuantumCapable = input.IsQuantumCapable, RabbitTopologyVersion = 2,
             DisabledEndPointTypes = input.DisabledEndPointTypes.ToList(),
             DisabledCommands = input.DisabledCommands.ToList()
