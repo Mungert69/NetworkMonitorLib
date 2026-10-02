@@ -240,6 +240,7 @@ namespace NetworkMonitor.Objects.Repository
                         updateProcessor.MaxLoad = processorObj.MaxLoad;
                         updateProcessor.IsEnabled = processorObj.IsEnabled;
                         updateProcessor.IsQuantumCapable = processorObj.IsQuantumCapable;
+                        updateProcessor.PType = processorObj.PType;
                         updateProcessor.AuthKey = processorObj.AuthKey;
                         updateProcessor.CustomConnects = processorObj.CustomConnects;
                         var resultStateChange = _processorState.AddAppIDStateChange(processorObj.AppID);

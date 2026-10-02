@@ -13,4 +13,6 @@ public sealed class CProcessorReadyObj
     public bool IsProcessorReady { get; set; }
     public int RabbitTopologyVersion { get; set; }
     public bool IsQuantumCapable { get; set; } = true;
+    private string _pType = string.Empty;
+    public string PType { get => _pType; set => _pType = value ?? string.Empty; }
 }

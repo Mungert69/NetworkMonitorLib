@@ -18,7 +18,7 @@ public class ProcessorStateRabbitListnerTests
     public async Task UpdateProcessor_PropagatesCapabilityOnlyWhenSignatureIsValid(
         bool original, bool incoming, bool validSignature)
     {
-        var cached = new ProcessorObj { AppID = "test", IsQuantumCapable = original, IsReady = true };
+        var cached = new ProcessorObj { AppID = "test", IsQuantumCapable = original, IsReady = true, PType = "original" };
         var state = new ProcessorState();
         state.ResetConcurrentProcessorList(new List<ProcessorObj> { cached });
         var helper = new Mock<ISystemParamsHelper>();
@@ -34,11 +34,12 @@ public class ProcessorStateRabbitListnerTests
             helper.Object, state, files.Object, verifier.Object);
 
         var result = await listener.UpdateProcessor(new ProcessorObj {
-            AppID = "test", IsQuantumCapable = incoming, IsReady = false
+            AppID = "test", IsQuantumCapable = incoming, IsReady = false, PType = "ESP32-S3"
         });
 
         Assert.Equal(validSignature, result.Success);
         Assert.Equal(validSignature ? incoming : original, cached.IsQuantumCapable);
+        Assert.Equal(validSignature ? "ESP32-S3" : "original", cached.PType);
         Assert.True(cached.IsReady);
         files.Verify(x => x.SaveStateJsonAsync("ProcessorList",
             It.Is<List<ProcessorObj>>(p => p.Exists(v => v.AppID == "test" && v.IsQuantumCapable == incoming))),

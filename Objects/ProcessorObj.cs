@@ -17,6 +17,8 @@ namespace NetworkMonitor.Objects
     {
         public ProcessorObj() { }
         public bool IsQuantumCapable { get; set; } = true;
+        private string _pType = string.Empty;
+        public string PType { get => _pType; set => _pType = value ?? string.Empty; }
 
         public ProcessorObj(ProcessorObj other, bool showAuthKey)
         {
@@ -36,6 +38,7 @@ namespace NetworkMonitor.Objects
             RabbitPort = other.RabbitPort;
             RabbitTopologyVersion = other.RabbitTopologyVersion;
             IsQuantumCapable = other.IsQuantumCapable;
+            PType = other.PType;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
@@ -62,6 +65,7 @@ namespace NetworkMonitor.Objects
             RabbitPort = other.RabbitPort;
             RabbitTopologyVersion = other.RabbitTopologyVersion;
             IsQuantumCapable = other.IsQuantumCapable;
+            PType = other.PType;
             DisabledEndPointTypes = new List<string>(other.DisabledEndPointTypes);
             DisabledCommands = new List<string>(other.DisabledCommands);
             CustomConnects = new List<string>(other.CustomConnects);
