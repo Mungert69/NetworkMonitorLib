@@ -18,6 +18,7 @@ namespace NetworkMonitor.Connection
         private SystemUrl _localSystemUrl = new SystemUrl();
         private string _appID = "";
         private string _appName = "";
+        private string _pType = string.Empty;
         private string _appDataDirectory;
         private string _nativeLibDir = string.Empty;
         private string _googleSearchApiKey;
@@ -54,6 +55,13 @@ namespace NetworkMonitor.Connection
                     OnPropertyChanged();
                 }
             }
+        }
+
+        /// <summary>Build platform identifier reported when this processor registers.</summary>
+        public string PType
+        {
+            get => _pType;
+            set => _pType = value?.Trim() ?? string.Empty;
         }
 
         public async Task SetLocalSystemUrlAsync(SystemUrl value)
