@@ -79,6 +79,8 @@ namespace NetworkMonitor.Connection
                     if (TryExtractMetricValue(result.Message, metric, out var metricValue, out var metricLabel))
                     {
                         responseTime = metricValue;
+                        // PingInfo statuses share a ushort lookup table; readings belong in
+                        // the numeric sample and monitor message, never in the status label.
                         ProcessStatus($"BLE {metricLabel}", responseTime, result.Message);
                     }
                     else
@@ -128,7 +130,7 @@ namespace NetworkMonitor.Connection
                 if (TryMatchNumber(output, @"PV power:\s*(?<val>[-+]?\d+)", out var num))
                 {
                     value = ClampUShort((int)num);
-                    label = $"pv_power={value}W";
+                    label = "pv_power";
                     return true;
                 }
                 return false;
@@ -140,7 +142,7 @@ namespace NetworkMonitor.Connection
                 {
                     var scaled = (int)Math.Round(num * 100, MidpointRounding.AwayFromZero);
                     value = ClampUShort(scaled);
-                    label = $"battery_voltage={num:F2}V";
+                    label = "battery_voltage";
                     return true;
                 }
                 return false;
@@ -152,7 +154,7 @@ namespace NetworkMonitor.Connection
                 {
                     var scaled = (int)Math.Round(num * 10, MidpointRounding.AwayFromZero);
                     value = ClampUShort(scaled);
-                    label = $"battery_current={num:F1}A";
+                    label = "battery_current";
                     return true;
                 }
                 return false;
@@ -164,7 +166,7 @@ namespace NetworkMonitor.Connection
                 {
                     var scaled = (int)Math.Round(num * 10, MidpointRounding.AwayFromZero);
                     value = ClampUShort(scaled);
-                    label = $"load_current={num:F1}A";
+                    label = "load_current";
                     return true;
                 }
                 return false;
@@ -176,7 +178,7 @@ namespace NetworkMonitor.Connection
                 {
                     var scaled = (int)Math.Round(num * 100, MidpointRounding.AwayFromZero);
                     value = ClampUShort(scaled);
-                    label = $"yield_today={num:F2}kWh";
+                    label = "yield_today";
                     return true;
                 }
                 return false;
