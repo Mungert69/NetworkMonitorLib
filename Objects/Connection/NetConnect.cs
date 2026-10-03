@@ -48,6 +48,11 @@ namespace NetworkMonitor.Connection
         protected NetConnectConfig? NetConfig { get; private set; }
         protected ICmdProcessorProvider? CmdProcessorProvider { get; private set; }
         protected IBrowserHost? BrowserHost { get; private set; }
+        /// <summary>Dynamic connects must override with a finite array of literal labels.
+        /// Changing readings belong in monitor diagnostics, never PingInfo.Status.</summary>
+        public virtual IReadOnlyCollection<string> StatusLabels => Array.Empty<string>();
+        private DynamicConnectStatusPolicy? _dynamicStatusPolicy;
+        internal void SetDynamicStatusPolicy(DynamicConnectStatusPolicy policy) => _dynamicStatusPolicy = policy;
         public ushort RoundTrip { get => _roundTrip; set => _roundTrip = value; }
         //public PingParams PingParams { get => _pingParams; set => _pingParams = value; }
         public uint PiID { get => _piID; set => _piID = value; }
@@ -118,6 +123,7 @@ namespace NetworkMonitor.Connection
             _mpiConnect.IsUp = false;
             _mpiConnect.PingInfo.Status = shortMessage;
             _mpiConnect.PingInfo.RoundTripTime = UInt16.MaxValue;
+            _dynamicStatusPolicy?.Validate(_mpiConnect);
         }
         protected void ProcessStatus(string reply, ushort timeTaken, string extraData = "")
         {
@@ -126,6 +132,7 @@ namespace NetworkMonitor.Connection
             _mpiConnect.PingInfo.Status = reply;
             _mpiConnect.PingInfo.RoundTripTime = timeTaken;
             _mpiConnect.IsUp = true;
+            _dynamicStatusPolicy?.Validate(_mpiConnect);
         }
 
     }

@@ -288,6 +288,9 @@ namespace NetworkMonitor.Connection
 
             var typeName = $"NetworkMonitor.Connection.{connectType}Connect";
             var type = _compiler.CompileAndGetType(sourceCode, typeName);
+            // Reject invalid factories/instances before registering or saving source.
+            var validated = _compiler.CreateConnectInstance(type);
+            validated.Cts.Dispose();
 
             _dynamicConnectTypes[connectType] = type;
             if (!_connectTypes.Contains(connectType, StringComparer.OrdinalIgnoreCase))
