@@ -84,22 +84,25 @@ foreach ($dest in $windowsDestinations) {
 }
 }
 
-# Run create-manifest scripts
-$manifestScripts = @(
-    "C:\code\QuantumSecure\Resources\Raw\windowsdlls\create-manifest-windows.ps1",
-    "C:\code\NetworkMonitorAgent\Resources\Raw\windowsdlls\create-manifest-windows.ps1"
-)
-
-foreach ($script in $manifestScripts) {
+# Run the manifest generator from each destination so the manifest describes its DLLs
+foreach ($dest in $windowsDestinations) {
+    $script = Join-Path -Path $dest -ChildPath 'create-manifest-windows.ps1'
     if (!(Test-Path $script)) {
         Log "ERROR: Manifest script not found: $script"
         continue
     }
 
     Log "Running create-manifest: $script"
+    Push-Location $dest
     $manifestOutput = powershell -ExecutionPolicy Bypass -File $script 2>&1
+    $manifestExitCode = $LASTEXITCODE
+    Pop-Location
     $manifestOutput | Out-File -Append $LOG_FILE
     Log "Manifest script output: $manifestOutput"
+    if ($manifestExitCode -ne 0) {
+        Log "ERROR: Manifest generation failed for '$dest' with exit code $manifestExitCode"
+        exit 1
+    }
 }
 
 Log "Script completed successfully"
