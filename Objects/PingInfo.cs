@@ -39,12 +39,22 @@ namespace NetworkMonitor.Objects
             }
         }
         /// <summary>
-        /// The status of this event.
+        /// A fixed category label for this event, not a changing diagnostic message.
         /// </summary>
+        /// <remarks>
+        /// The backend interns each distinct status string in StatusList using a
+        /// ushort ID. Keep the vocabulary bounded: never include measurements,
+        /// addresses, timestamps, captured payloads or variable error details here.
+        /// For example, use "BLE battery_voltage", not "BLE battery_voltage=13.67V".
+        /// Put detailed readings and diagnostics in MonitorPingInfo messages, and
+        /// retain the endpoint's existing numeric sample/scaling in RoundTripTime.
+        /// This contract applies to every processor implementation, including ESP32.
+        /// </remarks>
         [NotMapped]
         public string? Status { get; set; }
         /// <summary>
-        /// Database field to store status in seperate lookup table to reduce storage.
+        /// References the shared StatusList lookup to reduce storage. Its ushort
+        /// ID space is finite; Status must use fixed labels to avoid exhausting it.
         /// </summary>
         public ushort StatusID { get; set; }
         /// <summary>
