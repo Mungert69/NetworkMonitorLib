@@ -6,6 +6,8 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
@@ -51,6 +53,7 @@ namespace NetworkMonitor.Connection
         public Type CompileAndGetType(string sourceCode, string typeName)
         {
             var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
+            ValidateStatusDeclaration(syntaxTree, typeName);
             var references = GetMetadataReferences();
 
             var compilation = CSharpCompilation.Create(
@@ -91,6 +94,49 @@ namespace NetworkMonitor.Connection
         }
 
         public INetConnect CreateConnectInstance(Type type)
+        {
+            var instance = CreateUnvalidatedInstance(type);
+            if (instance is not NetConnect connect || instance.GetType() != type)
+            {
+                instance?.Cts.Dispose();
+                throw new InvalidOperationException("Dynamic factories must return an instance of their declared NetConnect class with StatusLabels.");
+            }
+            try
+            {
+                var policy = new DynamicConnectStatusPolicy(connect.StatusLabels, _loggerFactory.CreateLogger(type));
+                connect.SetDynamicStatusPolicy(policy);
+                return new GuardedDynamicConnect(connect, policy);
+            }
+            catch
+            {
+                connect.Cts.Dispose();
+                throw;
+            }
+        }
+
+        private static void ValidateStatusDeclaration(SyntaxTree tree, string typeName)
+        {
+            var className = typeName.Split('.').Last();
+            var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+                .SingleOrDefault(c => c.Identifier.ValueText == className);
+            var property = declaration?.Members.OfType<PropertyDeclarationSyntax>()
+                .SingleOrDefault(p => p.Identifier.ValueText == "StatusLabels");
+            // Literal-only declarations prevent host/config-dependent vocabularies.
+            IEnumerable<ExpressionSyntax>? expressions = property?.ExpressionBody?.Expression switch
+            {
+                ImplicitArrayCreationExpressionSyntax array => array.Initializer.Expressions,
+                ArrayCreationExpressionSyntax array => array.Initializer?.Expressions,
+                CollectionExpressionSyntax collection when collection.Elements.All(e => e is ExpressionElementSyntax)
+                    => collection.Elements.Cast<ExpressionElementSyntax>().Select(e => e.Expression),
+                _ => null
+            };
+            if (expressions == null || !property!.Modifiers.Any(SyntaxKind.OverrideKeyword) ||
+                expressions.Any(e => e is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.StringLiteralExpression)))
+                throw new InvalidOperationException("Dynamic connects must declare: public override IReadOnlyCollection<string> StatusLabels => new[] { \"Service available\", \"Service unavailable\" }; Use only literal strings, include failure labels, and keep changing data in diagnostics.");
+            _ = new DynamicConnectStatusPolicy(expressions.Cast<LiteralExpressionSyntax>().Select(e => e.Token.ValueText), NullLogger.Instance);
+        }
+
+        private INetConnect CreateUnvalidatedInstance(Type type)
         {
             var logger = _loggerFactory.CreateLogger(type);
 
