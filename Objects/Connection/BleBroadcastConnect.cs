@@ -11,6 +11,8 @@ namespace NetworkMonitor.Connection
     {
         private readonly ICmdProcessor? _cmdProcessor;
         private const string DefaultMetric = "pv_power";
+        // This endpoint mixes selected readings and elapsed-time fallbacks.
+        public override string Unit => "raw value";
 
         public BleBroadcastConnect(ICmdProcessorProvider? cmdProcessorProvider)
         {

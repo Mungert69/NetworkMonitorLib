@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
@@ -20,6 +21,7 @@ namespace NetworkMonitor.Connection
         Task<ResultObj> PublishConnectList(ProcessorScanDataObj processorScanDataObj);
         Task PublishAckMessage(ProcessorScanDataObj processorScanDataObj);
         Task<ResultObj> Setup();
+        Task PublishMeasurementCatalogue() => Task.CompletedTask;
     }
 
     public class ConnectProvider : IConnectProvider
@@ -31,6 +33,8 @@ namespace NetworkMonitor.Connection
         private readonly IBrowserHost? _browserHost;
         private readonly ICmdProcessorProvider? _cmdProcessorProvider;
         private readonly ConnectCompiler _compiler;
+        private Task _dynamicSetup = Task.CompletedTask;
+        private readonly ConcurrentDictionary<string, EndpointMeasurementDefinition> _measurements = new(StringComparer.OrdinalIgnoreCase);
 
         private readonly Dictionary<string, Type> _dynamicConnectTypes = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _sourceCodeFileMap = new(StringComparer.OrdinalIgnoreCase);
@@ -39,7 +43,7 @@ namespace NetworkMonitor.Connection
         private readonly List<string> _coreConnectTypes = new()
         {
             "icmp", "http", "https", "httphtml", "httpfull", "sitehash", "dns", "smtp", "quantum",
-            "quantumcert", "rawconnect", "blebroadcast", "blebroadcastlisten", "nmap", "nmapvuln",
+            "quantumcert", "rawconnect", "configintegrity", "blebroadcast", "blebroadcastlisten", "nmap", "nmapvuln",
             "crawlsite", "dailycrawl", "dailyhugkeepalive", "hugwake"
         };
 
@@ -78,7 +82,11 @@ namespace NetworkMonitor.Connection
                     PopulateSourceCodeFileMap(_netConfig.CommandPath);
                 }
 
-                Task.Run(() => SetupDynamicConnects());
+                _dynamicSetup = Task.Run(async () =>
+                {
+                    await SetupDynamicConnects();
+                    await PublishMeasurementCatalogueCore();
+                });
 
                 result.Success = true;
                 result.Message = "Success: Connect provider setup complete. Dynamic connects loading in background.";
@@ -102,8 +110,43 @@ namespace NetworkMonitor.Connection
             return null;
         }
 
+        public async Task PublishMeasurementCatalogue()
+        {
+            await _dynamicSetup;
+            await PublishMeasurementCatalogueCore();
+        }
+
+        // Event-driven and best effort: no pending flags, retries or acknowledgement state.
+        private async Task PublishMeasurementCatalogueCore()
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_netConfig.AuthKey)) return;
+                // Only dynamically compiled Connects belong in the processor-specific catalogue.
+                var definitions = _measurements.Values.Select(d => new EndpointMeasurementDefinition
+                    { EndpointType = d.EndpointType, Unit = d.Unit, Scale = d.Scale, Type = d.Type }).ToList();
+                await _rabbitRepo.PublishJsonZWithIDAsync<ProcessorDataObj>("dataUpdateMonitorPingInfos",
+                    new ProcessorDataObj { AppID = _netConfig.AppID, AuthKey = _netConfig.AuthKey,
+                        EndpointMeasurements = definitions }, _netConfig.AppID);
+                _logger.LogInformation("Published measurement catalogue for {AppID}: {Count} definitions", _netConfig.AppID, definitions.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Measurement catalogue publication failed; best effort only");
+            }
+        }
+
+        private static EndpointMeasurementDefinition Describe(string endpoint, INetConnect connect)
+        {
+            var definition = new EndpointMeasurementDefinition
+                { EndpointType = endpoint.ToLowerInvariant(), Unit = connect.Unit, Scale = connect.Scale, Type = connect.Type };
+            if (!definition.IsValid()) throw new InvalidOperationException("Connect measurement requires a short unit and a finite positive scale.");
+            return definition;
+        }
+
         public async Task<ResultObj> AddConnect(ProcessorScanDataObj processorScanDataObj)
         {
+            await _dynamicSetup;
             var result = new ResultObj();
             var connectType = processorScanDataObj.Type?.Trim() ?? string.Empty;
 
@@ -144,6 +187,7 @@ namespace NetworkMonitor.Connection
                     var compileResult = await CompileAndRegisterConnect(connectType, processorScanDataObj.Arguments);
                     result.Success = compileResult.Success;
                     result.Message = compileResult.Message;
+                    if (result.Success) await PublishMeasurementCatalogue();
                 }
                 catch (Exception ex)
                 {
@@ -160,6 +204,7 @@ namespace NetworkMonitor.Connection
 
         public async Task<ResultObj> DeleteConnect(ProcessorScanDataObj processorScanDataObj)
         {
+            await _dynamicSetup;
             var result = new ResultObj();
             var connectType = processorScanDataObj.Type?.Trim() ?? string.Empty;
 
@@ -178,6 +223,7 @@ namespace NetworkMonitor.Connection
                 try
                 {
                     _dynamicConnectTypes.Remove(connectType);
+                    _measurements.TryRemove(connectType, out _);
                     _connectTypes.RemoveAll(t => string.Equals(t, connectType, StringComparison.OrdinalIgnoreCase));
 
                     if (_sourceCodeFileMap.TryGetValue(connectType, out var sourceFilePath))
@@ -200,6 +246,7 @@ namespace NetworkMonitor.Connection
 
                     result.Success = true;
                     result.Message = $"Success : deleted connect type {connectType}.";
+                    await PublishMeasurementCatalogue();
                 }
                 catch (Exception ex)
                 {
@@ -290,9 +337,12 @@ namespace NetworkMonitor.Connection
             var type = _compiler.CompileAndGetType(sourceCode, typeName);
             // Reject invalid factories/instances before registering or saving source.
             var validated = _compiler.CreateConnectInstance(type);
-            validated.Cts.Dispose();
+            EndpointMeasurementDefinition measurement;
+            try { measurement = Describe(connectType, validated); }
+            finally { validated.Cts.Dispose(); }
 
             _dynamicConnectTypes[connectType] = type;
+            _measurements[connectType] = measurement;
             if (!_connectTypes.Contains(connectType, StringComparer.OrdinalIgnoreCase))
             {
                 _connectTypes.Add(connectType);

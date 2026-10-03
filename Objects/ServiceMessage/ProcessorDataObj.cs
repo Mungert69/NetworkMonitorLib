@@ -39,6 +39,9 @@ namespace NetworkMonitor.Objects.ServiceMessage
         public List<MonitorIP> MonitorIPs { get => _monitorIPs; set => _monitorIPs = value; }
         public string RabbitPassword { get => _rabbitPassword; set => _rabbitPassword = value; }
         public string BackendSignature { get; set; } = "";
+        // Omitted means unchanged; an empty list removes this processor's catalogue.
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public List<EndpointMeasurementDefinition>? EndpointMeasurements { get; set; }
 
         public void Dispose()
         {

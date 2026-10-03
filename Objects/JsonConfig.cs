@@ -138,6 +138,7 @@ namespace NetworkMonitor.Objects
     [JsonSerializable(typeof(RefreshAuthKeyObj))]
     [JsonSerializable(typeof(GradLlmHmacEnvelope))]
     [JsonSerializable(typeof(ProcessorDataObj))]
+    [JsonSerializable(typeof(List<EndpointMeasurementDefinition>))]
     [JsonSerializable(typeof(ProcessorScanDataObj))]
     [JsonSerializable(typeof(FunctionRegistryReply))]
     [JsonSerializable(typeof(CmdProcessorFunctionSpec))]

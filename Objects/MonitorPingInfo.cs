@@ -16,6 +16,9 @@ namespace NetworkMonitor.Objects
 
     public class MonitorPingInfo
     {
+        // API display fields, populated by the measurement catalogue reader.
+        [NotMapped] public string Unit { get; set; } = "ms";
+        [NotMapped] public double Scale { get; set; } = 1;
         // Empty constructor for EF
         public MonitorPingInfo()
         {
@@ -24,6 +27,8 @@ namespace NetworkMonitor.Objects
         // Copy constructor
         public MonitorPingInfo(MonitorPingInfo copy)
         {
+            Unit = copy.Unit;
+            Scale = copy.Scale;
             ID = copy.ID;
             AppID = copy.AppID;
             DataSetID = copy.DataSetID;
@@ -63,6 +68,8 @@ namespace NetworkMonitor.Objects
 
         public MonitorPingInfo(MonitorPingInfo copy, bool copyAll)
         {
+            Unit = copy.Unit;
+            Scale = copy.Scale;
             ID = copy.ID;
             AppID = copy.AppID;
             DataSetID = copy.DataSetID;

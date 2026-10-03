@@ -10,6 +10,9 @@ namespace NetworkMonitor.Connection
 {
     public interface INetConnect
     {
+        string Unit => "ms";
+        double Scale => 1;
+        string Type => "";
         ushort RoundTrip { get; set; }
         //MonitorPingInfo MonitorPingInfo { get; set; }
         //PingParams PingParams { get; set; }
@@ -48,6 +51,10 @@ namespace NetworkMonitor.Connection
         protected NetConnectConfig? NetConfig { get; private set; }
         protected ICmdProcessorProvider? CmdProcessorProvider { get; private set; }
         protected IBrowserHost? BrowserHost { get; private set; }
+        // Constant display metadata for an endpoint definition; defaults are durations.
+        public virtual string Unit => "ms";
+        public virtual double Scale => 1;
+        public virtual string Type => "";
         /// <summary>Dynamic connects must override with a finite array of literal labels.
         /// Changing readings belong in monitor diagnostics, never PingInfo.Status.</summary>
         public virtual IReadOnlyCollection<string> StatusLabels => Array.Empty<string>();

@@ -48,3 +48,23 @@ Both endpoints live in this folder and are wired in `EndPointTypeFactory`.
 For non-Victron payloads, command processors can attempt AES-GCM or AES-CTR when
 the caller provides a key. Optional layout flags let callers describe the nonce/tag
 layout so the decoder can work with different device formats.
+
+## Measurement definitions
+
+Connects inherit constant `Unit = "ms"`, `Scale = 1`, and `Type = ""` properties.
+Custom endpoints can override these (for example `Unit => "V"` and `Scale => 0.01`
+for a reading stored in hundredths of a volt). Scale is a display multiplier;
+storage and probe status semantics do not change. Keep one measurement meaning
+per endpoint name. Do not derive these properties from host configuration or
+individual probe results. Type is reserved for future interpretation.
+
+The provider builds and sends only its custom Connect catalogue on startup, processor init,
+and successful custom Connect changes, through the existing processor data route.
+Delivery is best effort. Ordinary monitoring publications do not contain it.
+Built-in metadata is built once per backend process by `EndpointMeasurementDefaults`
+using the fixed Connect classes. The immutable catalogue keeps only non-default
+definitions and never initializes or executes probes. No built-in database rows
+or processor-specific copies are needed.
+Targeted BLE is labelled `raw value` until its variable measurement semantics are
+handled separately. See NetworkMonitorData/tools/endpoint-measurements.md for the
+database and frontend flow.
