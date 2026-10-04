@@ -72,7 +72,7 @@ namespace NetworkMonitor.Connection
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    Help = "Encryption key (hex, base64, or raw; 16/24/32 bytes). Optional."
+                    Help = "Protocol encryption key (hex, base64, or raw). Omit for unencrypted packets."
                 },
                 new ArgSpec
                 {
@@ -81,7 +81,7 @@ namespace NetworkMonitor.Connection
                     IsFlag = false,
                     TypeHint = "value",
                     DefaultValue = "aesgcm",
-                    Help = "Payload format: raw, aesgcm, aesctr, or victron."
+                    Help = "Payload format: raw, aesgcm, aesctr, victron, ruuvi, or bthome."
                 },
                 new ArgSpec
                 {
@@ -116,8 +116,7 @@ namespace NetworkMonitor.Connection
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    DefaultValue = "manufacturer",
-                    Help = "Payload source: manufacturer, service, or raw."
+                    Help = "Payload source: manufacturer, service, or raw. Defaults to the selected protocol."
                 },
                 new ArgSpec
                 {
@@ -179,15 +178,16 @@ namespace NetworkMonitor.Connection
             int nonceLength = parsed.GetInt("nonce_len", 12);
             int tagLength = parsed.GetInt("tag_len", 16);
             string nonceAt = parsed.GetString("nonce_at", "start");
-            string payloadMode = parsed.GetString("payload", "manufacturer");
+            var selectedDecoder = BlePayloadDecoderRegistry.Default.Find(format);
+            string payloadMode = parsed.GetString("payload", selectedDecoder?.DefaultPayloadMode ?? "manufacturer");
             int manufacturerId = parsed.GetInt("manufacturer_id", -1);
-            string serviceUuid = parsed.GetString("service_uuid");
+            string serviceUuid = parsed.GetString("service_uuid", selectedDecoder?.ServiceUuid ?? "");
             int maxCaptures = parsed.GetInt("max_captures", DefaultMaxCaptures);
             string rawPayload = parsed.GetString("raw_payload");
 
             string normalizedAddress = "";
 
-            if (!TryParseKey(keyRaw, out var keyBytes, out var keyError))
+            if (!BleKeyParser.TryParse(keyRaw, selectedDecoder, out var keyBytes, out var keyError))
             {
                 return new ResultObj { Success = false, Message = keyError };
             }
@@ -273,9 +273,9 @@ namespace NetworkMonitor.Connection
             try
             {
                 format = format.Trim().ToLowerInvariant();
-                if (format == "victron" && manufacturerId == -1)
+                if (BlePayloadDecoderRegistry.Default.Find(format)?.ManufacturerId is int defaultManufacturerId && manufacturerId == -1)
                 {
-                    manufacturerId = 0x02E1; // Victron manufacturer ID
+                    manufacturerId = defaultManufacturerId;
                 }
 
                 BleListenScanResult scanResult;
@@ -300,7 +300,8 @@ namespace NetworkMonitor.Connection
                         serviceUuid,
                         maxCaptures,
                         cancellationToken,
-                        format == "victron" && keyBytes.Length > 0,
+                        BlePayloadDecoderRegistry.Default.Find(format) is { } filterDecoder
+                            && (!filterDecoder.RequiresKey || keyBytes.Length > 0) ? filterDecoder : null,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
@@ -320,8 +321,8 @@ namespace NetworkMonitor.Connection
             string serviceUuid,
             int maxCaptures,
             CancellationToken cancellationToken,
-            bool requireVictronInstantReadout,
-            byte victronKeyFirstByte)
+            IBlePayloadDecoder? packetDecoder,
+            byte keyFirstByte)
         {
             var context = Android.App.Application.Context;
             var manager = (BluetoothManager?)context.GetSystemService(Context.BluetoothService);
@@ -349,8 +350,8 @@ namespace NetworkMonitor.Connection
                 payloadMode,
                 manufacturerId,
                 serviceUuid,
-                requireVictronInstantReadout,
-                victronKeyFirstByte,
+                packetDecoder,
+                keyFirstByte,
                 maxCaptures,
                 captures,
                 tcs,
@@ -396,7 +397,8 @@ namespace NetworkMonitor.Connection
             if (!string.IsNullOrWhiteSpace(serviceUuid))
             {
                 var uuid = UUID.FromString(serviceUuid);
-                builder.SetServiceUuid(new ParcelUuid(uuid));
+                // Match service data itself; BTHome need not advertise a separate UUID list.
+                builder.SetServiceData(new ParcelUuid(uuid), Array.Empty<byte>());
                 hasFilter = true;
             }
 
@@ -418,8 +420,8 @@ namespace NetworkMonitor.Connection
             private readonly string _payloadMode;
             private readonly int _manufacturerId;
             private readonly string _serviceUuid;
-            private readonly bool _requireVictronInstantReadout;
-            private readonly byte _victronKeyFirstByte;
+            private readonly IBlePayloadDecoder? _packetDecoder;
+            private readonly byte _keyFirstByte;
             private readonly int _maxCaptures;
             private readonly List<BleCapture> _captures;
             private readonly object _lock = new object();
@@ -431,8 +433,8 @@ namespace NetworkMonitor.Connection
                 string payloadMode,
                 int manufacturerId,
                 string serviceUuid,
-                bool requireVictronInstantReadout,
-                byte victronKeyFirstByte,
+                IBlePayloadDecoder? packetDecoder,
+                byte keyFirstByte,
                 int maxCaptures,
                 List<BleCapture> captures,
                 TaskCompletionSource<string> tcs,
@@ -442,8 +444,8 @@ namespace NetworkMonitor.Connection
                 _payloadMode = (payloadMode ?? "manufacturer").Trim().ToLowerInvariant();
                 _manufacturerId = manufacturerId;
                 _serviceUuid = serviceUuid ?? "";
-                _requireVictronInstantReadout = requireVictronInstantReadout;
-                _victronKeyFirstByte = victronKeyFirstByte;
+                _packetDecoder = packetDecoder;
+                _keyFirstByte = keyFirstByte;
                 _maxCaptures = maxCaptures;
                 _captures = captures;
                 _tcs = tcs;
@@ -470,9 +472,9 @@ namespace NetworkMonitor.Connection
                     return;
                 }
 
-                if (_requireVictronInstantReadout && !IsVictronInstantReadout(payload, payloadType, _victronKeyFirstByte))
+                if (_packetDecoder != null && !_packetDecoder.Accepts(payload, payloadType, _keyFirstByte))
                 {
-                    _logger.LogDebug("Ignoring non-Victron instant readout packet. {Details}", DescribeVictronPayload(payload, payloadType));
+                    _logger.LogDebug("Ignoring packet rejected by protocol decoder. {Details}", _packetDecoder.Describe(payload, payloadType));
                     return;
                 }
 
@@ -604,6 +606,7 @@ namespace NetworkMonitor.Connection
                         return kvp.Value ?? Array.Empty<byte>();
                     }
                 }
+                return Array.Empty<byte>();
             }
 
             foreach (var kvp in serviceData)
@@ -630,9 +633,9 @@ namespace NetworkMonitor.Connection
             try
             {
                 format = format.Trim().ToLowerInvariant();
-                if (format == "victron" && manufacturerId == -1)
+                if (BlePayloadDecoderRegistry.Default.Find(format)?.ManufacturerId is int defaultManufacturerId && manufacturerId == -1)
                 {
-                    manufacturerId = 0x02E1;
+                    manufacturerId = defaultManufacturerId;
                 }
 
                 BleListenScanResult scanResult;
@@ -657,7 +660,8 @@ namespace NetworkMonitor.Connection
                         serviceUuid,
                         maxCaptures,
                         cancellationToken,
-                        format == "victron" && keyBytes.Length > 0,
+                        BlePayloadDecoderRegistry.Default.Find(format) is { } filterDecoder
+                            && (!filterDecoder.RequiresKey || keyBytes.Length > 0) ? filterDecoder : null,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
@@ -677,8 +681,8 @@ namespace NetworkMonitor.Connection
             string serviceUuid,
             int maxCaptures,
             CancellationToken cancellationToken,
-            bool requireVictronInstantReadout,
-            byte victronKeyFirstByte)
+            IBlePayloadDecoder? packetDecoder,
+            byte keyFirstByte)
         {
             _ = address;
             _ = payloadMode;
@@ -686,8 +690,8 @@ namespace NetworkMonitor.Connection
             _ = serviceUuid;
             _ = maxCaptures;
             _ = cancellationToken;
-            _ = requireVictronInstantReadout;
-            _ = victronKeyFirstByte;
+            _ = packetDecoder;
+            _ = keyFirstByte;
 
             throw new NotSupportedException(
                 "BLE scan on Linux requires BlueZ/D-Bus integration and privileged access to the host BLE adapter.");
@@ -714,9 +718,9 @@ namespace NetworkMonitor.Connection
             try
             {
                 format = format.Trim().ToLowerInvariant();
-                if (format == "victron" && manufacturerId == -1)
+                if (BlePayloadDecoderRegistry.Default.Find(format)?.ManufacturerId is int defaultManufacturerId && manufacturerId == -1)
                 {
-                    manufacturerId = 0x02E1; // Victron manufacturer ID
+                    manufacturerId = defaultManufacturerId;
                 }
 
                 BleListenScanResult scanResult;
@@ -741,7 +745,8 @@ namespace NetworkMonitor.Connection
                         serviceUuid,
                         maxCaptures,
                         cancellationToken,
-                        format == "victron" && keyBytes.Length > 0,
+                        BlePayloadDecoderRegistry.Default.Find(format) is { } filterDecoder
+                            && (!filterDecoder.RequiresKey || keyBytes.Length > 0) ? filterDecoder : null,
                         keyBytes.Length > 0 ? keyBytes[0] : (byte)0);
                 }
 
@@ -761,8 +766,8 @@ namespace NetworkMonitor.Connection
             string serviceUuid,
             int maxCaptures,
             CancellationToken cancellationToken,
-            bool requireVictronInstantReadout,
-            byte victronKeyFirstByte)
+            IBlePayloadDecoder? packetDecoder,
+            byte keyFirstByte)
         {
             var captures = new List<BleCapture>();
             var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -788,9 +793,9 @@ namespace NetworkMonitor.Connection
                     return;
                 }
 
-                if (requireVictronInstantReadout && !IsVictronInstantReadout(payload, payloadType, victronKeyFirstByte))
+                if (packetDecoder != null && !packetDecoder.Accepts(payload, payloadType, keyFirstByte))
                 {
-                    _logger.LogDebug("Ignoring non-Victron instant readout packet. {Details}", DescribeVictronPayload(payload, payloadType));
+                    _logger.LogDebug("Ignoring packet rejected by protocol decoder. {Details}", packetDecoder.Describe(payload, payloadType));
                     return;
                 }
 
@@ -925,6 +930,7 @@ namespace NetworkMonitor.Connection
                             return data.AsSpan(16).ToArray();
                         }
                     }
+                    continue;
                 }
 
                 return data;
@@ -1070,7 +1076,8 @@ namespace NetworkMonitor.Connection
                 return sb.ToString().Trim();
             }
 
-            format = BleCryptoHelper.NormalizeFormat(format, keyBytes.Length > 0);
+            format = BlePayloadDecoderRegistry.Default.Find(format)?.Format
+                ?? BleCryptoHelper.NormalizeFormat(format, keyBytes.Length > 0);
 
             for (int i = 0; i < captures.Count; i++)
             {
@@ -1078,19 +1085,19 @@ namespace NetworkMonitor.Connection
                 sb.AppendLine();
                 sb.AppendLine($"--- Capture {i + 1} ---");
 
-                if (format == "victron")
+                if (BlePayloadDecoderRegistry.Default.Find(format) is { } decoder)
                 {
-                    if (keyBytes.Length == 0)
+                    if (decoder.RequiresKey && keyBytes.Length == 0)
                     {
-                        sb.AppendLine(BuildOutputMessage(capture, null, "No key provided; skipping Victron decode."));
+                        sb.AppendLine(BuildOutputMessage(capture, null, $"No key provided; skipping {decoder.Format} decode."));
                     }
-                    else if (TryDecodeVictron(capture, keyBytes, out var victronMessage, out var victronError))
+                    else if (decoder.TryDecode(new BlePayload(capture.Address, capture.PayloadType, capture.Payload), keyBytes, out var decodedMessage, out var decodeError))
                     {
-                        sb.AppendLine(victronMessage);
+                        sb.AppendLine(decodedMessage);
                     }
                     else
                     {
-                        sb.AppendLine(BuildOutputMessage(capture, null, victronError));
+                        sb.AppendLine(BuildOutputMessage(capture, null, decodeError));
                     }
                 }
                 else
@@ -1119,54 +1126,8 @@ namespace NetworkMonitor.Connection
             };
         }
 
-        private static bool TryParseKey(string input, out byte[] keyBytes, out string error)
-        {
-            keyBytes = Array.Empty<byte>();
-            error = "";
-
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return true;
-            }
-
-            string trimmed = input.Trim();
-            if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-            {
-                trimmed = trimmed.Substring(2);
-            }
-
-            if (IsHexString(trimmed))
-            {
-                try
-                {
-                    keyBytes = Convert.FromHexString(trimmed);
-                }
-                catch (Exception ex)
-                {
-                    error = $"Invalid hex key: {ex.Message}";
-                    return false;
-                }
-            }
-            else
-            {
-                try
-                {
-                    keyBytes = Convert.FromBase64String(trimmed);
-                }
-                catch
-                {
-                    keyBytes = Encoding.UTF8.GetBytes(trimmed);
-                }
-            }
-
-            if (keyBytes.Length != 16 && keyBytes.Length != 24 && keyBytes.Length != 32)
-            {
-                error = "Key length must be 16, 24, or 32 bytes (AES-128/192/256).";
-                return false;
-            }
-
-            return true;
-        }
+        private static bool TryParseKey(string input, out byte[] keyBytes, out string error) =>
+            BleKeyParser.TryParse(input, null, out keyBytes, out error);
 
         private static bool IsHexString(string value)
         {
@@ -1205,308 +1166,13 @@ namespace NetworkMonitor.Connection
             return sb.ToString().Trim();
         }
 
-        private static bool TryDecodeVictron(BleCapture capture, byte[] keyBytes, out string message, out string error)
-        {
-            message = "";
-            error = "";
+        // Compatibility hooks for existing packet fixtures; protocol implementation lives in Ble/.
+        private static bool IsVictronInstantReadout(byte[] payload, string payloadType, byte keyFirstByte) =>
+            VictronPayloadDecoder.IsVictronInstantReadout(payload, payloadType, keyFirstByte);
 
-            if (keyBytes.Length != 16)
-            {
-                error = "Victron decode requires a 16-byte AES-128 key.";
-                return false;
-            }
-
-            if (!TryExtractVictronRecord(capture.Payload, capture.PayloadType, out var record, out var extractError))
-            {
-                error = extractError;
-                return false;
-            }
-
-            if (record.KeyCheck != keyBytes[0])
-            {
-                error = $"Victron key check mismatch (recordType=0x{record.RecordType:X2}, nonce=0x{record.Nonce:X4}, header=0x{record.KeyCheck:X2}, key[0]=0x{keyBytes[0]:X2}).";
-                return false;
-            }
-
-            if (record.Cipher.Length == 0 || record.Cipher.Length > 16)
-            {
-                error = $"Victron cipher length {record.Cipher.Length} is invalid (expected 1..16).";
-                return false;
-            }
-
-            byte[] plaintext = DecryptVictronAesCtr(keyBytes, record.Nonce, record.Cipher);
-
-            var sb = new StringBuilder();
-            sb.AppendLine($"BLE address: {capture.Address}");
-            sb.AppendLine($"Payload ({capture.PayloadType}): {ToHex(capture.Payload)}");
-            sb.AppendLine($"Victron recordType: 0x{record.RecordType:X2}");
-            sb.AppendLine($"Victron nonce: 0x{record.Nonce:X4}");
-            sb.AppendLine($"Victron plaintext: {ToHex(plaintext)}");
-
-            if (record.RecordType == 0x01)
-            {
-                if (plaintext.Length < 10)
-                {
-                    error = $"Victron solar payload too short ({plaintext.Length}).";
-                    return false;
-                }
-
-                byte deviceState = plaintext[0];
-                byte chargerError = plaintext[1];
-                short batteryVoltageRaw = BinaryPrimitives.ReadInt16LittleEndian(plaintext.AsSpan(2, 2));
-                short batteryCurrentRaw = BinaryPrimitives.ReadInt16LittleEndian(plaintext.AsSpan(4, 2));
-                ushort yieldTodayRaw = BinaryPrimitives.ReadUInt16LittleEndian(plaintext.AsSpan(6, 2));
-                ushort pvPowerRaw = BinaryPrimitives.ReadUInt16LittleEndian(plaintext.AsSpan(8, 2));
-
-                double batteryVoltage = batteryVoltageRaw / 100.0;
-                double batteryCurrent = batteryCurrentRaw / 10.0;
-                double yieldToday = yieldTodayRaw / 100.0;
-
-                sb.AppendLine($"Battery voltage: {batteryVoltage:F2} V");
-                sb.AppendLine($"Battery current: {batteryCurrent:F1} A");
-                sb.AppendLine($"Yield today: {yieldToday:F2} kWh");
-                sb.AppendLine($"PV power: {pvPowerRaw} W");
-                sb.AppendLine($"Device state: {deviceState}");
-                sb.AppendLine($"Charger error: {chargerError}");
-
-                if (plaintext.Length >= 12)
-                {
-                    ushort load9 = (ushort)(plaintext[10] | ((plaintext[11] & 0x01) << 8));
-                    double? loadCurrentA = load9 == 0x1FF ? null : load9 / 10.0;
-                    sb.AppendLine(loadCurrentA is null
-                        ? "Load current: NA"
-                        : $"Load current: {loadCurrentA:F1} A");
-                }
-            }
-
-            message = sb.ToString().Trim();
-            return true;
-        }
-
-        private struct VictronRecord
-        {
-            public byte RecordType;
-            public ushort Nonce;
-            public byte KeyCheck;
-            public byte[] Cipher;
-        }
-
-        private static bool TryExtractVictronRecord(byte[] payload, string payloadType, out VictronRecord record, out string error)
-        {
-            record = default;
-            error = "";
-
-            if (payload.Length < 4)
-            {
-                error = "Victron payload too short.";
-                return false;
-            }
-
-            ReadOnlySpan<byte> span = payload.AsSpan();
-
-            if (string.Equals(payloadType, "raw", StringComparison.OrdinalIgnoreCase)
-                && TryExtractManufacturerDataFromRawPayload(payload, out var manufacturerData))
-            {
-                span = manufacturerData;
-            }
-
-            if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
-            {
-                span = span.Slice(2);
-            }
-
-            if (span.Length < 4)
-            {
-                error = "Victron payload too short after company ID.";
-                return false;
-            }
-
-            int offset;
-            if (span[0] == 0x10)
-            {
-                // Product advertisement record; extra record starts at index 4.
-                if (span.Length < 9)
-                {
-                    error = "Victron product advertisement too short.";
-                    return false;
-                }
-                offset = 4;
-            }
-            else
-            {
-                // Direct extra record starts at index 0.
-                offset = 0;
-            }
-
-            if (span.Length < offset + 4)
-            {
-                error = "Victron extra record header missing.";
-                return false;
-            }
-
-            record.RecordType = span[offset];
-            record.Nonce = BinaryPrimitives.ReadUInt16LittleEndian(span.Slice(offset + 1, 2));
-            record.KeyCheck = span[offset + 3];
-            record.Cipher = span.Slice(offset + 4).ToArray();
-
-            return true;
-        }
-
-        private static bool IsVictronInstantReadout(byte[] payload, string payloadType, byte keyFirstByte)
-        {
-            if (payload == null || payload.Length == 0)
-            {
-                return false;
-            }
-
-            ReadOnlySpan<byte> span = payload.AsSpan();
-            if (string.Equals(payloadType, "raw", StringComparison.OrdinalIgnoreCase)
-                && TryExtractManufacturerDataFromRawPayload(payload, out var manufacturerData))
-            {
-                span = manufacturerData;
-            }
-
-            if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
-            {
-                span = span.Slice(2);
-            }
-
-            if (span.Length < 4)
-            {
-                return false;
-            }
-
-            if (span[0] == 0x10)
-            {
-                if (span.Length < 8)
-                {
-                    return false;
-                }
-
-                byte recordType = span[4];
-                if (recordType != 0x01)
-                {
-                    return false;
-                }
-
-                byte keyCheck = span[7];
-                return keyCheck == keyFirstByte;
-            }
-
-            if (span[0] == 0x01)
-            {
-                byte keyCheck = span[3];
-                return keyCheck == keyFirstByte;
-            }
-
-            return false;
-        }
-
-        private static string DescribeVictronPayload(byte[] payload, string payloadType)
-        {
-            ReadOnlySpan<byte> span = payload.AsSpan();
-            if (string.Equals(payloadType, "raw", StringComparison.OrdinalIgnoreCase)
-                && TryExtractManufacturerDataFromRawPayload(payload, out var manufacturerData))
-            {
-                span = manufacturerData;
-            }
-
-            if (span.Length >= 2 && BinaryPrimitives.ReadUInt16LittleEndian(span) == 0x02E1)
-            {
-                span = span.Slice(2);
-            }
-
-            if (span.Length == 0)
-            {
-                return $"payloadType={payloadType}, bytes=0";
-            }
-
-            byte packetType = span[0];
-            string details = $"payloadType={payloadType}, packetType=0x{packetType:X2}, len={span.Length}";
-
-            if (packetType == 0x10 && span.Length >= 8)
-            {
-                byte recordType = span[4];
-                byte keyCheck = span[7];
-                details += $", recordType=0x{recordType:X2}, keyCheck=0x{keyCheck:X2}";
-            }
-            else if (packetType == 0x01 && span.Length >= 4)
-            {
-                byte keyCheck = span[3];
-                details += $", recordType=0x01, keyCheck=0x{keyCheck:X2}";
-            }
-
-            return details;
-        }
-
-        private static bool TryExtractManufacturerDataFromRawPayload(byte[] payload, out ReadOnlySpan<byte> manufacturerData)
-        {
-            manufacturerData = ReadOnlySpan<byte>.Empty;
-            if (payload == null || payload.Length < 3)
-            {
-                return false;
-            }
-
-            int index = 0;
-            while (index < payload.Length)
-            {
-                int length = payload[index];
-                if (length == 0)
-                {
-                    break;
-                }
-
-                int typeIndex = index + 1;
-                if (typeIndex >= payload.Length)
-                {
-                    break;
-                }
-
-                byte type = payload[typeIndex];
-                int dataIndex = typeIndex + 1;
-                int dataLength = length - 1;
-
-                if (dataIndex + dataLength > payload.Length)
-                {
-                    break;
-                }
-
-                if (type == 0xFF && dataLength > 0)
-                {
-                    manufacturerData = payload.AsSpan(dataIndex, dataLength);
-                    return true;
-                }
-
-                index += length + 1;
-            }
-
-            return false;
-        }
-
-        private static byte[] DecryptVictronAesCtr(byte[] key, ushort nonce, ReadOnlySpan<byte> cipher)
-        {
-            byte[] counterBlock = new byte[16];
-            counterBlock[0] = (byte)(nonce & 0xFF);
-            counterBlock[1] = (byte)(nonce >> 8);
-
-            byte[] keystream = new byte[16];
-            using (var aes = Aes.Create())
-            {
-                aes.Mode = CipherMode.ECB;
-                aes.Padding = PaddingMode.None;
-                aes.Key = key;
-                using var enc = aes.CreateEncryptor();
-                enc.TransformBlock(counterBlock, 0, 16, keystream, 0);
-            }
-
-            byte[] plain = new byte[cipher.Length];
-            for (int i = 0; i < cipher.Length; i++)
-            {
-                plain[i] = (byte)(cipher[i] ^ keystream[i]);
-            }
-
-            return plain;
-        }
+        private static bool TryExtractVictronRecord(byte[] payload, string payloadType,
+            out VictronPayloadDecoder.VictronRecord record, out string error) =>
+            VictronPayloadDecoder.TryExtractVictronRecord(payload, payloadType, out record, out error);
 
         private static string ToHex(byte[] data)
         {
