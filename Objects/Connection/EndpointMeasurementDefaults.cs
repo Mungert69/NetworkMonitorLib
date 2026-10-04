@@ -11,25 +11,35 @@ public sealed record EndpointMeasurementMetadata(string Unit = "ms", double Scal
 /// <summary>Builds metadata from Connect properties without initializing or executing probes.</summary>
 public static class EndpointMeasurementDefinitionBuilder
 {
-    public static FrozenDictionary<string, EndpointMeasurementMetadata> Build(
+    public static FrozenDictionary<string, IReadOnlyList<EndpointMeasurementMetadata>> Build(
         IEnumerable<string> endpoints, Func<string, INetConnect> createConnect)
     {
-        var definitions = new Dictionary<string, EndpointMeasurementMetadata>(StringComparer.OrdinalIgnoreCase);
+        var definitions = new Dictionary<string, IReadOnlyList<EndpointMeasurementMetadata>>(StringComparer.OrdinalIgnoreCase);
         foreach (var endpoint in endpoints)
         {
             var connect = createConnect(endpoint);
             try
             {
-                var definition = new EndpointMeasurementDefinition
-                    { EndpointType = endpoint, Unit = connect.Unit, Scale = connect.Scale, Type = connect.Type };
-                if (!definition.IsValid())
-                    throw new InvalidOperationException($"Invalid built-in measurement definition: {endpoint}");
-                var metadata = new EndpointMeasurementMetadata(definition.Unit, definition.Scale, definition.Type);
-                if (metadata != new EndpointMeasurementMetadata()) definitions.Add(endpoint, metadata);
+                var metadata = Describe(endpoint, connect).Select(d =>
+                    new EndpointMeasurementMetadata(d.Unit, d.Scale, d.Type)).ToArray();
+                if (metadata.Length != 1 || metadata[0] != new EndpointMeasurementMetadata())
+                    definitions.Add(endpoint, Array.AsReadOnly(metadata));
             }
             finally { connect.Cts.Dispose(); }
         }
         return definitions.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public static IReadOnlyList<EndpointMeasurementDefinition> Describe(string endpoint, INetConnect connect)
+    {
+        var metadata = new[] { new EndpointMeasurementMetadata(connect.Unit, connect.Scale, connect.Type) }
+            .Concat(connect.MeasurementVariants).ToArray();
+        var definitions = metadata.Select(m => new EndpointMeasurementDefinition
+            { EndpointType = endpoint.ToLowerInvariant(), Unit = m.Unit, Scale = m.Scale, Type = m.Type }).ToArray();
+        if (definitions.Length > 64 || definitions.Any(d => !d.IsValid())
+            || definitions.Select(d => d.Type).Distinct(StringComparer.OrdinalIgnoreCase).Count() != definitions.Length)
+            throw new InvalidOperationException("Invalid or duplicate Connect measurement definitions.");
+        return definitions;
     }
 }
 
@@ -37,7 +47,7 @@ public static class EndpointMeasurementDefinitionBuilder
 public static class EndpointMeasurementDefaults
 {
     private static readonly EndpointMeasurementMetadata Default = new();
-    private static readonly Lazy<FrozenDictionary<string, EndpointMeasurementMetadata>> Definitions = new(() =>
+    private static readonly Lazy<FrozenDictionary<string, IReadOnlyList<EndpointMeasurementMetadata>>> Definitions = new(() =>
     {
         using var http = new HttpClient();
         return EndpointMeasurementDefinitionBuilder.Build(EndPointTypeFactory.GetInternalTypes(), endpoint =>
@@ -45,6 +55,7 @@ public static class EndpointMeasurementDefaults
                 "", "", NullLogger.Instance));
     });
 
-    public static EndpointMeasurementMetadata Get(string? endpoint) =>
-        endpoint != null && Definitions.Value.TryGetValue(endpoint, out var metadata) ? metadata : Default;
+    public static EndpointMeasurementMetadata Get(string? endpoint, string? args = null) =>
+        endpoint != null && Definitions.Value.TryGetValue(endpoint, out var metadata)
+            ? EndpointMeasurementSelector.Resolve(metadata, args) : Default;
 }

@@ -23,8 +23,8 @@ public class EndpointMeasurementDefaultsTests
         var definitions = EndpointMeasurementDefinitionBuilder.Build(new[] { "ordinary", "voltage" },
             endpoint => endpoint == "ordinary" ? ordinary : voltage);
         var metadata = Assert.Single(definitions);
-        Assert.Equal(new EndpointMeasurementMetadata("V", 0.01), metadata.Value);
-        Assert.Equal(metadata.Value, definitions["VOLTAGE"]);
+        Assert.Equal(new EndpointMeasurementMetadata("V", 0.01), Assert.Single(metadata.Value));
+        Assert.Same(metadata.Value, definitions["VOLTAGE"]);
         Assert.Throws<ObjectDisposedException>(() => ordinary.Cts.Token);
         Assert.Throws<ObjectDisposedException>(() => voltage.Cts.Token);
     }

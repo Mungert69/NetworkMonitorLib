@@ -18,6 +18,38 @@ namespace NetworkMonitorLib.Tests.Objects.Connection;
 public class EndpointMeasurementTests
 {
     [Fact]
+    public async Task Compiled_custom_connect_publishes_general_and_subtype_definitions()
+    {
+        var config = new NetConnectConfig(new ConfigurationBuilder().Build(), "", "")
+            { AuthKey = "test-auth-key", CommandPath = "" };
+        await config.SetAppIDAsync("owner-agent");
+        ProcessorDataObj? publication = null;
+        var repo = new Mock<IRabbitRepo>();
+        repo.Setup(r => r.PublishJsonZWithIDAsync<ProcessorDataObj>("dataUpdateMonitorPingInfos",
+            It.IsAny<ProcessorDataObj>(), "owner-agent", ""))
+            .Callback<string, ProcessorDataObj, string, string>((_, obj, _, _) => publication = obj).ReturnsAsync("");
+        var provider = new ConnectProvider(NullLoggerFactory.Instance, repo.Object, config);
+        var result = await provider.AddConnect(new ProcessorScanDataObj { Type = "sensor", Arguments = """
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            namespace NetworkMonitor.Connection {
+              public class sensorConnect : NetConnect {
+                public override IReadOnlyCollection<string> StatusLabels => new[] { "Available" };
+                public override string Unit => "raw value";
+                public override IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => new[] {
+                  new EndpointMeasurementMetadata("V", 0.01, "voltage"),
+                  new EndpointMeasurementMetadata("W", 1, "power")
+                };
+                public override Task Connect() => Task.CompletedTask;
+              }
+            }
+            """ });
+        Assert.True(result.Success, result.Message);
+        Assert.NotNull(publication);
+        Assert.Equal(new[] { "", "voltage", "power" }, publication.EndpointMeasurements!.Select(d => d.Type));
+    }
+
+    [Fact]
     public async Task Boot_rebuilds_metadata_from_saved_custom_source_without_second_definition_file()
     {
         var directory = Directory.CreateTempSubdirectory("nm-measurement-tests-");

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace NetworkMonitor.Objects.Entity;
 
-[PrimaryKey(nameof(ProcessorAppID), nameof(EndpointType))]
+[PrimaryKey(nameof(ProcessorAppID), nameof(EndpointType), nameof(Type))]
 public class EndpointMeasurement
 {
     [MaxLength(255)] public string ProcessorAppID { get; set; } = "";

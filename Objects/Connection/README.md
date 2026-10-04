@@ -55,8 +55,13 @@ Connects inherit constant `Unit = "ms"`, `Scale = 1`, and `Type = ""` properties
 Custom endpoints can override these (for example `Unit => "V"` and `Scale => 0.01`
 for a reading stored in hundredths of a volt). Scale is a display multiplier;
 storage and probe status semantics do not change. Keep one measurement meaning
-per endpoint name. Do not derive these properties from host configuration or
-individual probe results. Type is reserved for future interpretation.
+per endpoint/subtype definition. Do not derive these properties from host configuration or
+individual probe results. Blank Type is the general/fallback definition.
+`MeasurementVariants` can declare constant `EndpointMeasurementMetadata(Unit, Scale, Type)`
+subtypes. The shared selector matches case-insensitive whole tokens in host Args:
+exactly one distinct subtype selects it; zero or multiple matches use general.
+Repeating the same token is not ambiguous. This intentionally does not parse
+option semantics: an unrelated argument containing the token can select it.
 
 The provider builds and sends only its custom Connect catalogue on startup, processor init,
 and successful custom Connect changes, through the existing processor data route.
@@ -65,6 +70,10 @@ Built-in metadata is built once per backend process by `EndpointMeasurementDefau
 using the fixed Connect classes. The immutable catalogue keeps only non-default
 definitions and never initializes or executes probes. No built-in database rows
 or processor-specific copies are needed.
-Targeted BLE is labelled `raw value` until its variable measurement semantics are
-handled separately. See NetworkMonitorData/tools/endpoint-measurements.md for the
+Targeted BLE defines metric subtypes: voltage V/0.01, current A/0.1, yield kWh/0.01,
+and PV power W/1. Without an unambiguous metric token it remains `raw value`.
+These labels describe configured metrics: missing-metric elapsed-time fallbacks
+cannot be distinguished by this simple selector. Negative currents are already
+clamped by existing probes; scaling does not recover them.
+See NetworkMonitorData/tools/endpoint-measurements.md for the
 database and frontend flow.

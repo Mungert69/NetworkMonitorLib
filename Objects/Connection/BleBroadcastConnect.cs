@@ -13,6 +13,24 @@ namespace NetworkMonitor.Connection
         private const string DefaultMetric = "pv_power";
         // This endpoint mixes selected readings and elapsed-time fallbacks.
         public override string Unit => "raw value";
+        public override IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => new[]
+        {
+            new EndpointMeasurementMetadata("V", 0.01, "battery_voltage"),
+            new EndpointMeasurementMetadata("V", 0.01, "battery_voltage_v"),
+            new EndpointMeasurementMetadata("V", 0.01, "battery_v"),
+            new EndpointMeasurementMetadata("A", 0.1, "battery_current"),
+            new EndpointMeasurementMetadata("A", 0.1, "battery_current_a"),
+            new EndpointMeasurementMetadata("A", 0.1, "battery_a"),
+            new EndpointMeasurementMetadata("A", 0.1, "load_current"),
+            new EndpointMeasurementMetadata("A", 0.1, "load_current_a"),
+            new EndpointMeasurementMetadata("A", 0.1, "load_a"),
+            new EndpointMeasurementMetadata("W", 1, "pv_power"),
+            new EndpointMeasurementMetadata("W", 1, "pvpower"),
+            new EndpointMeasurementMetadata("W", 1, "pv"),
+            new EndpointMeasurementMetadata("kWh", 0.01, "yield_today"),
+            new EndpointMeasurementMetadata("kWh", 0.01, "yield"),
+            new EndpointMeasurementMetadata("kWh", 0.01, "yield_today_kwh")
+        };
 
         public BleBroadcastConnect(ICmdProcessorProvider? cmdProcessorProvider)
         {

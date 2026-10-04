@@ -34,7 +34,7 @@ namespace NetworkMonitor.Connection
         private readonly ICmdProcessorProvider? _cmdProcessorProvider;
         private readonly ConnectCompiler _compiler;
         private Task _dynamicSetup = Task.CompletedTask;
-        private readonly ConcurrentDictionary<string, EndpointMeasurementDefinition> _measurements = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, IReadOnlyList<EndpointMeasurementDefinition>> _measurements = new(StringComparer.OrdinalIgnoreCase);
 
         private readonly Dictionary<string, Type> _dynamicConnectTypes = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _sourceCodeFileMap = new(StringComparer.OrdinalIgnoreCase);
@@ -123,7 +123,7 @@ namespace NetworkMonitor.Connection
             {
                 if (string.IsNullOrWhiteSpace(_netConfig.AuthKey)) return;
                 // Only dynamically compiled Connects belong in the processor-specific catalogue.
-                var definitions = _measurements.Values.Select(d => new EndpointMeasurementDefinition
+                var definitions = _measurements.Values.SelectMany(d => d).Select(d => new EndpointMeasurementDefinition
                     { EndpointType = d.EndpointType, Unit = d.Unit, Scale = d.Scale, Type = d.Type }).ToList();
                 await _rabbitRepo.PublishJsonZWithIDAsync<ProcessorDataObj>("dataUpdateMonitorPingInfos",
                     new ProcessorDataObj { AppID = _netConfig.AppID, AuthKey = _netConfig.AuthKey,
@@ -134,14 +134,6 @@ namespace NetworkMonitor.Connection
             {
                 _logger.LogWarning(ex, "Measurement catalogue publication failed; best effort only");
             }
-        }
-
-        private static EndpointMeasurementDefinition Describe(string endpoint, INetConnect connect)
-        {
-            var definition = new EndpointMeasurementDefinition
-                { EndpointType = endpoint.ToLowerInvariant(), Unit = connect.Unit, Scale = connect.Scale, Type = connect.Type };
-            if (!definition.IsValid()) throw new InvalidOperationException("Connect measurement requires a short unit and a finite positive scale.");
-            return definition;
         }
 
         public async Task<ResultObj> AddConnect(ProcessorScanDataObj processorScanDataObj)
@@ -337,8 +329,8 @@ namespace NetworkMonitor.Connection
             var type = _compiler.CompileAndGetType(sourceCode, typeName);
             // Reject invalid factories/instances before registering or saving source.
             var validated = _compiler.CreateConnectInstance(type);
-            EndpointMeasurementDefinition measurement;
-            try { measurement = Describe(connectType, validated); }
+            IReadOnlyList<EndpointMeasurementDefinition> measurement;
+            try { measurement = EndpointMeasurementDefinitionBuilder.Describe(connectType, validated); }
             finally { validated.Cts.Dispose(); }
 
             _dynamicConnectTypes[connectType] = type;

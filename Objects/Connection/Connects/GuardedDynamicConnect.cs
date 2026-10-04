@@ -10,6 +10,7 @@ internal sealed class GuardedDynamicConnect(NetConnect inner, DynamicConnectStat
     public string Unit => inner.Unit;
     public double Scale => inner.Scale;
     public string Type => inner.Type;
+    public IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => inner.MeasurementVariants;
     public ushort RoundTrip { get => inner.RoundTrip; set => inner.RoundTrip = value; }
     public uint PiID { get => inner.PiID; set => inner.PiID = value; }
     public bool IsLongRunning { get => inner.IsLongRunning; set => inner.IsLongRunning = value; }

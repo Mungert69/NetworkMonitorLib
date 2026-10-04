@@ -7,7 +7,7 @@ namespace NetworkMonitor.Objects;
 public class EndpointMeasurementDefinition
 {
     public string EndpointType { get; set; } = "";
-    // Reserved for measurement interpretation, such as BLE metric selection.
+    // Subtype token matched in host Args; blank is the general/fallback definition.
     public string Type { get; set; } = "";
     public string Unit { get; set; } = "ms";
     public double Scale { get; set; } = 1;

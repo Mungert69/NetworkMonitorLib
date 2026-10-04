@@ -13,6 +13,7 @@ namespace NetworkMonitor.Connection
         string Unit => "ms";
         double Scale => 1;
         string Type => "";
+        IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => Array.Empty<EndpointMeasurementMetadata>();
         ushort RoundTrip { get; set; }
         //MonitorPingInfo MonitorPingInfo { get; set; }
         //PingParams PingParams { get; set; }
@@ -55,6 +56,8 @@ namespace NetworkMonitor.Connection
         public virtual string Unit => "ms";
         public virtual double Scale => 1;
         public virtual string Type => "";
+        // Constant subtype definitions, selected by whole-token matching in host Args.
+        public virtual IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => Array.Empty<EndpointMeasurementMetadata>();
         /// <summary>Dynamic connects must override with a finite array of literal labels.
         /// Changing readings belong in monitor diagnostics, never PingInfo.Status.</summary>
         public virtual IReadOnlyCollection<string> StatusLabels => Array.Empty<string>();
