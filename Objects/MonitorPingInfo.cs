@@ -20,6 +20,9 @@ namespace NetworkMonitor.Objects
         [NotMapped] public string Unit { get; set; } = "ms";
         [NotMapped] public double Scale { get; set; } = 1;
         [NotMapped] public double Offset { get; set; } = 0;
+        [NotMapped] public double? LowThreshold { get; set; }
+        [NotMapped] public double? HighThreshold { get; set; }
+        [NotMapped] public MeasurementBreach? MeasurementBreach { get; set; }
         // Empty constructor for EF
         public MonitorPingInfo()
         {
@@ -38,6 +41,9 @@ namespace NetworkMonitor.Objects
             //DestinationUnreachable = copy.DestinationUnreachable;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            LowThreshold = copy.LowThreshold;
+            HighThreshold = copy.HighThreshold;
+            MeasurementBreach = copy.MeasurementBreach;
             SkipCycles = copy.SkipCycles;
             //TimeOuts = copy.TimeOuts;
             Address = copy.Address;
@@ -80,6 +86,9 @@ namespace NetworkMonitor.Objects
             //DestinationUnreachable = copy.DestinationUnreachable;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            LowThreshold = copy.LowThreshold;
+            HighThreshold = copy.HighThreshold;
+            MeasurementBreach = copy.MeasurementBreach;
             SkipCycles = copy.SkipCycles;
             //TimeOuts = copy.TimeOuts;
             Address = copy.Address;
@@ -118,6 +127,9 @@ namespace NetworkMonitor.Objects
             Status = copy.Status;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            LowThreshold = copy.LowThreshold;
+            HighThreshold = copy.HighThreshold;
+            MeasurementBreach = copy.MeasurementBreach;
             SkipCycles = copy.SkipCycles;
             Address = copy.Address;
             Port = copy.Port;
@@ -153,6 +165,9 @@ namespace NetworkMonitor.Objects
             //DestinationUnreachable = copy.DestinationUnreachable;
             MonitorIPID = copy.MonitorIPID;
             Timeout = copy.Timeout;
+            LowThreshold = copy.LowThreshold;
+            HighThreshold = copy.HighThreshold;
+            MeasurementBreach = copy.MeasurementBreach;
             SkipCycles = copy.SkipCycles;
             //TimeOuts = copy.TimeOuts;
             Address = copy.Address;

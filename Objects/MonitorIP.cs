@@ -27,6 +27,8 @@ namespace NetworkMonitor.Objects
             this.EndPointType = newMonIP.EndPointType;
             this.Port = newMonIP.Port;
             this.Timeout = newMonIP.Timeout;
+            LowThreshold = newMonIP.LowThreshold;
+            HighThreshold = newMonIP.HighThreshold;
             this.SkipCycles = newMonIP.SkipCycles;
             this.UserInfoUserID = newMonIP.UserInfoUserID;
             this.UserID = newMonIP.UserID;
@@ -130,6 +132,8 @@ namespace NetworkMonitor.Objects
         /// </summary>
 
         public int Timeout { get; set; }
+        public double? LowThreshold { get; set; }
+        public double? HighThreshold { get; set; }
 
         /// <summary>
         /// Number of processor cycles to skip after this host is checked. A null value uses the

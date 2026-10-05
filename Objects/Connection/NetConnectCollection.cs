@@ -187,6 +187,13 @@ namespace NetworkMonitor.Connection
         }
 
 
+        public EndpointMeasurementMetadata ResolveMeasurement(int monitorIPID)
+        {
+            var connect = _netConnects.First(c => c.MpiStatic.MonitorIPID == monitorIPID && c.IsEnabled);
+            var args = string.IsNullOrWhiteSpace(connect.MpiStatic.Args) ? connect.MpiStatic.Username : connect.MpiStatic.Args;
+            return EndpointMeasurementSelector.Resolve(new[] { connect.Measurement }.Concat(connect.MeasurementVariants), args);
+        }
+
         public void ResetSiteHash(int monitorIPID)
         {
             var netConnect = _netConnects.FirstOrDefault(x => x.MpiStatic.MonitorIPID == monitorIPID);

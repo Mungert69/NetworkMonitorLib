@@ -146,10 +146,13 @@ public class PrintPropertiesAsJson
             ["endpoint"] = monitorPingInfo.EndPointType,
             ["agent_location"] = monitorPingInfo.AgentLocation,
             ["unit"] = monitorPingInfo.Unit,
+            ["low_threshold"] = monitorPingInfo.LowThreshold,
+            ["high_threshold"] = monitorPingInfo.HighThreshold,
             ["measurement_average"] = Convert(monitorPingInfo.RoundTripTimeAverage),
             ["measurement_minimum"] = Convert(monitorPingInfo.RoundTripTimeMinimum),
             ["measurement_maximum"] = Convert(monitorPingInfo.RoundTripTimeMaximum)
         };
+        if (monitorPingInfo.MeasurementBreach != null) fields["measurement_breach"] = monitorPingInfo.MeasurementBreach;
         var args = string.IsNullOrWhiteSpace(monitorPingInfo.Args) ? monitorPingInfo.Username : monitorPingInfo.Args;
         var metric = NetworkMonitor.Connection.BleMetricCatalogue.MetricFromArgs(args);
         if (monitorPingInfo.EndPointType == "blebroadcast" && metric != null) fields["metric"] = metric;
@@ -177,6 +180,8 @@ public class PrintPropertiesAsJson
         output.Append("{");
         output.Append("\"address\" : \"").Append(monitorIP.Address).Append("\", ");
         output.Append("\"id\" : ").Append(monitorIP.ID).Append(", ");
+        output.Append("\"low_threshold\" : ").Append(JsonSerializer.Serialize(monitorIP.LowThreshold)).Append(", ");
+        output.Append("\"high_threshold\" : ").Append(JsonSerializer.Serialize(monitorIP.HighThreshold)).Append(", ");
         if (!string.IsNullOrEmpty(monitorIP.EditAuthKey)) output.Append("\"auth_key\" : \"").Append(monitorIP.EditAuthKey).Append("\", ");
         if (detail)
         {

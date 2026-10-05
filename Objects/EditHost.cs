@@ -55,6 +55,10 @@ namespace NetworkMonitor.Objects
         /// </summary>
 
         public int? SetTimeout { get; set; }
+        public double? SetLowThreshold { get; set; }
+        public double? SetHighThreshold { get; set; }
+        public bool ClearLowThreshold { get; set; }
+        public bool ClearHighThreshold { get; set; }
 
         /// <summary>
         /// Number of processor cycles to skip after each check. Null restores the endpoint-type default.

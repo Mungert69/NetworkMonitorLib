@@ -24,7 +24,8 @@ public class MonitorStatusAlertComparer : IEqualityComparer<MonitorStatusAlert>
                && x.EventTime == y.EventTime
                && x.IsUp == y.IsUp
                && x.Message == y.Message
-               && x.MonitorPingInfoID == y.MonitorPingInfoID;
+               && x.MonitorPingInfoID == y.MonitorPingInfoID
+               && x.MeasurementBreach == y.MeasurementBreach;
     }
 
     public int GetHashCode(MonitorStatusAlert obj)
@@ -47,6 +48,7 @@ public class MonitorStatusAlertComparer : IEqualityComparer<MonitorStatusAlert>
         hash = (hash * 397) ^ (obj.IsUp.HasValue ? obj.IsUp.Value.GetHashCode() : 0);
         hash = (hash * 397) ^ (obj.Message != null ? obj.Message.GetHashCode() : 0);
         hash = (hash * 397) ^ obj.MonitorPingInfoID;
+        hash = (hash * 397) ^ (obj.MeasurementBreach?.GetHashCode() ?? 0);
         return hash;
     }
 }

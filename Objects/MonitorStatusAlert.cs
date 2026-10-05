@@ -29,6 +29,7 @@ namespace NetworkMonitor.Objects
 
     public class MonitorStatusAlert : StatusObj, IAlertable
     {
+        public MeasurementBreach? MeasurementBreach { get; set; }
         public MonitorStatusAlert() { }
         private string? _userID;
         private string? _address;
@@ -45,6 +46,7 @@ namespace NetworkMonitor.Objects
 
         public MonitorStatusAlert(IAlertable m)
         {
+            if (m is MonitorStatusAlert monitor) MeasurementBreach = monitor.MeasurementBreach;
             ID = m.ID;
             AppID = m.AppID;
             Address = m.Address;

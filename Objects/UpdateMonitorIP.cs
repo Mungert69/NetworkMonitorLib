@@ -26,6 +26,8 @@ namespace NetworkMonitor.Objects
             Hidden = m.Hidden;
             ID = m.ID;
             Timeout = m.Timeout;
+            LowThreshold = m.LowThreshold;
+            HighThreshold = m.HighThreshold;
             SkipCycles = m.SkipCycles;
             UserID = m.UserID;
             Port = m.Port;

@@ -70,6 +70,7 @@ namespace NetworkMonitor.Objects.ServiceMessage
                 if (matchingAlert != null)
                 {
                     // Update properties of existingAlert based on matchingAlert
+                    if (existingAlert is MonitorStatusAlert monitor) monitor.MeasurementBreach = matchingAlert.MeasurementBreach;
                     existingAlert.AppID = matchingAlert.AppID;
                     existingAlert.Address = matchingAlert.Address;
                     existingAlert.AlertFlag = matchingAlert.AlertFlag;
