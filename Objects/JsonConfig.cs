@@ -182,6 +182,8 @@ namespace NetworkMonitor.Objects
     [JsonSerializable(typeof(List<UpdateProductObj>))]
     [JsonSerializable(typeof(UpdateProductObj))]
     [JsonSerializable(typeof(HostResponseObj))]
+    [JsonSerializable(typeof(PhysicalMeasurementResponse))]
+    [JsonSerializable(typeof(PhysicalMeasurementReading))]
     [JsonSerializable(typeof(HostReportObj))]
     [JsonSerializable(typeof(DataFileObj))]
     [JsonSerializable(typeof(GenericEmailObj))]
