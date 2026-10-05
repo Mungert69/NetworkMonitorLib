@@ -191,6 +191,15 @@ namespace NetworkMonitor.Api.Services
             return results;
         }
 
+        private static int? PhysicalResponseTime(INetConnect connect)
+        {
+            var sample = connect.MpiConnect.PingInfo.RoundTripTime;
+            if (!sample.HasValue) return null;
+            var measurement = connect.Measurement;
+            var value = MeasurementConversion.Value(sample.Value, measurement.Scale, measurement.Offset);
+            return value.HasValue ? checked((int)value.Value) : null;
+        }
+
         // Common method to perform checks
         private async Task<TResultObj<DataObj>> PerformCheck(
             HostObject hostObj,
@@ -232,7 +241,7 @@ namespace NetworkMonitor.Api.Services
                 data.TestedAddress = netConnect.MpiStatic.Address;
                 data.TestedPort = netConnect.MpiStatic.Port;
                 if (netConnect.MpiConnect.PingInfo.RoundTripTime != UInt16.MaxValue)
-                    data.ResponseTime = netConnect.MpiConnect.PingInfo.RoundTripTime;
+                    data.ResponseTime = PhysicalResponseTime(netConnect);
                 else
                     data.Timeout = netConnect.MpiStatic.Timeout;
                 data.ResultSuccess = netConnect.MpiConnect.IsUp;
@@ -377,7 +386,7 @@ namespace NetworkMonitor.Api.Services
                 data.TestedPort = hostObj.Port;
                 data.ResultSuccess = netConnect.MpiConnect.IsUp;
                 if (netConnect.MpiConnect.PingInfo.RoundTripTime != UInt16.MaxValue)
-                    data.ResponseTime = netConnect.MpiConnect.PingInfo.RoundTripTime;
+                    data.ResponseTime = PhysicalResponseTime(netConnect);
                 else
                     data.Timeout = netConnect.MpiStatic.Timeout;
                 string[] splitData = result.Message.Split(new char[] { ':' }, 3);
