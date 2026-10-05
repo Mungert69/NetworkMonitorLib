@@ -46,7 +46,7 @@ public sealed class ConfigIntegrityConnect : NetConnect
             var resultFields = FormatResultFields(root, exitCode, summary);
             var findings = FormatFindings(root);
             var guidance = FormatConsumerGuidance(root);
-            var elapsed = (ushort)Math.Min(Timer.ElapsedMilliseconds, ushort.MaxValue);
+            var elapsed = (ushort)Timer.ElapsedMilliseconds;
 
             switch (exitCode)
             {

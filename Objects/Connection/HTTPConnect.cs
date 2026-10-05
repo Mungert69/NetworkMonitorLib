@@ -17,6 +17,9 @@ namespace NetworkMonitor.Connection
 {
     public class HTTPConnect : NetConnect
     {
+        private readonly string _measurementName;
+        public override EndpointMeasurementMetadata Measurement => MeasurementAnalysisTemplates.Duration(_measurementName,
+            _isFullGet ? new(2000, 4000, 8000) : _isHtmlGet ? new(250, 500, 800) : new(150, 300, 500));
         private readonly IBrowserHost? _browserHost;        // preferred for httpfull to avoid spawning browsers
         private readonly HttpClient _client;
         private readonly bool _isFullGet;
@@ -28,8 +31,9 @@ namespace NetworkMonitor.Connection
             bool isHtmlGet,
             bool isFullGet,
             string commandPath,
-              IBrowserHost? browserHost = null)
+              IBrowserHost? browserHost = null, string measurementName = "HTTP request")
         {
+            _measurementName = measurementName;
             _client = client;
             _isFullGet = isFullGet;
             _isHtmlGet = isHtmlGet;

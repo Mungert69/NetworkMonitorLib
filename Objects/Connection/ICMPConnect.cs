@@ -16,6 +16,8 @@ namespace NetworkMonitor.Connection
 {
     public class ICMPConnect : NetConnect
     {
+        public override EndpointMeasurementMetadata Measurement => MeasurementAnalysisTemplates.Duration("ICMP (Simple Ping)", new(50, 100, 200));
+
         public ICMPConnect()
         {
         }

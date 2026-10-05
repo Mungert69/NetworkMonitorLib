@@ -19,6 +19,7 @@ namespace NetworkMonitor.Objects
         // API display fields, populated by the measurement catalogue reader.
         [NotMapped] public string Unit { get; set; } = "ms";
         [NotMapped] public double Scale { get; set; } = 1;
+        [NotMapped] public double Offset { get; set; } = 0;
         // Empty constructor for EF
         public MonitorPingInfo()
         {
@@ -29,6 +30,7 @@ namespace NetworkMonitor.Objects
         {
             Unit = copy.Unit;
             Scale = copy.Scale;
+            Offset = copy.Offset;
             ID = copy.ID;
             AppID = copy.AppID;
             DataSetID = copy.DataSetID;
@@ -70,6 +72,7 @@ namespace NetworkMonitor.Objects
         {
             Unit = copy.Unit;
             Scale = copy.Scale;
+            Offset = copy.Offset;
             ID = copy.ID;
             AppID = copy.AppID;
             DataSetID = copy.DataSetID;

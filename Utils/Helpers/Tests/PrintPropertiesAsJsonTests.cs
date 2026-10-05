@@ -105,9 +105,69 @@ public class PrintPropertiesAsJsonTests
 
         var json = PrintPropertiesAsJson.PrintMonitorPingInfoProperties(info, detail: true);
 
-        Assert.Contains("\"status_message\" : \"All good\"", json);
-        Assert.Contains("\"dataset_id\" : 7", json);
-        Assert.Contains("\"round_trip_time_average\" : 100", json);
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("All good", doc.RootElement.GetProperty("status_message").GetString());
+        Assert.Equal(7, doc.RootElement.GetProperty("dataset_id").GetInt32());
+        Assert.Equal(100, doc.RootElement.GetProperty("round_trip_time_average").GetDouble());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LlmMeasurementsArePhysicalAndDoNotMutateApiSamples(bool detail)
+    {
+        var info = new MonitorPingInfo { EndPointType="blebroadcast", Args="--format bthome --metric temperature",
+            Unit="°C", Scale=.1, Offset=-20, PacketsRecieved=2,
+            RoundTripTimeAverage=150, RoundTripTimeMinimum=100, RoundTripTimeMaximum=200,
+            Address="quoted\"device", Port=80 };
+        using var doc = JsonDocument.Parse(PrintPropertiesAsJson.PrintMonitorPingInfoProperties(info, detail));
+        Assert.Equal(-5,doc.RootElement.GetProperty("measurement_average").GetDouble());
+        Assert.Equal(-10,doc.RootElement.GetProperty("measurement_minimum").GetDouble());
+        Assert.Equal(0,doc.RootElement.GetProperty("measurement_maximum").GetDouble());
+        Assert.Equal("°C",doc.RootElement.GetProperty("unit").GetString());
+        Assert.Equal("temperature",doc.RootElement.GetProperty("metric").GetString());
+        Assert.Equal(150,info.RoundTripTimeAverage);
+        info.PacketsRecieved=0;
+        using var empty = JsonDocument.Parse(PrintPropertiesAsJson.PrintMonitorPingInfoProperties(info,detail));
+        Assert.Equal(JsonValueKind.Null, empty.RootElement.GetProperty("measurement_average").ValueKind);
+    }
+
+    [Fact]
+    public void PhysicalDownloadContainsConvertedValuesAndNullableFailures()
+    {
+        var response = new NetworkMonitor.DTOs.HostResponseObj {
+            EndPointType="blebroadcast", Args="--format bthome --metric temperature",
+            Unit="°C", Scale=.1, Offset=-20, PacketsRecieved=2,
+            RoundTripTimeAverage=150, RoundTripTimeMinimum=100, RoundTripTimeMaximum=200,
+            RoundTripTimeTotal=300, RoundTripTimeStandardDeviation=50,
+            PingInfosDTO = new() {
+                new() {ResponseTime=100,Status="received"},
+                new() {ResponseTime=200,Status="received"},
+                new() {ResponseTime=-1,Status="failed"}
+            }
+        };
+        var physical=NetworkMonitor.DTOs.PhysicalMeasurementResponse.From(response);
+        Assert.Equal(-5,physical.Average);
+        Assert.Equal(-10,physical.Minimum);
+        Assert.Equal(0,physical.Maximum);
+        Assert.Equal(-10,physical.Total);
+        Assert.Equal(5,physical.StandardDeviation);
+        Assert.Equal(-10,physical.Readings[0].Value);
+        Assert.Null(physical.Readings[2].Value);
+        Assert.Equal("failed",physical.Readings[2].Status);
+        Assert.Equal("temperature",physical.Metric);
+        Assert.Equal(100,response.PingInfosDTO[0].ResponseTime);
+    }
+
+    [Fact]
+    public void ConversionHandlesFailuresTotalsAndDeviation()
+    {
+        Assert.Null(MeasurementConversion.Value(-1,.1,-20));
+        Assert.Null(MeasurementConversion.Value(65535,.1,-20));
+        Assert.Null(MeasurementConversion.Value(double.NaN,.1,-20));
+        Assert.Null(MeasurementConversion.Value(100,0,-20));
+        Assert.Equal(-10, MeasurementConversion.Total(300,2,.1,-20));
+        Assert.Equal(5, MeasurementConversion.StandardDeviation(50,.1));
     }
 
     [Fact]

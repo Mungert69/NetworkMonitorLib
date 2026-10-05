@@ -6,7 +6,8 @@ using NetworkMonitor.Objects.Factory;
 namespace NetworkMonitor.Connection;
 
 /// <summary>Immutable display metadata; never contains a sample or processor identity.</summary>
-public sealed record EndpointMeasurementMetadata(string Unit = "ms", double Scale = 1, string Type = "");
+public sealed record EndpointMeasurementMetadata(string Unit = "ms", double Scale = 1, string Type = "", double Offset = 0,
+    string Description = "", string AnalysisKind = "", string AnalysisGuidance = "", TimingRatingThresholds? TimingRatingThresholds = null);
 
 /// <summary>Builds metadata from Connect properties without initializing or executing probes.</summary>
 public static class EndpointMeasurementDefinitionBuilder
@@ -21,9 +22,8 @@ public static class EndpointMeasurementDefinitionBuilder
             try
             {
                 var metadata = Describe(endpoint, connect).Select(d =>
-                    new EndpointMeasurementMetadata(d.Unit, d.Scale, d.Type)).ToArray();
-                if (metadata.Length != 1 || metadata[0] != new EndpointMeasurementMetadata())
-                    definitions.Add(endpoint, Array.AsReadOnly(metadata));
+                    new EndpointMeasurementMetadata(d.Unit, d.Scale, d.Type, d.Offset, d.Description, d.AnalysisKind, d.AnalysisGuidance, d.TimingRatingThresholds)).ToArray();
+                definitions.Add(endpoint, Array.AsReadOnly(metadata));
             }
             finally { connect.Cts.Dispose(); }
         }
@@ -32,11 +32,11 @@ public static class EndpointMeasurementDefinitionBuilder
 
     public static IReadOnlyList<EndpointMeasurementDefinition> Describe(string endpoint, INetConnect connect)
     {
-        var metadata = new[] { new EndpointMeasurementMetadata(connect.Unit, connect.Scale, connect.Type) }
-            .Concat(connect.MeasurementVariants).ToArray();
+        var metadata = new[] { connect.Measurement }
+            .Concat(connect.MeasurementVariants).Select(m => MeasurementAnalysisTemplates.Complete(m)).ToArray();
         var definitions = metadata.Select(m => new EndpointMeasurementDefinition
-            { EndpointType = endpoint.ToLowerInvariant(), Unit = m.Unit, Scale = m.Scale, Type = m.Type }).ToArray();
-        if (definitions.Length > 64 || definitions.Any(d => !d.IsValid())
+            { EndpointType = endpoint.ToLowerInvariant(), Unit = m.Unit, Scale = m.Scale, Type = m.Type, Offset = m.Offset, Description = m.Description, AnalysisKind = m.AnalysisKind, AnalysisGuidance = m.AnalysisGuidance, TimingRatingThresholds = m.TimingRatingThresholds }).ToArray();
+        if (definitions.Length > (endpoint == "blebroadcast" ? 512 : 64) || definitions.Any(d => !d.IsValid())
             || definitions.Select(d => d.Type).Distinct(StringComparer.OrdinalIgnoreCase).Count() != definitions.Length)
             throw new InvalidOperationException("Invalid or duplicate Connect measurement definitions.");
         return definitions;
@@ -57,5 +57,5 @@ public static class EndpointMeasurementDefaults
 
     public static EndpointMeasurementMetadata Get(string? endpoint, string? args = null) =>
         endpoint != null && Definitions.Value.TryGetValue(endpoint, out var metadata)
-            ? EndpointMeasurementSelector.Resolve(metadata, args) : Default;
+            ? EndpointMeasurementSelector.Resolve(metadata, args) : MeasurementAnalysisTemplates.Complete(Default);
 }

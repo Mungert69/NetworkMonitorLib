@@ -1,4 +1,4 @@
-﻿using NetworkMonitor.Objects;
+using NetworkMonitor.Objects;
 using System;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -10,9 +10,7 @@ namespace NetworkMonitor.Connection
 {
     public interface INetConnect
     {
-        string Unit => "ms";
-        double Scale => 1;
-        string Type => "";
+        EndpointMeasurementMetadata Measurement => MeasurementAnalysisTemplates.Complete(new());
         IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => Array.Empty<EndpointMeasurementMetadata>();
         ushort RoundTrip { get; set; }
         //MonitorPingInfo MonitorPingInfo { get; set; }
@@ -52,10 +50,11 @@ namespace NetworkMonitor.Connection
         protected NetConnectConfig? NetConfig { get; private set; }
         protected ICmdProcessorProvider? CmdProcessorProvider { get; private set; }
         protected IBrowserHost? BrowserHost { get; private set; }
-        // Constant display metadata for an endpoint definition; defaults are durations.
-        public virtual string Unit => "ms";
-        public virtual double Scale => 1;
-        public virtual string Type => "";
+        private EndpointMeasurementMetadata? _configuredMeasurement;
+        // One complete definition is the sole measurement metadata contract.
+        public virtual EndpointMeasurementMetadata Measurement => _configuredMeasurement ??
+            MeasurementAnalysisTemplates.Complete(new());
+        internal void ConfigureMeasurement(EndpointMeasurementMetadata measurement) => _configuredMeasurement = measurement;
         // Constant subtype definitions, selected by whole-token matching in host Args.
         public virtual IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => Array.Empty<EndpointMeasurementMetadata>();
         /// <summary>Dynamic connects must override with a finite array of literal labels.

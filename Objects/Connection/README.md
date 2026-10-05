@@ -55,32 +55,36 @@ layout so the decoder can work with different device formats.
 
 ## Measurement definitions
 
-Connects inherit constant `Unit = "ms"`, `Scale = 1`, and `Type = ""` properties.
-Custom endpoints can override these (for example `Unit => "V"` and `Scale => 0.01`
-for a reading stored in hundredths of a volt). Scale is a display multiplier;
-storage and probe status semantics do not change. Keep one measurement meaning
-per endpoint/subtype definition. Do not derive these properties from host configuration or
-individual probe results. Blank Type is the general/fallback definition.
-`MeasurementVariants` can declare constant `EndpointMeasurementMetadata(Unit, Scale, Type)`
-subtypes. The shared selector matches case-insensitive whole tokens in host Args:
-exactly one distinct subtype selects it; zero or multiple matches use general.
-Repeating the same token is not ambiguous. This intentionally does not parse
-option semantics: an unrelated argument containing the token can select it.
+Connects expose one complete `Measurement` definition and optional
+`MeasurementVariants`. Override `Measurement` to set Unit, Scale, Offset, Type,
+Description, AnalysisKind and AnalysisGuidance together. For example:
+
+```csharp
+public override EndpointMeasurementMetadata Measurement =>
+    MeasurementAnalysisTemplates.Metric("Supply voltage", "V") with { Scale = 0.01 };
+```
+
+Physical value = stored sample * Scale + Offset. Encode a physical reading using
+(stored sample) = (physical value - Offset) / Scale; round and validate 0..65534.
+There are no separate metadata properties on NetConnect.
 
 The provider builds and sends only its custom Connect catalogue on startup, processor init,
 and successful custom Connect changes, through the existing processor data route.
 Delivery is best effort. Ordinary monitoring publications do not contain it.
 Built-in metadata is built once per backend process by `EndpointMeasurementDefaults`
-using the fixed Connect classes. The immutable catalogue keeps only non-default
-definitions and never initializes or executes probes. No built-in database rows
-or processor-specific copies are needed.
-Targeted BLE defines metric subtypes: voltage V/0.01, current A/0.1, yield kWh/0.01,
-and PV power W/1. Without an unambiguous metric token it remains `raw value`.
-These labels describe configured metrics: missing-metric elapsed-time fallbacks
-cannot be distinguished by this simple selector. Negative currents are already
-clamped by existing probes; scaling does not recover them.
-See NetworkMonitorData/tools/endpoint-measurements.md for the
-database and frontend flow.
+using the fixed Connect classes. Every definition is retained; collecting it never
+initializes or executes probes. Built-in database rows are not needed.
+BLE schemas declare metric ranges and meaning. `BleMetricCatalogue` combines them
+with the fixed automatic encoding selected by `--format` and `--metric`.
+See [BLE reproduction guide](Ble/REPRODUCING.md) for supported metrics, encoding,
+metadata ownership and test procedures. NetworkMonitorData/tools/endpoint-measurements.md
+explains persistence and API/report selection.
+
+Timing ratings are optional metadata: `TimingRatingThresholds` contains positive,
+strictly increasing Excellent/Good/Fair millisecond boundaries. Only genuine
+`duration` measurements in `ms` with explicit thresholds receive ratings. Null
+means unrated; there is no factory lookup or fallback. These are reporting
+heuristics, not alert limits.
 
 ## Extending BLE decoding
 
@@ -177,3 +181,9 @@ Protocol references and independent test vectors:
 [Ruuvi RAWv2](https://docs.ruuvi.com/communication/bluetooth-advertisements/data-format-5-rawv2),
 [BTHome v2 format](https://bthome.io/format/), and
 [BTHome encryption](https://bthome.io/encryption/).
+
+Extended durations use fixed scales matching their timeout extension (10 for
+Nmap/BLE listen, 20 for crawling/HuggingFace operations). Stored duration is
+elapsed milliseconds / scale; the backend/frontend reconstruct milliseconds
+using the primary Measurement definition. Ordinary timings remain scale 1;
+no duration clamping is applied.

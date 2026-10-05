@@ -95,17 +95,10 @@ public class EndPointTypeFactoryTest
     }
 
     [Fact]
-    public void ResponseTimeThresholds_ReturnsCorrectThresholds()
+    public void TimingRatingsAreOptionalAndOwnedByMeasurementDefinitions()
     {
-        foreach (var endpointType in EndPointTypeFactory.GetInternalTypes())
-        {
-            var thresholds = EndPointTypeFactory.ResponseTimeThresholds.GetValueOrDefault(endpointType);
-            if (thresholds != null)
-            {
-                Assert.True(thresholds.AllPorts.Excellent >= 0);
-                Assert.True(thresholds.SpecificPort.Excellent >= 0);
-            }
-        }
+        Assert.True(NetworkMonitor.Connection.TimingMeasurementRating.IsEnabled(NetworkMonitor.Connection.EndpointMeasurementDefaults.Get("http")));
+        Assert.False(NetworkMonitor.Connection.TimingMeasurementRating.IsEnabled(NetworkMonitor.Connection.EndpointMeasurementDefaults.Get("nmap")));
     }
 
     [Fact]

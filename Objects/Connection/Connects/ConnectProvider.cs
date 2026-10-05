@@ -124,7 +124,7 @@ namespace NetworkMonitor.Connection
                 if (string.IsNullOrWhiteSpace(_netConfig.AuthKey)) return;
                 // Only dynamically compiled Connects belong in the processor-specific catalogue.
                 var definitions = _measurements.Values.SelectMany(d => d).Select(d => new EndpointMeasurementDefinition
-                    { EndpointType = d.EndpointType, Unit = d.Unit, Scale = d.Scale, Type = d.Type }).ToList();
+                    { EndpointType = d.EndpointType, Unit = d.Unit, Scale = d.Scale, Type = d.Type, Offset = d.Offset, Description = d.Description, AnalysisKind = d.AnalysisKind, AnalysisGuidance = d.AnalysisGuidance, TimingRatingThresholds = d.TimingRatingThresholds }).ToList();
                 await _rabbitRepo.PublishJsonZWithIDAsync<ProcessorDataObj>("dataUpdateMonitorPingInfos",
                     new ProcessorDataObj { AppID = _netConfig.AppID, AuthKey = _netConfig.AuthKey,
                         EndpointMeasurements = definitions }, _netConfig.AppID);

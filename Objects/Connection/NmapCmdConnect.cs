@@ -13,11 +13,18 @@ namespace NetworkMonitor.Connection
 {
     public class NmapCmdConnect : NetConnect
     {
+        private const int DurationScale = 10;
+        public override EndpointMeasurementMetadata Measurement =>
+            MeasurementAnalysisTemplates.Duration(_baseArg.Contains("--script vuln") ? "Nmap vulnerability scan" : "Nmap service scan") with { Scale = DurationScale };
+
         private ICmdProcessor? _cmdProcessor;
         private string _baseArg;
 
         public NmapCmdConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
         {
+            ExtendTimeout = true;
+            ExtendTimeoutMultiplier = DurationScale;
+
             if (cmdProcessorProvider != null) _cmdProcessor = cmdProcessorProvider.GetProcessor("Nmap");
             _baseArg = baseArg;
             IsLongRunning = true;
@@ -25,8 +32,6 @@ namespace NetworkMonitor.Connection
 
         public override async Task Connect()
         {
-            ExtendTimeout = true;
-
             if (_cmdProcessor == null)
             {
                 ProcessException("No Command Processor Available", "Error");
@@ -62,7 +67,7 @@ namespace NetworkMonitor.Connection
                 bool isUp = true;
                 var (isHostUp, hostStatus) = GetHostStatus(filteredString);
                 string statusMessage = hostStatus;
-                responseTime = (ushort)Timer.ElapsedMilliseconds;
+                responseTime = (ushort)(Timer.ElapsedMilliseconds / DurationScale);
                 // Set response time to max value if host is down
                 if (!isHostUp)
                 {

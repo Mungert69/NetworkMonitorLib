@@ -13,11 +13,18 @@ namespace NetworkMonitor.Connection
 {
     public class CrawlSiteCmdConnect : NetConnect
     {
+        private const int DurationScale = 20;
+        public override EndpointMeasurementMetadata Measurement =>
+            MeasurementAnalysisTemplates.Duration("Website crawl") with { Scale = DurationScale };
+
         private ICmdProcessor? _cmdProcessor;
         private string _baseArg;
 
         public CrawlSiteCmdConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
         {
+            ExtendTimeout = true;
+            ExtendTimeoutMultiplier = DurationScale;
+
 
             if (cmdProcessorProvider != null) _cmdProcessor = cmdProcessorProvider.GetProcessor("CrawlSite");
             _baseArg = baseArg;
@@ -26,9 +33,6 @@ namespace NetworkMonitor.Connection
 
         public override async Task Connect()
         {
-            ExtendTimeout = true;
-            ExtendTimeoutMultiplier = 20;
-
             if (_cmdProcessor == null)
             {
                 ProcessException("No Command Processor Available", "Error");
@@ -65,7 +69,7 @@ namespace NetworkMonitor.Connection
                 bool isUp = true;
                 var (isHostUp, hostStatus) = GetCrawlStatus(filteredString);
                 string statusMessage = hostStatus;
-                responseTime = (ushort)Timer.ElapsedMilliseconds;
+                responseTime = (ushort)(Timer.ElapsedMilliseconds / DurationScale);
                 // Set response time to max value if host is down
                 if (!isHostUp)
                 {

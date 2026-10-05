@@ -136,7 +136,17 @@ namespace NetworkMonitor.Connection
                     Required = false,
                     IsFlag = false,
                     TypeHint = "value",
-                    Help = "Metric to surface in connect logs (e.g., pv_power, battery_voltage)."
+                    Help = "Numeric metric name to record (e.g., temperature, state_of_charge, battery_voltage)."
+                },
+                new ArgSpec
+                {
+                    Key = "metric_scale", Required = false, IsFlag = false, TypeHint = "value",
+                    Help = "Positive multiplier for the monitor sample; defaults to the metric resolution."
+                },
+                new ArgSpec
+                {
+                    Key = "metric_offset", Required = false, IsFlag = false, TypeHint = "value",
+                    Help = "Value added before scaling, allowing signed readings to fit unsigned storage."
                 },
                 new ArgSpec
                 {
@@ -623,13 +633,13 @@ namespace NetworkMonitor.Connection
 
                 if (BlePayloadDecoderRegistry.Default.Find(format) is { } decoder)
                 {
-                    if (!decoder.TryDecode(new BlePayload(capture.Address, capture.PayloadType, capture.Payload), keyBytes, out var decodedMessage, out var decodeError))
+                    if (!decoder.TryDecodeReadings(new BlePayload(capture.Address, capture.PayloadType, capture.Payload), keyBytes, out var decoded, out var decodeError))
                     {
                         var message = BuildOutputMessage(capture, null, decodeError);
                         return new ResultObj { Success = false, Message = message };
                     }
 
-                    return new ResultObj { Success = true, Message = decodedMessage };
+                    return new ResultObj { Success = true, Message = decoded.Message + "\n" + decoded.MetricSummary, Data = decoded };
                 }
 
                 if (!BleCryptoHelper.TryDecryptPayload(format, capture.Payload, keyBytes, cryptoOptions, out var plaintext, out var decryptError))
@@ -1013,13 +1023,13 @@ namespace NetworkMonitor.Connection
 
             if (BlePayloadDecoderRegistry.Default.Find(format) is { } decoder)
             {
-                if (!decoder.TryDecode(new BlePayload(capture.Address, capture.PayloadType, capture.Payload), keyBytes, out var decodedMessage, out var decodeError))
+                if (!decoder.TryDecodeReadings(new BlePayload(capture.Address, capture.PayloadType, capture.Payload), keyBytes, out var decoded, out var decodeError))
                 {
                     var message = BuildOutputMessage(capture, null, decodeError);
                     return new ResultObj { Success = false, Message = message };
                 }
 
-                return new ResultObj { Success = true, Message = decodedMessage };
+                return new ResultObj { Success = true, Message = decoded.Message + "\n" + decoded.MetricSummary, Data = decoded };
             }
 
             if (!BleCryptoHelper.TryDecryptPayload(format, capture.Payload, keyBytes, cryptoOptions, out var plaintext, out var decryptError))

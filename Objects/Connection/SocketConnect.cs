@@ -10,6 +10,8 @@ namespace NetworkMonitor.Connection
 {
     public class SocketConnect : NetConnect
     {
+        public override EndpointMeasurementMetadata Measurement => MeasurementAnalysisTemplates.Duration("Raw Connect (Socket Connection)", new(100, 200, 400));
+
         private const int DefaultHttpPort = 443;
 
         public SocketConnect()

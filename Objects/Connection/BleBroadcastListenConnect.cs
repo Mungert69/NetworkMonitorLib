@@ -7,10 +7,17 @@ namespace NetworkMonitor.Connection
 {
     public class BleBroadcastListenConnect : NetConnect
     {
+        private const int DurationScale = 10;
+        public override EndpointMeasurementMetadata Measurement => new(Scale: DurationScale,
+            Description: "Passive BLE advertisement capture, not a selected numeric sensor measurement.",
+            AnalysisKind: "discovery", AnalysisGuidance: "Describe capture availability and decode status. Do not interpret scan duration as a sensor reading.");
         private readonly ICmdProcessor? _cmdProcessor;
 
         public BleBroadcastListenConnect(ICmdProcessorProvider? cmdProcessorProvider)
         {
+            ExtendTimeout = true;
+            ExtendTimeoutMultiplier = DurationScale;
+
             if (cmdProcessorProvider != null)
             {
                 _cmdProcessor = cmdProcessorProvider.GetProcessor("BleBroadcastListen");
@@ -21,8 +28,6 @@ namespace NetworkMonitor.Connection
 
         public override async Task Connect()
         {
-            ExtendTimeout = true;
-
             if (_cmdProcessor == null)
             {
                 ProcessException("No Command Processor Available", "Error");
@@ -67,7 +72,7 @@ namespace NetworkMonitor.Connection
 
                 if (result.Success)
                 {
-                    responseTime = (ushort)Timer.ElapsedMilliseconds;
+                    responseTime = (ushort)(Timer.ElapsedMilliseconds / DurationScale);
                     ProcessStatus("BLE listen complete", responseTime, result.Message);
                 }
                 else

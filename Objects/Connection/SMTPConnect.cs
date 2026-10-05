@@ -9,6 +9,8 @@ namespace NetworkMonitor.Connection
 {
     public class SMTPConnect : NetConnect
     {
+        public override EndpointMeasurementMetadata Measurement => MeasurementAnalysisTemplates.Duration("SMTP (Email Ping)", new(200, 400, 700));
+
         /* ─────────────  Seams for unit-testing  ───────────── */
 
         /// <summary>Factory for the <see cref="TcpClient"/> instance.</summary>

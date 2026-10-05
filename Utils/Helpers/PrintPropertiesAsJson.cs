@@ -135,37 +135,40 @@ public class PrintPropertiesAsJson
     }
     public static string PrintMonitorPingInfoProperties(MonitorPingInfo monitorPingInfo, bool detail)
     {
-        StringBuilder output = new StringBuilder();
-
-        output.Append("{");
-        output.Append("\"status_message\" : \"").Append(monitorPingInfo.MessageForUser).Append("\", ");
-        output.Append("\"id\" : ").Append(monitorPingInfo.ID).Append(", ");
-        output.Append("\"address\" : \"").Append(monitorPingInfo.Address).Append("\", ");
-        output.Append("\"endpoint\" : \"").Append(monitorPingInfo.EndPointType).Append("\", ");
-        output.Append("\"agent_location\" : \"").Append(monitorPingInfo.AgentLocation).Append("\", ");
-        if (monitorPingInfo.Port != 0) output.Append("\"port\" : ").Append(monitorPingInfo.Port);
-
+        // This projection is for LLM consumption. Never mutate encoded API/storage fields.
+        double? Convert(double sample) => monitorPingInfo.PacketsRecieved > 0
+            ? MeasurementConversion.Value(sample, monitorPingInfo.Scale, monitorPingInfo.Offset) : null;
+        var fields = new System.Collections.Generic.Dictionary<string, object?>
+        {
+            ["status_message"] = monitorPingInfo.MessageForUser,
+            ["id"] = monitorPingInfo.ID,
+            ["address"] = monitorPingInfo.Address,
+            ["endpoint"] = monitorPingInfo.EndPointType,
+            ["agent_location"] = monitorPingInfo.AgentLocation,
+            ["unit"] = monitorPingInfo.Unit,
+            ["measurement_average"] = Convert(monitorPingInfo.RoundTripTimeAverage),
+            ["measurement_minimum"] = Convert(monitorPingInfo.RoundTripTimeMinimum),
+            ["measurement_maximum"] = Convert(monitorPingInfo.RoundTripTimeMaximum)
+        };
+        var args = string.IsNullOrWhiteSpace(monitorPingInfo.Args) ? monitorPingInfo.Username : monitorPingInfo.Args;
+        var metric = NetworkMonitor.Connection.BleMetricCatalogue.MetricFromArgs(args);
+        if (monitorPingInfo.EndPointType == "blebroadcast" && metric != null) fields["metric"] = metric;
+        if (monitorPingInfo.Port != 0) fields["port"] = monitorPingInfo.Port;
         if (detail)
         {
-            output.Append("\"dataset_id\" : ").Append(monitorPingInfo.DataSetID).Append(", ");
-            output.Append("\"status\" : \"").Append(monitorPingInfo.MonitorStatus.Message).Append("\", ");
-            output.Append("\"packets_sent\" : ").Append(monitorPingInfo.PacketsSent).Append(", ");
-            output.Append("\"packets_received\" : ").Append(monitorPingInfo.PacketsRecieved).Append(", ");
-            output.Append("\"packets_lost\" : ").Append(monitorPingInfo.PacketsLost).Append(", ");
-            output.Append("\"packets_lost_percentage\" : ").Append(monitorPingInfo.PacketsLostPercentage).Append(", ");
-            output.Append("\"alert_sent\" : ").Append(monitorPingInfo.MonitorStatus.AlertSent.ToString().ToLowerInvariant()).Append(", ");
-            output.Append("\"alert_flag\" : ").Append(monitorPingInfo.MonitorStatus.AlertFlag.ToString().ToLowerInvariant()).Append(", ");
-            output.Append("\"round_trip_time_maximum\" : ").Append(monitorPingInfo.RoundTripTimeMaximum).Append(", ");
-            output.Append("\"round_trip_time_average\" : ").Append(monitorPingInfo.RoundTripTimeAverage).Append(", ");
+            fields["dataset_id"] = monitorPingInfo.DataSetID;
+            fields["status"] = monitorPingInfo.MonitorStatus?.Message;
+            fields["packets_sent"] = monitorPingInfo.PacketsSent;
+            fields["packets_received"] = monitorPingInfo.PacketsRecieved;
+            fields["packets_lost"] = monitorPingInfo.PacketsLost;
+            fields["packets_lost_percentage"] = monitorPingInfo.PacketsLostPercentage;
+            fields["alert_sent"] = monitorPingInfo.MonitorStatus?.AlertSent;
+            fields["alert_flag"] = monitorPingInfo.MonitorStatus?.AlertFlag;
+            // Retain existing keys for function consumers, now in the declared physical unit.
+            fields["round_trip_time_maximum"] = Convert(monitorPingInfo.RoundTripTimeMaximum);
+            fields["round_trip_time_average"] = Convert(monitorPingInfo.RoundTripTimeAverage);
         }
-
-        if (output.Length >= 2 && output.ToString(output.Length - 2, 2) == ", ")
-        {
-            output.Length -= 2;
-        }
-        output.Append("}");
-
-        return output.ToString();
+        return JsonSerializer.Serialize(fields);
     }
     public static string PrintMonitorIPProperties(MonitorIP monitorIP, bool detail)
     {

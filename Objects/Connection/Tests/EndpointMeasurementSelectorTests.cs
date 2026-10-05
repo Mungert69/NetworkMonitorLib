@@ -20,6 +20,10 @@ public class EndpointMeasurementSelectorTests
     [InlineData("--metric load_current_a", "A", 0.1)]
     [InlineData("--metric yield_today", "kWh", 0.01)]
     [InlineData("--metric pv_power", "W", 1)]
+    [InlineData("--metric temperature", "°C", 0.01)]
+    [InlineData("--metric humidity", "%", 0.01)]
+    [InlineData("--metric temperature --metric_offset 100", "raw value", 1)]
+    [InlineData("--metric battery_voltage --metric_scale 10", "raw value", 1)]
     public void BLE_uses_exactly_one_distinct_whole_token(string args, string unit, double scale)
     {
         var result = EndpointMeasurementDefaults.Get("blebroadcast", args);

@@ -8,11 +8,18 @@ namespace NetworkMonitor.Connection
 {
     public class HugSpaceWakeConnect : NetConnect
     {
+        private const int DurationScale = 20;
+        public override EndpointMeasurementMetadata Measurement =>
+            MeasurementAnalysisTemplates.Duration("HuggingFace wake operation") with { Scale = DurationScale };
+
         private readonly ICmdProcessor? _cmdProcessor;
         private readonly string _baseArg;
 
         public HugSpaceWakeConnect(ICmdProcessorProvider? cmdProcessorProvider, string baseArg)
         {
+            ExtendTimeout = true;
+            ExtendTimeoutMultiplier = DurationScale;
+
             if (cmdProcessorProvider != null)
                 _cmdProcessor = cmdProcessorProvider.GetProcessor("HugSpaceWake");
 
@@ -22,9 +29,6 @@ namespace NetworkMonitor.Connection
 
         public override async Task Connect()
         {
-            ExtendTimeout = true;
-            ExtendTimeoutMultiplier = 20;
-
             if (_cmdProcessor == null)
             {
                 ProcessException("No Command Processor Available", "Error");
@@ -79,7 +83,7 @@ namespace NetworkMonitor.Connection
                 var result = await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
 
                 Timer.Stop();
-                responseTime = (ushort)Timer.ElapsedMilliseconds;
+                responseTime = (ushort)(Timer.ElapsedMilliseconds / DurationScale);
 
                 var output = result.Message ?? string.Empty;
 

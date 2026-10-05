@@ -177,11 +177,16 @@ public class BleSensorDecoderTests
             ? new BleBroadcastListenCmdProcessor(NullLogger.Instance, states, Mock.Of<IRabbitRepo>(), config)
             : new BleBroadcastCmdProcessor(NullLogger.Instance, states, Mock.Of<IRabbitRepo>(), config);
         string args = $"--format {format} --raw_payload {hex}";
-        if (!listen) args += " --address 54:48:E6:8F:80:A5";
+        if (!listen) args += " --address 54:48:E6:8F:80:A5 --metric temperature --metric_scale 100 --metric_offset 100";
         if (key.Length > 0) args += $" --key {key}";
         var result = await processor.RunCommand(args, CancellationToken.None);
         Assert.True(result.Success, result.Message);
         Assert.Contains(expected, result.Message);
+        if (!listen)
+        {
+            var decoded = Assert.IsType<BleDecodedPayload>(result.Data);
+            Assert.True(BleMetricSelector.TrySelect(decoded.Readings, "temperature", 100, 100, out _, out _, out var metricError), metricError);
+        }
         Assert.Contains("ruuvi", processor.GetCommandHelp());
         Assert.Contains("bthome", processor.GetCommandHelp());
     }

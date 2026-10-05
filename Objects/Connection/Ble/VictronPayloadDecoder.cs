@@ -31,9 +31,16 @@ public sealed class VictronPayloadDecoder : IBlePayloadDecoder
         && record.KeyCheck == keyFirstByte && _recordDecoders.ContainsKey(record.RecordType);
     public string Describe(byte[] payload, string payloadType) => DescribeVictronPayload(payload, payloadType);
     public bool TryDecode(BlePayload payload, byte[] key, out string message, out string error) =>
-        TryDecodeVictron(payload, key, out message, out error);
+        TryDecodeVictron(payload, key, new List<BleReading>(), out message, out error);
+    public bool TryDecodeReadings(BlePayload capture, byte[] key, out BleDecodedPayload decoded, out string error)
+    {
+        var readings = new List<BleReading>();
+        bool ok = TryDecodeVictron(capture, key, readings, out var message, out error);
+        decoded = new BleDecodedPayload(ok ? message : "", ok ? readings.ToArray() : Array.Empty<BleReading>());
+        return ok;
+    }
 
-    private bool TryDecodeVictron(BlePayload capture, byte[] keyBytes, out string message, out string error)
+    private bool TryDecodeVictron(BlePayload capture, byte[] keyBytes, List<BleReading> readings, out string message, out string error)
     {
         message = "";
         error = "";
@@ -72,7 +79,7 @@ public sealed class VictronPayloadDecoder : IBlePayloadDecoder
         sb.AppendLine($"Victron plaintext: {ToHex(plaintext)}");
 
         if (_recordDecoders.TryGetValue(record.RecordType, out var deviceDecoder)
-            && !deviceDecoder.TryAppend(plaintext, sb, out error))
+            && !deviceDecoder.TryAppend(plaintext, sb, readings, out error))
         {
             return false;
         }

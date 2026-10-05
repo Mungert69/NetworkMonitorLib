@@ -12,7 +12,9 @@ namespace NetworkMonitor.Connection
         private readonly ICmdProcessor? _cmdProcessor;
         private const string DefaultMetric = "pv_power";
         // This endpoint mixes selected readings and elapsed-time fallbacks.
-        public override string Unit => "raw value";
+        public override EndpointMeasurementMetadata Measurement => new(Unit: "raw value",
+            Description: "BLE receipt measurement without an identified numeric metric.", AnalysisKind: "unspecified",
+            AnalysisGuidance: "Describe availability only. Do not infer a voltage, temperature or other physical measurement without a selected metric.");
         public override IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => new[]
         {
             new EndpointMeasurementMetadata("V", 0.01, "battery_voltage"),
@@ -29,8 +31,25 @@ namespace NetworkMonitor.Connection
             new EndpointMeasurementMetadata("W", 1, "pv"),
             new EndpointMeasurementMetadata("kWh", 0.01, "yield_today"),
             new EndpointMeasurementMetadata("kWh", 0.01, "yield"),
-            new EndpointMeasurementMetadata("kWh", 0.01, "yield_today_kwh")
-        };
+            new EndpointMeasurementMetadata("kWh", 0.01, "yield_today_kwh"),
+            new EndpointMeasurementMetadata("°C", 0.01, "temperature"),
+            new EndpointMeasurementMetadata("°C", 0.01, "temperature_2"),
+            new EndpointMeasurementMetadata("°C", 0.01, "temperature_3"),
+            new EndpointMeasurementMetadata("°C", 0.01, "battery_temperature"),
+            new EndpointMeasurementMetadata("°C", 0.01, "dewpoint"),
+            new EndpointMeasurementMetadata("%", 0.01, "humidity"),
+            new EndpointMeasurementMetadata("%", 0.01, "humidity_2"),
+            new EndpointMeasurementMetadata("%", 0.01, "moisture"),
+            new EndpointMeasurementMetadata("%", 1, "battery"),
+            new EndpointMeasurementMetadata("min", 1, "time_to_go"),
+            new EndpointMeasurementMetadata("Ah", 0.1, "consumed_ah"),
+            new EndpointMeasurementMetadata("rpm", 1, "rotational_speed"),
+            new EndpointMeasurementMetadata("s", 0.001, "duration")
+        }.Select(m => m with {
+            Description = "Legacy BLE " + m.Type.Replace('_', ' ') + " in " + m.Unit + ".",
+            AnalysisKind = "unspecified",
+            AnalysisGuidance = "Legacy metric encoding. Describe values and availability; do not infer operating limits or device-specific semantics."
+        }).Concat(BleMetricCatalogue.Definitions.Select(d => d.Measurement)).ToArray();
 
         public BleBroadcastConnect(ICmdProcessorProvider? cmdProcessorProvider)
         {
@@ -82,6 +101,12 @@ namespace NetworkMonitor.Connection
                     arguments += $" {extraArgs}";
                 }
 
+                if (!TryGetMetricOptions(extraArgs, out var metric, out var explicitMetric, out var scale, out var offset, out var optionError))
+                {
+                    ProcessException(optionError, "BLE Metric Error");
+                    return;
+                }
+
                 Timer.Reset();
                 Timer.Start();
                 var processorScanDataObj = new ProcessorScanDataObj
@@ -95,18 +120,41 @@ namespace NetworkMonitor.Connection
                 if (result.Success)
                 {
                     responseTime = (ushort)Timer.ElapsedMilliseconds;
-                    string metric = GetMetricFromArgs(extraArgs);
-                    if (TryExtractMetricValue(result.Message, metric, out var metricValue, out var metricLabel))
+                    if (result.Data is BleDecodedPayload decoded)
                     {
-                        responseTime = metricValue;
-                        // PingInfo statuses share a ushort lookup table; readings belong in
-                        // the numeric sample and monitor message, never in the status label.
-                        ProcessStatus($"BLE {metricLabel}", responseTime, result.Message);
+                        string? format = BleMetricCatalogue.FormatFromArgs(extraArgs);
+                        var encoding = explicitMetric && !scale.HasValue && offset == 0 && format != null ? BleMetricCatalogue.Find(format,metric) : null;
+                        if (encoding != null) {
+                            var values = decoded.Readings.Where(r => r.Metric == BleMetricSelector.Canonical(metric)).ToArray();
+                            if(values.Length == 1 && values[0].Value.HasValue && encoding.TryEncode(values[0].Value!.Value,out var encoded))
+                                ProcessStatus(encoding.Status,encoded,result.Message + $"\nAutomatic encoding: scale={encoding.Scale.ToString(CultureInfo.InvariantCulture)}; offset={encoding.Offset.ToString(CultureInfo.InvariantCulture)}");
+                            else ProcessException($"BLE metric '{metric}' is missing, unavailable, ambiguous or outside its published range.\n{result.Message}","BLE Metric Error");
+                        }
+                        else if (explicitMetric && !scale.HasValue && offset == 0 && format != null)
+                            ProcessException($"No automatic numeric metric definition for '{metric}'.\n{result.Message}","BLE Metric Error");
+                        else if (BleMetricSelector.TrySelect(decoded.Readings, metric, scale, offset, out var sample, out var label, out var metricError))
+                        {
+                            var reading = decoded.Readings.Single(r => r.Metric == label);
+                            string encodingDescription = $"Recorded metric: {label}; value={reading.Value!.Value.ToString("0.######", CultureInfo.InvariantCulture)} {reading.Unit}; sample={sample}; scale={(scale ?? BleMetricSelector.DefaultScale(reading)).ToString(CultureInfo.InvariantCulture)}; offset={offset.ToString(CultureInfo.InvariantCulture)}";
+                            ProcessStatus($"BLE {label}", sample, result.Message + "\n" + encodingDescription);
+                        }
+                        else if (explicitMetric || decoded.Readings.Any(r => r.Metric == BleMetricSelector.Canonical(metric)))
+                        {
+                            ProcessException(metricError + "\n" + result.Message, "BLE Metric Error");
+                        }
+                        else ProcessStatus("BLE broadcast received", responseTime, result.Message);
                     }
-                    else
+                    else if (TryExtractMetricValue(result.Message, metric, out var metricValue, out var metricLabel))
                     {
-                        ProcessStatus("BLE broadcast received", responseTime, result.Message);
+                        // Compatibility with older/custom text-only command providers.
+                        double defaultScale = metricLabel == "battery_voltage" || metricLabel == "yield_today" ? 100 : metricLabel == "pv_power" ? 1 : 10;
+                        var reading = new BleReading(metricLabel, metricValue, "", 1 / defaultScale);
+                        if (BleMetricSelector.TrySelect(new[] { reading }, metric, scale, offset, out var sample, out var label, out var metricError))
+                            ProcessStatus($"BLE {label}", sample, result.Message);
+                        else ProcessException(metricError, "BLE Metric Error");
                     }
+                    else if (explicitMetric) ProcessException($"BLE metric '{metric}' is missing or unavailable.\n{result.Message}", "BLE Metric Error");
+                    else ProcessStatus("BLE broadcast received", responseTime, result.Message);
                 }
                 else
                 {
@@ -123,105 +171,39 @@ namespace NetworkMonitor.Connection
             }
         }
 
-        private static string GetMetricFromArgs(string args)
+        private static bool TryGetMetricOptions(string args, out string metric, out bool explicitMetric,
+            out double? scale, out double offset, out string error)
         {
-            if (string.IsNullOrWhiteSpace(args))
+            metric = DefaultMetric; explicitMetric = false; scale = null; offset = 0; error = "";
+            foreach (string name in new[] { "metric", "metric_scale", "metric_offset" })
             {
-                return DefaultMetric;
+                var options = Regex.Matches(args, $@"(?:^|\s)--{name}(?==|\s|$)(?:=|\s+)?(?<value>[^\s]*)", RegexOptions.IgnoreCase);
+                if (options.Count == 0) continue;
+                string value = options[0].Groups["value"].Value.Trim('\"', '\'');
+                if (options.Count != 1 || value.Length == 0 || value.StartsWith("--"))
+                { error = $"Invalid or repeated --{name}."; return false; }
+                if (name == "metric") { metric = BleMetricSelector.Canonical(value); explicitMetric = true; continue; }
+                if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) || !double.IsFinite(number) || (name == "metric_scale" && number <= 0))
+                { error = $"--{name} must be a finite {(name == "metric_scale" ? "positive " : "")}number."; return false; }
+                if (name == "metric_scale") scale = number; else offset = number;
             }
-
-            var match = Regex.Match(args, @"--metric(?:=|\s+)(?<value>[^\s]+)", RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                return match.Groups["value"].Value.Trim().ToLowerInvariant();
-            }
-
-            return DefaultMetric;
+            if (!explicitMetric && (scale.HasValue || offset != 0)) { error = "Specify --metric when using metric scaling or offset."; return false; }
+            return true;
         }
 
-        private static bool TryExtractMetricValue(string output, string metric, out ushort value, out string label)
+        private static bool TryExtractMetricValue(string output, string metric, out double value, out string label)
         {
-            value = 0;
-            label = metric;
-            metric = metric.Trim().ToLowerInvariant();
-
-            if (metric == "pv_power" || metric == "pvpower" || metric == "pv")
+            value = 0; label = BleMetricSelector.Canonical(metric);
+            string? field = label switch
             {
-                if (TryMatchNumber(output, @"PV power:\s*(?<val>[-+]?\d+)", out var num))
-                {
-                    value = ClampUShort((int)num);
-                    label = "pv_power";
-                    return true;
-                }
-                return false;
-            }
-
-            if (metric == "battery_voltage" || metric == "battery_voltage_v" || metric == "battery_v")
-            {
-                if (TryMatchNumber(output, @"Battery voltage:\s*(?<val>[-+]?\d+(\.\d+)?)", out var num))
-                {
-                    var scaled = (int)Math.Round(num * 100, MidpointRounding.AwayFromZero);
-                    value = ClampUShort(scaled);
-                    label = "battery_voltage";
-                    return true;
-                }
-                return false;
-            }
-
-            if (metric == "battery_current" || metric == "battery_current_a" || metric == "battery_a")
-            {
-                if (TryMatchNumber(output, @"Battery current:\s*(?<val>[-+]?\d+(\.\d+)?)", out var num))
-                {
-                    var scaled = (int)Math.Round(num * 10, MidpointRounding.AwayFromZero);
-                    value = ClampUShort(scaled);
-                    label = "battery_current";
-                    return true;
-                }
-                return false;
-            }
-
-            if (metric == "load_current" || metric == "load_current_a" || metric == "load_a")
-            {
-                if (TryMatchNumber(output, @"Load current:\s*(?<val>[-+]?\d+(\.\d+)?)", out var num))
-                {
-                    var scaled = (int)Math.Round(num * 10, MidpointRounding.AwayFromZero);
-                    value = ClampUShort(scaled);
-                    label = "load_current";
-                    return true;
-                }
-                return false;
-            }
-
-            if (metric == "yield_today" || metric == "yield" || metric == "yield_today_kwh")
-            {
-                if (TryMatchNumber(output, @"Yield today:\s*(?<val>[-+]?\d+(\.\d+)?)", out var num))
-                {
-                    var scaled = (int)Math.Round(num * 100, MidpointRounding.AwayFromZero);
-                    value = ClampUShort(scaled);
-                    label = "yield_today";
-                    return true;
-                }
-                return false;
-            }
-
-            return false;
-        }
-
-        private static bool TryMatchNumber(string text, string pattern, out double value)
-        {
-            value = 0;
-            var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
-            if (!match.Success) return false;
-
-            var raw = match.Groups["val"].Value;
-            return double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
-        }
-
-        private static ushort ClampUShort(int value)
-        {
-            if (value < 0) return 0;
-            if (value > ushort.MaxValue) return ushort.MaxValue;
-            return (ushort)value;
+                "pv_power" => "PV power", "battery_voltage" => "Battery voltage",
+                "battery_current" => "Battery current", "load_current" => "Load current",
+                "yield_today" => "Yield today", _ => null
+            };
+            if (field == null) return false;
+            var match = Regex.Match(output, $@"(?:^|[;\r\n])\s*{Regex.Escape(field)}:\s*(?<val>[-+]?(?:\d+(?:\.\d*)?|\.\d+))(?:\s|;|$)", RegexOptions.IgnoreCase);
+            return match.Success && double.TryParse(match.Groups["val"].Value, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out value) && double.IsFinite(value);
         }
     }
 }

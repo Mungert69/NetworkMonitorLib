@@ -18,6 +18,12 @@ public interface IBlePayloadDecoder
     bool Accepts(byte[] payload, string payloadType, byte keyFirstByte);
     string Describe(byte[] payload, string payloadType);
     bool TryDecode(BlePayload payload, byte[] key, out string message, out string error);
+    bool TryDecodeReadings(BlePayload payload, byte[] key, out BleDecodedPayload decoded, out string error)
+    {
+        bool success = TryDecode(payload, key, out var message, out error);
+        decoded = new BleDecodedPayload(message, Array.Empty<BleReading>());
+        return success;
+    }
 }
 
 /// <summary>Immutable protocol catalogue. Add protocols here rather than in platform scanners.</summary>

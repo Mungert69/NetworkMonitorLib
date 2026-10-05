@@ -3,33 +3,6 @@ using NetworkMonitor.Connection;
 using NetworkMonitor.Api.Services;
 namespace NetworkMonitor.Objects.Factory
 {
-    public class ThresholdValues
-    {
-        public int Excellent { get; set; }
-        public int Good { get; set; }
-        public int Fair { get; set; }
-
-        public ThresholdValues(int excellent, int good, int fair)
-        {
-            Excellent = excellent;
-            Good = good;
-            Fair = fair;
-        }
-    }
-
-    public class ResponseTimeThreshold
-    {
-        public ThresholdValues AllPorts { get; set; }
-        public ThresholdValues SpecificPort { get; set; }
-
-        public ResponseTimeThreshold(ThresholdValues allPorts, ThresholdValues specificPort)
-        {
-            AllPorts = allPorts;
-            SpecificPort = specificPort;
-        }
-
-        public ThresholdValues GetThresholds(int port) => port == 0 ? AllPorts : SpecificPort;
-    }
     public static class EndPointTypeFactory
     {
         private static readonly string[] AndroidPuppeteerEndpointTypes =
@@ -124,53 +97,6 @@ namespace NetworkMonitor.Objects.Factory
 
             return "2-10 minutes";
         }
-        /// <summary>
-        ///  Dictionary of values for the response time thresholds that are considered to be either excellent , good or fair. there are two sets because the port zero can do more work for some endpoint types (nmap).
-        /// </summary>
-        public static readonly Dictionary<string, ResponseTimeThreshold> ResponseTimeThresholds = new()
-{
-    { "icmp", new ResponseTimeThreshold(new ThresholdValues(50, 100, 200), new ThresholdValues(50, 100, 200)) },
-    
-    // HTTP (header only) - faster thresholds as it's just header retrieval
-    { "http", new ResponseTimeThreshold(new ThresholdValues(150, 300, 500), new ThresholdValues(150, 300, 500)) },
-    
-    // HTTPHTML (text-only load) - slightly slower than header only, but still fast
-    { "httphtml", new ResponseTimeThreshold(new ThresholdValues(250, 500, 800), new ThresholdValues(250, 500, 800)) },
-    
-    // HTTPFULL (full page load with Puppeteer) - significantly higher thresholds for full content load
-    { "httpfull", new ResponseTimeThreshold(new ThresholdValues(2000, 4000, 8000), new ThresholdValues(2000, 4000, 8000)) },
-
-    // SiteHash (full page load with Puppeteer and hash check) - same thresholds as httpfull
-    { "sitehash", new ResponseTimeThreshold(new ThresholdValues(2000, 4000, 8000), new ThresholdValues(2000, 4000, 8000)) },
-    { "configintegrity", new ResponseTimeThreshold(new ThresholdValues(100, 500, 2000), new ThresholdValues(100, 500, 2000)) },
-    
-    // DNS - DNS lookups are generally quick, with moderate thresholds
-    { "dns", new ResponseTimeThreshold(new ThresholdValues(100, 300, 600), new ThresholdValues(100, 300, 600)) },
-    
-    // SMTP - EHLO response should be fairly quick
-    { "smtp", new ResponseTimeThreshold(new ThresholdValues(200, 400, 700), new ThresholdValues(200, 400, 700)) },
-    
-    // Quantum - TLS handshake with OQSProvider may have slight latency, but existing values are reasonable
-    { "quantum", new ResponseTimeThreshold(new ThresholdValues(800, 1500, 3000), new ThresholdValues(800, 1500, 3000)) },
-    { "quantumcert", new ResponseTimeThreshold(new ThresholdValues(800, 1500, 3000), new ThresholdValues(800, 1500, 3000)) },
-    
-    // RawConnect - Raw socket connection is fast, so keeping low thresholds
-    { "rawconnect", new ResponseTimeThreshold(new ThresholdValues(100, 200, 400), new ThresholdValues(100, 200, 400)) },
-    { "blebroadcast", new ResponseTimeThreshold(new ThresholdValues(500, 1000, 2000), new ThresholdValues(500, 1000, 2000)) },
-    { "blebroadcastlisten", new ResponseTimeThreshold(new ThresholdValues(500, 1000, 2000), new ThresholdValues(500, 1000, 2000)) },
-
-    // Adjusted thresholds for nmap scans based on observed execution times. Note these are 10 times less than the above as the timeout is set is 10s of milliseconds nmap connects.
-    { "nmap", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-    { "nmapvuln", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-    { "crawlsite", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-    {"dailycrawl", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-    {"dailyhugkeepalive", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) },
-    {"hugwake", new ResponseTimeThreshold(new ThresholdValues(0, 0, 0), new ThresholdValues(0, 0, 0)) }
-
-};
-
-
-
         public static List<EndpointType> GetEndpointTypes()
         {
             return _endpointTypes;
@@ -276,12 +202,12 @@ namespace NetworkMonitor.Objects.Factory
         // Method to create the correct INetConnect instance based on type
         public static INetConnect CreateNetConnect(string type, HttpClient httpClient, HttpClient httpsClient, List<AlgorithmInfo> algorithmInfoList, string oqsProviderPath, string commandPath, ILogger logger, ICmdProcessorProvider? cmdProcessorProvider = null, IBrowserHost? browserHost = null, string nativeLibDir = "")
         {
-            return type switch
+            INetConnect connect = type switch
             {
-                "http" => new HTTPConnect(httpClient, false, false, commandPath),
-                "https" => new HTTPConnect(httpsClient, false, false, commandPath),
-                "httphtml" => new HTTPConnect(httpClient, true, false, commandPath),
-                "httpfull" => new HTTPConnect(httpClient, false, true, commandPath, browserHost),
+                "http" => new HTTPConnect(httpClient, false, false, commandPath, measurementName: GetFriendlyName(type)),
+                "https" => new HTTPConnect(httpsClient, false, false, commandPath, measurementName: GetFriendlyName(type)),
+                "httphtml" => new HTTPConnect(httpClient, true, false, commandPath, measurementName: GetFriendlyName(type)),
+                "httpfull" => new HTTPConnect(httpClient, false, true, commandPath, browserHost, GetFriendlyName(type)),
                 "sitehash" => new SiteHashConnect(commandPath, browserHost), // New endpoint type
                 "configintegrity" => new ConfigIntegrityConnect(),
                 "dns" => new DNSConnect(),
@@ -299,6 +225,11 @@ namespace NetworkMonitor.Objects.Factory
                 "hugwake" => new HugSpaceWakeConnect(cmdProcessorProvider, ""),
                 _ => new ICMPConnect(),
             };
+            // Configure the duration default only; an explicit Connect definition is authoritative.
+            if (connect is NetConnect builtIn && type is not "blebroadcast" and not "blebroadcastlisten"
+                && builtIn.Measurement.AnalysisKind == "unspecified" && builtIn.Measurement.Unit == "ms")
+                builtIn.ConfigureMeasurement(MeasurementAnalysisTemplates.Duration(GetFriendlyName(type)));
+            return connect;
         }
         public static async Task<TResultObj<DataObj>> TestConnection(
     string type,

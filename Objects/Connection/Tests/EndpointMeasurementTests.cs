@@ -35,7 +35,8 @@ public class EndpointMeasurementTests
             namespace NetworkMonitor.Connection {
               public class sensorConnect : NetConnect {
                 public override IReadOnlyCollection<string> StatusLabels => new[] { "Available" };
-                public override string Unit => "raw value";
+                public override EndpointMeasurementMetadata Measurement => new("raw value", Offset: -20,
+                    Description: "Custom primary measurement", AnalysisKind: "code", AnalysisGuidance: "Interpret supplied code meanings.");
                 public override IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => new[] {
                   new EndpointMeasurementMetadata("V", 0.01, "voltage"),
                   new EndpointMeasurementMetadata("W", 1, "power")
@@ -47,6 +48,14 @@ public class EndpointMeasurementTests
         Assert.True(result.Success, result.Message);
         Assert.NotNull(publication);
         Assert.Equal(new[] { "", "voltage", "power" }, publication.EndpointMeasurements!.Select(d => d.Type));
+        var primary = publication.EndpointMeasurements!.First();
+        Assert.Equal(-20, primary.Offset);
+        Assert.Equal("Custom primary measurement", primary.Description);
+        Assert.Equal("code", primary.AnalysisKind);
+        var guarded = provider.CreateConnect("sensor")!;
+        Assert.Equal(primary.Offset, guarded.Measurement.Offset);
+        Assert.Equal(primary.Description, guarded.Measurement.Description);
+        guarded.Cts.Dispose();
     }
 
     [Fact]
@@ -71,8 +80,7 @@ public class EndpointMeasurementTests
                 namespace NetworkMonitor.Connection {
                   public class savedConnect : NetConnect {
                     public override IReadOnlyCollection<string> StatusLabels => new[] { "Available", "Exception" };
-                    public override string Unit => "W";
-                    public override string Type => "power";
+                    public override EndpointMeasurementMetadata Measurement => new("W", Type: "power");
                     public override Task Connect() => Task.CompletedTask;
                   }
                 }
@@ -117,9 +125,7 @@ public class EndpointMeasurementTests
             namespace NetworkMonitor.Connection {
               public class voltageConnect : NetConnect {
                 public override IReadOnlyCollection<string> StatusLabels => new[] { "Available", "Exception" };
-                public override string Unit => "V";
-                public override double Scale => 0.01;
-                public override string Type => "voltage";
+                public override EndpointMeasurementMetadata Measurement => new("V", .01, "voltage");
                 public override Task Connect() { return Task.CompletedTask; }
               }
             }

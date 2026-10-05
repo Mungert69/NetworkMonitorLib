@@ -91,7 +91,7 @@ public static class VictronDeviceRecordDecoders
     private static VictronField I(int bit, string label = "Battery current") => F(label, bit, 16, true, 0.1, "A", 0x7fff);
     private static VictronField Temp(int bit) => F("Battery temperature", bit, 7, unit: "°C", na: 0x7f, offset: -40);
 
-    private static void AppendAux(byte[] data, StringBuilder output)
+    private static void AppendAux(byte[] data, StringBuilder output, ICollection<BleReading> readings)
     {
         uint mode = VictronBits.Read(data, 64, 2);
         VictronField? field = mode switch
@@ -101,7 +101,7 @@ public static class VictronDeviceRecordDecoders
             2 => F("Battery temperature", 48, 16, scale: 0.01, unit: "°C", offset: -273.15),
             _ => null
         };
-        field?.Append(data, output);
+        field?.Append(data, output, readings);
     }
 }
 
@@ -118,27 +118,41 @@ internal static class VictronBits
 
 internal sealed record VictronField(string Label, int Bit, int Width, bool Signed, double Scale, string Unit, uint? Na, double Offset, bool CellVoltage = false)
 {
-    public void Append(byte[] data, StringBuilder output)
+    public EndpointMeasurementMetadata Meaning => MeasurementAnalysisTemplates.Metric(Label, Unit,
+        Label is "Yield today" or "Consumed Ah" ? "counter" : Unit.Length == 0 ? "code" : "continuous");
+    public void Append(byte[] data, StringBuilder output, ICollection<BleReading>? readings = null)
     {
         uint raw = VictronBits.Read(data, Bit, Width);
-        if (raw == Na) { output.AppendLine($"{Label}: NA"); return; }
+        if (raw == Na) { readings?.Add(new BleReading(BleReading.MetricName(Label), null, Unit, Math.Abs(Scale))); output.AppendLine($"{Label}: NA"); return; }
         if (CellVoltage && raw is 0 or 126)
         {
+            readings?.Add(new BleReading(BleReading.MetricName(Label), null, Unit, Math.Abs(Scale)));
             output.AppendLine($"{Label}: {(raw == 0 ? "<2.61" : ">3.85")} V");
             return;
         }
         long number = Signed && (raw & (1u << (Width - 1))) != 0 ? (long)raw - (1L << Width) : raw;
+        readings?.Add(new BleReading(BleReading.MetricName(Label), number * Scale + Offset, Unit, Math.Abs(Scale)));
         string format = Scale switch { 0.001 => "F3", 0.01 => "F2", 0.1 or -0.1 => "F1", _ => "0.##" };
         output.AppendLine($"{Label}: {(number * Scale + Offset).ToString(format, CultureInfo.InvariantCulture)}{(Unit.Length == 0 ? "" : " " + Unit)}");
     }
 }
 
 internal sealed class VictronLayoutRecordDecoder(byte recordType, string name, int requiredBits,
-    IEnumerable<VictronField> fields, Action<byte[], StringBuilder>? appendExtra = null) : IVictronRecordDecoder
+    IEnumerable<VictronField> fields, Action<byte[], StringBuilder, ICollection<BleReading>>? appendExtra = null) : IVictronRecordDecoder
 {
     private readonly VictronField[] _fields = fields.ToArray();
     public byte RecordType => recordType;
+    public IReadOnlyList<BleMetricRange> Metrics => _fields.Select(f => f.CellVoltage
+        ? new BleMetricRange(BleReading.MetricName(f.Label), f.Unit, 2.61, 3.85, .01)
+        : BleMetricRange.Field(f.Label, f.Unit, f.Width, f.Signed, f.Scale, f.Offset, f.Na)).Select((range, i) => range with { Meaning = _fields[i].Meaning })
+        .Concat(appendExtra == null ? Array.Empty<BleMetricRange>() : new[] {
+            BleMetricRange.Field("Aux voltage","V",16,true,.01),
+            BleMetricRange.Field("Mid voltage","V",16,false,.01),
+            BleMetricRange.Field("Battery temperature","°C",16,false,.01,-273.15)
+        }).ToArray();
     public bool TryAppend(byte[] plaintext, StringBuilder output, out string error)
+        => TryAppend(plaintext, output, new List<BleReading>(), out error);
+    public bool TryAppend(byte[] plaintext, StringBuilder output, ICollection<BleReading> readings, out string error)
     {
         error = "";
         if (plaintext.Length * 8 < requiredBits)
@@ -147,8 +161,8 @@ internal sealed class VictronLayoutRecordDecoder(byte recordType, string name, i
             return false;
         }
         output.AppendLine($"Victron device: {name}");
-        foreach (var field in _fields) field.Append(plaintext, output);
-        appendExtra?.Invoke(plaintext, output);
+        foreach (var field in _fields) field.Append(plaintext, output, readings);
+        appendExtra?.Invoke(plaintext, output, readings);
         return true;
     }
 }

@@ -7,9 +7,7 @@ namespace NetworkMonitor.Connection;
 /// <summary>Validates the final result even when generated code bypasses helpers.</summary>
 internal sealed class GuardedDynamicConnect(NetConnect inner, DynamicConnectStatusPolicy policy) : INetConnect
 {
-    public string Unit => inner.Unit;
-    public double Scale => inner.Scale;
-    public string Type => inner.Type;
+    public EndpointMeasurementMetadata Measurement => inner.Measurement;
     public IReadOnlyCollection<EndpointMeasurementMetadata> MeasurementVariants => inner.MeasurementVariants;
     public ushort RoundTrip { get => inner.RoundTrip; set => inner.RoundTrip = value; }
     public uint PiID { get => inner.PiID; set => inner.PiID = value; }

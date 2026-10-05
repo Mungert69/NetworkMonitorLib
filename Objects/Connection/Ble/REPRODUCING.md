@@ -48,7 +48,7 @@ All paths below are relative to this guide's directory unless stated otherwise.
 | [BTHomePayloadDecoder.cs](BTHomePayloadDecoder.cs) | BTHome v2 objects and AES-CCM verification |
 | [BleBroadcastCmdProcessor.cs](../CommandProcessors/BleBroadcastCmdProcessor.cs) | Address-targeted, single-advertisement command |
 | [BleBroadcastListenCmdProcessor.cs](../CommandProcessors/BleBroadcastListenCmdProcessor.cs) | Address-free, capped, best-effort listen command |
-| [BleBroadcastConnect.cs](../BleBroadcastConnect.cs) | Endpoint config to arguments; existing text-to-metric extraction |
+| [BleBroadcastConnect.cs](../BleBroadcastConnect.cs) | Endpoint arguments, structured metric selection and sample encoding |
 | [BleBroadcastListenConnect.cs](../BleBroadcastListenConnect.cs) | Endpoint config to listen arguments |
 
 To reconstruct the refactor from the former monolithic processors:
@@ -391,9 +391,256 @@ scan filtering, radio delivery, or platform AES-CCM availability.
 6. Update help, source links, coverage/limits, and this guide; run the relevant
    regression filter and platform/hardware checks affected by the change.
 
-Results currently use text, and `BleBroadcastConnect` extracts its existing metric
-subset using regex into unsigned-short storage. New decoder readings do not
-implicitly become selectable numeric monitoring metrics; signed values can be
-clamped by the existing Connect. Structured readings, expanded metric selection,
-per-device keys, exact product catalogues, persistent deduplication/replay checks,
-and a shared platform scanning service are separate future work.
+Numeric monitoring now uses structured readings and explicit metric selection,
+as documented below. Per-device keys, exact product catalogues, persistent
+deduplication/replay checks and a shared platform scanning service remain
+separate future work.
+
+## Selecting a monitoring metric (.NET and ESP32)
+
+No JSON configuration file is needed. Each decoder emits `BleDecodedPayload`
+containing its diagnostic text and numeric `BleReading` values. Targeted command
+results carry this object in the existing `ResultObj.Data` field. The endpoint
+selects a reading directly; display formatting does not affect its recorded value.
+The text-only decoder API remains available for discovery and existing callers.
+
+Set endpoint `blebroadcast`, the device MAC, protocol key if required, and Args:
+
+```text
+--format bthome --metric temperature
+--format ruuvi --metric humidity
+--format victron --metric state_of_charge
+--format victron --metric battery_voltage_2
+--format bthome --metric temperature_2
+```
+
+Names are decoded field labels in lower case with punctuation/spaces replaced
+by underscores. Examples: `AC in power` -> `ac_in_power`, `Cell 1 voltage` ->
+`cell_1_voltage`, `TX power` -> `tx_power`, `PM2.5` -> `pm2_5`.
+Repeated BTHome labels are numbered (`temperature`, `temperature_2`, etc.).
+Victron channel/cell numbers remain part of the name. All numeric fields from
+all 13 Victron families, Ruuvi RAWv2 and BTHome v2 are selectable, including
+numeric state/flags, counts, booleans and timestamps. BTHome `button` and `dimmer`
+store their protocol event codes; `dimmer_steps` stores the step count. Repeated
+events are numbered too. Text, raw bytes, MAC addresses and firmware-version
+strings are diagnostic fields, not numeric metrics. Missing/unavailable/clipped
+readings and ambiguous names return `BLE Metric Error` for explicit selections.
+Command diagnostics and selection errors list the packet's available numeric metric names. Authentication or
+malformed-packet failures expose no structured readings.
+
+One monitor records one metric. Add separate monitors for temperature, humidity,
+etc., using the same device address. Do not use the listen endpoint for numeric
+value selection; it remains a capture/discovery report.
+
+### Automatic encoding and display
+
+Users supply only `--format` and `--metric`; no user JSON or scale calculation is
+required. `BleMetricCatalogue.cs` derives unit, physical range and resolution
+from the decoder schemas. The shipped `metric-encodings-v2.json` is a reviewed
+snapshot used by a regression test and by the C generator. It is development
+metadata, not user configuration. There are distinct names for BTHome objects
+whose units differ: `mass_kg`, `mass_lb`, `distance_mm`, `distance_m`, `volume_l`
+and `volume_ml` (and occurrence suffixes).
+
+For each protocol/metric, combine all supported layouts' physical ranges, use
+`offset = min(0, minimum)`, and choose
+`scale = max(finest_resolution, (maximum - offset) / 65534)`.
+The shared sample/display contract is:
+
+```text
+sample = round_away_from_zero((physical_value - offset) / scale)
+physical_value = sample * scale + offset
+```
+
+The valid sample range is 0..65534: 65535 is reserved for failed probes. Signed
+values use a fixed negative origin. Protocol unavailable sentinels and clipped
+cell voltages never become valid samples. Encoding rejects missing, ambiguous,
+unavailable and out-of-range values. Maximum quantization error is half a scale
+step: large 24/32-bit counters and wide signed ranges lose precision in the
+existing 16-bit storage field. Supporting their full native precision would
+require a wider sample schema. Flags/events are numeric codes, not labels.
+
+A fixed status `BLE v2:<format>:<metric>` identifies the chosen metric; changing
+values stay in the numeric field and diagnostics. Do not silently change shipped
+v2 definitions. Introduce another version if changing an existing definition.
+The compatibility work for historical readings is intentionally omitted: API
+and charts apply the monitor's currently configured metadata to all its data.
+Start a new dataset if a monitor's metric or encoding changes.
+
+`EndpointMeasurement` / `EndpointMeasurementDefinition` now include `Offset`
+(default zero). The .NET processor publishes these definitions through its
+existing catalogue. `EndpointMeasurementSelector` selects by both protocol and
+metric, including repeated BTHome objects. NetworkMonitorData applies registered
+metadata or the shared built-in defaults (also used for ESP32 processors, which
+do not publish a measurement catalogue). API monitor results carry Unit, Scale,
+Offset; the React list, detail, charts and reports apply the inverse conversion.
+Negative physical measurements remain visible; negative raw failure markers
+remain missing data. Alerts continue to use their existing up/down policy.
+
+Without `--metric`, existing implicit solar/receipt behavior remains. The .NET
+advanced `--metric_scale` / `--metric_offset` overrides remain an escape hatch
+with raw display metadata; automatic settings are the supported physical-unit
+path. These manual overrides are not supported by ESP32.
+
+### Reproduce, test and deploy
+
+1. Read the manufacturer references earlier in this document. Add decoder fields
+   and their range descriptors together; include NA values, signed widths,
+   scale, units and repeated-object naming. New binary flags remain 0/1.
+2. Review the versioned snapshot and run .NET tests. The snapshot regression
+   prevents accidental changes to released definitions; do not refresh it just
+   to silence a failing test.
+3. Copy a reviewed snapshot to ESP32 `tests/fixtures/ble-metric-encodings-v2.json`,
+   run `python3 tools/update-ble-metrics.py`, then `--check`. The C registry uses
+   generated constants and a typed selected-reading sink, not parsed text.
+4. Run .NET BLE/measurement tests and Data catalogue/PingInfo tests; run React
+   `node --test src/components/dashboard/measurement.test.mjs` (Node 24) and
+   `npm run build`. Run the ESP32 sanitizer native suite, tooling tests and
+   signed `./tools/build-firmware.sh` as described in its documentation.
+5. Apply NetworkMonitorData migration
+   `20261004221000_EndpointMeasurementOffsets` through the normal deployment
+   process before deploying Data/API code. Deploy the shared library and service,
+   React UI, and rebuilt .NET/ESP32 processors. No live database, service or
+   enrolled board is changed by the build/test steps.
+6. Hardware acceptance: replay synthetic `--raw_payload` first, then use a real
+   device with its correct broadcast key. Check temperature below zero, battery
+   voltage/current, humidity, an unavailable field and a repeated BTHome object.
+   Compare diagnostics to API/list/detail/chart/report values within half a scale
+   step. Missing values must fail explicitly and never show scan duration as
+   the selected metric. Inspect successful backend saves and acknowledgements.
+
+.NET regression tests cover all 13 Victron layouts, published Ruuvi/BTHome
+vectors and encryption errors, every encoding's minimum/maximum/midpoint,
+reserved failure marker, immutable snapshot and selection independent of text.
+Data tests cover persisted signed metadata and automatic selection; UI tests
+cover negative physical values versus failure markers. C native tests exercise
+production code with OpenSSL-backed test crypto; firmware uses ESP-IDF PSA.
+
+### Physical-value output consumers
+
+The existing API/frontend remains encoded: `physical = sample * Scale + Offset`.
+`MeasurementConversion` provides value, total (`total*scale + count*offset`) and
+standard-deviation (`deviation*scale`) conversions. Raw failures map to null;
+negative physical values remain valid. LLM host summaries use
+`PrintMonitorPingInfoProperties` with converted `measurement_average`,
+`measurement_minimum`, `measurement_maximum`, metric and unit, even in compact
+mode. Existing detailed round-trip aliases also contain physical values.
+
+Downloads now serialize `PhysicalMeasurementResponse` instead of encoded
+`HostResponseObj`: Address, Endpoint, Metric, Unit, Average, Minimum, Maximum,
+Total, StandardDeviation and Readings (Timestamp, nullable Value, Status). These
+values must not be scaled again. Report graphs use converted nullable samples
+and physical-unit axes. Report-analysis LLM input uses the same physical DTO;
+latency performance categories are omitted for non-millisecond measurements.
+API DTOs and stored samples are unchanged. Redeploy Data and Service with the
+updated shared library; no additional database migration is required.
+
+### Analysis metadata in the same catalogue
+
+`EndpointMeasurementMetadata`, published `EndpointMeasurementDefinition` and
+persisted `EndpointMeasurement` now include Description (512 characters),
+AnalysisKind (32) and AnalysisGuidance (2048), beside Unit/Scale/Offset/Type.
+`NetConnect.Measurement` is the authoritative primary definition, with
+`MeasurementVariants` for subtypes. Connects override Measurement with one
+complete immutable definition. There are no separate Unit/Scale/Offset/Type or
+analysis properties on NetConnect or INetConnect.
+
+`EndPointTypeFactory` owns registration, UI text and construction. It configures
+built-in duration definitions using endpoint identity, preserving distinctions
+between endpoints sharing a class (such as HTTP variants). BLE Connects own
+receipt/discovery definitions. Decoder schemas own per-metric meaning and kind:
+BTHome ObjectSpec kinds/binary flags, Ruuvi metric ranges and Victron fields.
+`BleMetricCatalogue` combines those meanings with the versioned encoding and
+rejects conflicting meanings for the same format/metric.
+
+`MeasurementAnalysisTemplates` supplies wording for declared kinds and units;
+it has no endpoint or decoder lookup. Missing semantics receive an unspecified,
+conservative fallback. Adding a metric must declare its kind beside its schema;
+do not add another endpoint/metric inference table. Repeated BTHome objects
+inherit their base definition. Legacy unversioned BLE aliases retain their
+encoding and are explicitly marked unspecified.
+
+The builder collects and validates every definition without running probes.
+The published DTO and database entity are transport/storage representations,
+not separate sources of measurement meaning. Data's catalogue uses one resolver
+for both batched API decoration and report lookup: registered definitions take
+precedence, otherwise built-in definitions apply. Both paths use the same Args
+and legacy Username fallback and subtype selector.
+
+Example for a new Connect (the values describe stored samples, not user-entered
+scaling parameters):
+
+```csharp
+public override EndpointMeasurementMetadata Measurement =>
+    MeasurementAnalysisTemplates.Metric("Enclosure temperature", "°C") with {
+        Scale = 0.1,
+        Offset = -40,
+        AnalysisGuidance = "Describe temperature trends; operating limits are not configured."
+    };
+```
+
+For decoder schemas, use `BleMetricRange.Field(..., kind: "counter")` for an
+accumulating counter, or attach a complete `Meaning` definition when custom
+wording is needed. BTHome object entries declare `Kind`; their Binary flag selects
+state semantics. The catalogue checks that repeated schema definitions for one
+format/metric agree. Keep numeric encoding fixtures unchanged when updating
+analysis text. `PublishedVersionTwoDefinitionsNeverChange` checks all numeric
+fields against the existing fixture, independently of wording.
+
+ReportService resolves the selected complete definition and sends its Type,
+Unit, Description, AnalysisKind and AnalysisGuidance as `measurement_context`
+next to physical readings. LLMReportNode explicitly requests catalogue-aware
+analysis. NetworkMonitorLLM `ReportDataToolsBuilder` contains the general system
+prompt: preserve units, null is missing, negative values can be valid, use
+provided timestamps and do not invent thresholds or safety/health limits. The
+existing two-string output contract is unchanged. No threshold evaluation or
+processor monitoring contract changes are included.
+
+Apply migration `20261004234500_EndpointMeasurementAnalysis` before deploying
+updated Data/Service and LLM code with the shared library. This adds the three
+columns to the existing catalogue table; the earlier Offset migration remains
+unchanged. No live migration or LLM API call is part of tests. Verify shared
+EndpointMeasurement/BleMetric tests, Data catalogue/report tests and LLM
+ReportDataToolsBuilderTests. Coverage includes all supported BLE definitions,
+custom catalogue persistence and wire roundtrip, actual report input reaching
+the orchestrator, and the system prompt's units/missing/counter/state rules.
+
+### Report prompt ownership
+
+Measurement-specific instructions belong in `AnalysisGuidance`. Standard
+millisecond duration definitions use the original network performance-analysis
+wording (spikes, timeouts, consistency, whole-period summaries and actionable
+recommendations). Non-duration definitions use their own metric guidance. The
+report system prompt supplies only the common input/output contract and routes
+analysis to that guidance; it has no parallel per-kind analysis policy.
+The report node retains its original report-generation prefix. Report payloads
+use the current physical-value DTO: failures are null, timestamps describe actual
+samples, and categories are used only when supplied. The original prompt's -1
+failure marker and fixed two-hour assumptions do not describe this DTO and are
+not reinstated as data-format claims.
+
+For LLM reports, only millisecond duration definitions with optional
+TimingRatingThresholds receive Categories. TimingMeasurementRating is the single
+rating implementation for HTML and LLM output; no factory lookup or fallback
+limits exist. Missing thresholds mean unrated, including scans, maintenance,
+integrity checks, BLE and quantum/certificate-specific operations. HTTP HTTPS
+request timings share the HTTP limits. The old limits remain heuristic defaults
+for eligible timings and are passed to the LLM explicitly.
+
+Dynamic definitions publish the optional threshold object; the database stores
+its three boundaries in nullable TimingExcellent/TimingGood/TimingFair columns in
+the same table. Apply migration 20261005001000_EndpointMeasurementTimingRatings.
+Limits must be positive, finite, strictly increasing and attached only to duration
+measurements in ms. Null disables ratings. These are not operational alert limits.
+Unrated durations use completion-time/status guidance instead of latency ratings.
+Extended .NET duration endpoints use fixed scales matching their timeout
+multipliers: Nmap/Nmap vulnerability scans and BLE listen use 10 ms/sample;
+crawl/daily crawl and HuggingFace keep-alive/wake use 20 ms/sample. Recording
+uses integer elapsed milliseconds / scale; decoding multiplies by the same
+Measurement.Scale. At a base 59000 ms timeout their extended timeout windows
+encode below 59000, preserving headroom below the reserved 65535 marker.
+Scale 10 supports 655340 ms and scale 20 supports 1310680 ms; quantization loses
+less than one scale step. Configured timeouts must keep successful samples in
+the representable range. Normal duration endpoints retain direct casts. There
+is no clamping helper. Targeted BLE metric encodings are unchanged; its legacy
+raw receipt fallback remains unclassified raw data.

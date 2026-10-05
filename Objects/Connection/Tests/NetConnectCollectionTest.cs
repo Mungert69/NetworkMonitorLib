@@ -510,16 +510,10 @@ public class NetConnectCollectionTest
     }
 
     [Fact]
-    public void ResponseTimeThresholds_AreCorrectForEachType()
+    public void TimingRatingsAreOptionalAndOwnedByMeasurementDefinitions()
     {
-        foreach (var endpointType in NetworkMonitor.Objects.Factory.EndPointTypeFactory.GetInternalTypes())
-        {
-            var thresholds = NetworkMonitor.Objects.Factory.EndPointTypeFactory.ResponseTimeThresholds.GetValueOrDefault(endpointType);
-            if (thresholds != null)
-            {
-                Assert.True(thresholds.AllPorts.Excellent > 0 || thresholds.AllPorts.Excellent == 0); // Just check property is accessible
-            }
-        }
+        Assert.True(NetworkMonitor.Connection.TimingMeasurementRating.IsEnabled(NetworkMonitor.Connection.EndpointMeasurementDefaults.Get("http")));
+        Assert.False(NetworkMonitor.Connection.TimingMeasurementRating.IsEnabled(NetworkMonitor.Connection.EndpointMeasurementDefaults.Get("nmap")));
     }
 
     [Fact]

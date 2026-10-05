@@ -8,6 +8,8 @@ namespace NetworkMonitor.Connection
 {
     public class DNSConnect : NetConnect
     {
+        public override EndpointMeasurementMetadata Measurement => MeasurementAnalysisTemplates.Duration("DNS (Domain Lookup)", new(100, 300, 600));
+
         // ❶ ––– the seam: override in a test spy
         protected virtual Task<IPAddress[]> ResolveAsync(
             string host, CancellationToken token) =>
