@@ -158,6 +158,9 @@ namespace NetworkMonitor.Objects
         }
         public void CopyMonitorPingInfo(MonitorPingInfo copy)
         {
+            Unit = copy.Unit;
+            Scale = copy.Scale;
+            Offset = copy.Offset;
             ID = copy.ID;
             AppID = copy.AppID;
             DataSetID = copy.DataSetID;

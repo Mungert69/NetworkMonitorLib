@@ -187,6 +187,16 @@ namespace NetworkMonitor.Connection
         }
 
 
+        /// <summary>Find display metadata for an existing Connect, including disabled hosts.</summary>
+        public EndpointMeasurementMetadata? FindMeasurement(int monitorIPID)
+        {
+            var connect = _netConnects.FirstOrDefault(c => c.MpiStatic.MonitorIPID == monitorIPID && c.IsEnabled)
+                ?? _netConnects.FirstOrDefault(c => c.MpiStatic.MonitorIPID == monitorIPID);
+            if (connect == null) return null;
+            var args = string.IsNullOrWhiteSpace(connect.MpiStatic.Args) ? connect.MpiStatic.Username : connect.MpiStatic.Args;
+            return EndpointMeasurementSelector.Resolve(new[] { connect.Measurement }.Concat(connect.MeasurementVariants), args);
+        }
+
         public EndpointMeasurementMetadata ResolveMeasurement(int monitorIPID)
         {
             var connect = _netConnects.First(c => c.MpiStatic.MonitorIPID == monitorIPID && c.IsEnabled);
