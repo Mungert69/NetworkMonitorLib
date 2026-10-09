@@ -8,7 +8,7 @@ namespace NetworkMonitor.Connection.CommandProcessors.Tests
     {
         private static MethodInfo GetPrivateStatic(string name)
         {
-            var method = typeof(BleBroadcastListenCmdProcessor).GetMethod(
+            var method = typeof(VictronPayloadDecoder).GetMethod(
                 name,
                 BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(method);

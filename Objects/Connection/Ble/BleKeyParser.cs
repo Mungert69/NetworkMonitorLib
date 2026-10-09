@@ -2,7 +2,7 @@ using System.Text;
 
 namespace NetworkMonitor.Connection;
 
-internal static class BleKeyParser
+public static class BleKeyParser
 {
     public static bool TryParse(string input, IBlePayloadDecoder? decoder, out byte[] key, out string error)
     {

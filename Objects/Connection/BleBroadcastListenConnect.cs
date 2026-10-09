@@ -10,24 +10,25 @@ namespace NetworkMonitor.Connection
         private const int DurationScale = 10;
         public override EndpointMeasurementMetadata Measurement => new(Scale: DurationScale,
             Description: "Passive BLE advertisement capture, not a selected numeric sensor measurement.",
-            AnalysisKind: "discovery", AnalysisGuidance: "Describe capture availability and decode status. Do not interpret scan duration as a sensor reading.");
+            AnalysisKind: "discovery", AnalysisGuidance: "Describe raw advertisement capture availability. Do not interpret processing duration as a sensor reading.");
+        private long _lastSequence;
+        internal BleAdvertisementSnapshot? CycleSnapshot { get; set; }
+        protected override bool UsesOperationTimeout => false;
         private readonly ICmdProcessor? _cmdProcessor;
 
         public BleBroadcastListenConnect(ICmdProcessorProvider? cmdProcessorProvider)
         {
-            ExtendTimeout = true;
-            ExtendTimeoutMultiplier = DurationScale;
-
             if (cmdProcessorProvider != null)
             {
                 _cmdProcessor = cmdProcessorProvider.GetProcessor("BleBroadcastListen");
             }
 
-            IsLongRunning = true;
+            IsLongRunning = false;
         }
 
         public override async Task Connect()
         {
+            var snapshot = CycleSnapshot;
             if (_cmdProcessor == null)
             {
                 ProcessException("No Command Processor Available", "Error");
@@ -67,7 +68,13 @@ namespace NetworkMonitor.Connection
                     Arguments = arguments,
                     SendMessage = false
                 };
-                result = await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
+                snapshot ??= (_cmdProcessor as IBleListenSnapshotProcessor)?.Listener?.Snapshot;
+                long afterSequence = _lastSequence;
+                var token = Cts.Token;
+                result = _cmdProcessor is IBleListenSnapshotProcessor buffered
+                    ? await Task.Run(() => buffered.ReadSnapshot(arguments, snapshot, afterSequence, token), token)
+                    : await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
+                if (result.Success && snapshot != null) _lastSequence = snapshot.LastSequence;
                 Timer.Stop();
 
                 if (result.Success)

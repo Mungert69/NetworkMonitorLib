@@ -32,6 +32,23 @@ public class ConnectFactoryTest
         return config;
     }
 
+    [Theory]
+    [InlineData("blebroadcast", 0, 7000)]
+    [InlineData("blebroadcastlisten", 0, 7000)]
+    [InlineData("blebroadcast", 9000, 9000)]
+    public void BleTimeoutDefaultsToSevenSecondsAndPreservesExplicitWindows(string endpoint, int timeout, int expected)
+    {
+        var factory = new ConnectFactory(new DummyLogger(), GetConfig());
+        var monitor = new MonitorPingInfo { EndPointType = endpoint, Address = "AA:BB:CC:DD:EE:FF", Timeout = timeout };
+        var connect = factory.GetNetConnectObj(monitor, new PingParams { Timeout = 1000 });
+        Assert.Equal(expected, connect.MpiStatic.Timeout);
+        if (connect is BleBroadcastConnect broadcast)
+            Assert.Equal(TimeSpan.FromMilliseconds(expected * 10L), broadcast.CollectionWindow);
+        monitor.Timeout = 0;
+        factory.UpdateNetConnectionInfo(connect, monitor);
+        Assert.Equal(7000, connect.MpiStatic.Timeout);
+    }
+
     [Fact]
     public void GetNetConnectObj_ReturnsCorrectType()
     {

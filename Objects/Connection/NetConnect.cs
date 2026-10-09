@@ -73,6 +73,7 @@ namespace NetworkMonitor.Connection
         public bool IsEnabled { get => _isEnabled; set => _isEnabled = value; }
         public MPIConnect MpiConnect { get => _mpiConnect; set => _mpiConnect = value; }
         public MPIStatic MpiStatic { get => _mpiStatic; set => _mpiStatic = value; }
+        protected virtual bool UsesOperationTimeout => true;
         protected bool ExtendTimeout { get => _extendTimeout; set => _extendTimeout = value; }
         protected int ExtendTimeoutMultiplier { get => _extendTimeoutMultiplier; set => _extendTimeoutMultiplier = value; }
 
@@ -105,12 +106,11 @@ namespace NetworkMonitor.Connection
             };
             _cts = new CancellationTokenSource();
             _mpiConnect.SiteHash = _mpiStatic.SiteHash;
-            int timeout = _mpiStatic.Timeout;
-            if (ExtendTimeout)
+            if (UsesOperationTimeout)
             {
-                timeout = _mpiStatic.Timeout * ExtendTimeoutMultiplier;
+                int timeout = ExtendTimeout ? _mpiStatic.Timeout * ExtendTimeoutMultiplier : _mpiStatic.Timeout;
+                _cts.CancelAfter(TimeSpan.FromMilliseconds(timeout));
             }
-            _cts.CancelAfter(TimeSpan.FromMilliseconds(timeout));
 
         }
 

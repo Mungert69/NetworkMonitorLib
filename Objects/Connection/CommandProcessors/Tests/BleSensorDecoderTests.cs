@@ -181,7 +181,12 @@ public class BleSensorDecoderTests
         if (key.Length > 0) args += $" --key {key}";
         var result = await processor.RunCommand(args, CancellationToken.None);
         Assert.True(result.Success, result.Message);
-        Assert.Contains(expected, result.Message);
+        if (listen)
+        {
+            Assert.Contains(hex, result.Message);
+            Assert.DoesNotContain("Temperature:", result.Message);
+        }
+        else Assert.Contains(expected, result.Message);
         if (!listen)
         {
             var decoded = Assert.IsType<BleDecodedPayload>(result.Data);

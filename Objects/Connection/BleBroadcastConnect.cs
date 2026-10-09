@@ -9,7 +9,12 @@ namespace NetworkMonitor.Connection
 {
     public class BleBroadcastConnect : NetConnect
     {
+        internal BleAdvertisementSnapshot? CycleSnapshot { get; set; }
+        protected override bool UsesOperationTimeout => false;
         private readonly ICmdProcessor? _cmdProcessor;
+        public const int DefaultTimeoutMilliseconds = 7000;
+        public TimeSpan CollectionWindow => TimeSpan.FromMilliseconds(
+            (long)(MpiStatic.Timeout == 0 ? DefaultTimeoutMilliseconds : MpiStatic.Timeout) * ExtendTimeoutMultiplier);
         private const string DefaultMetric = "pv_power";
         // This endpoint mixes selected readings and elapsed-time fallbacks.
         public override EndpointMeasurementMetadata Measurement => new(Unit: "raw value",
@@ -58,13 +63,12 @@ namespace NetworkMonitor.Connection
                 _cmdProcessor = cmdProcessorProvider.GetProcessor("BleBroadcast");
             }
 
-            IsLongRunning = true;
+            IsLongRunning = false;
         }
 
         public override async Task Connect()
         {
-            ExtendTimeout = true;
-
+            var snapshot = CycleSnapshot;
             if (_cmdProcessor == null)
             {
                 ProcessException("No Command Processor Available", "Error");
@@ -114,7 +118,12 @@ namespace NetworkMonitor.Connection
                     Arguments = arguments,
                     SendMessage = false
                 };
-                result = await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
+                var window = CollectionWindow;
+                snapshot ??= (_cmdProcessor as IBleBroadcastSnapshotProcessor)?.Listener?.Snapshot;
+                var token = Cts.Token;
+                result = _cmdProcessor is IBleBroadcastSnapshotProcessor buffered
+                    ? await Task.Run(() => buffered.ReadSnapshot(arguments, snapshot, window, token), token)
+                    : await _cmdProcessor.QueueCommand(Cts, processorScanDataObj);
                 Timer.Stop();
 
                 if (result.Success)

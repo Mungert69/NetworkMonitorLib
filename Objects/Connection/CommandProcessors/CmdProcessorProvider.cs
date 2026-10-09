@@ -15,6 +15,7 @@ namespace NetworkMonitor.Connection
 {
     public interface ICmdProcessorProvider
     {
+        BleAdvertisementListener? BleListener => null;
         ICmdProcessor? GetProcessor(string processorType);
         ILocalCmdProcessorStates? GetProcessorStates(string processorType);
         Task CancelCommand(string processorType, string messageId);
@@ -27,8 +28,11 @@ namespace NetworkMonitor.Connection
         Task<ResultObj> Setup();
     }
 
-    public class CmdProcessorProvider : ICmdProcessorProvider
+    public class CmdProcessorProvider : ICmdProcessorProvider, IDisposable
     {
+        public BleAdvertisementListener BleListener { get; } = new(new PlatformBleAdvertisementSource());
+        public void Dispose() => BleListener.Dispose();
+
         private readonly ILoggerFactory _loggerFactory;
         private readonly IRabbitRepo _rabbitRepo;
         private readonly NetConnectConfig _netConfig;
@@ -200,7 +204,10 @@ namespace NetworkMonitor.Connection
         public ICmdProcessor? GetProcessor(string processorType)
         {
             //processorType = processorType.ToLower();
-            return _processors.TryGetValue(processorType, out var processor) ? processor : null;
+            if (!_processors.TryGetValue(processorType, out var processor)) return null;
+            if (processor is IBleBroadcastSnapshotProcessor broadcast) broadcast.Listener = BleListener;
+            if (processor is IBleListenSnapshotProcessor listen) listen.Listener = BleListener;
+            return processor;
         }
 
 

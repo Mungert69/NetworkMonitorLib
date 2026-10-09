@@ -106,11 +106,11 @@ encrypted packet requires 16. Ruuvi rejects nonempty keys. Generic `aesgcm` and
 `aesctr` modes still accept 16/24/32-byte keys. Their nonce/tag CLI options do not
 specify Victron or BTHome crypto layouts.
 
-Listen returns successful best-effort capture output even when an individual
-packet cannot decode; inspect per-capture errors. Targeted protocol decoding
-returns failure for decoding errors. The timeout/capture-limit semantics remain
-in the existing processors. One key is supplied per command; there is no
-per-device key resolver for a mixed encrypted fleet.
+The .NET listen endpoint returns raw advertisements without attempting decode
+or decryption. Targeted protocol decoding uses a key supplied per connect; there
+is no per-device key resolver in the listener. Targeted packets that cannot
+provide a valid selected metric do not contribute to its average. See the
+continuous reception section for cycle snapshots and retention semantics.
 
 ## Victron: sources, framing, and record layouts
 
@@ -306,7 +306,7 @@ Tests and their evidence:
 | [CommandProcessors/Tests/BleDecoderRegistryTests.cs](../CommandProcessors/Tests/BleDecoderRegistryTests.cs) | Registry selection/duplicate rejection, custom record registration, shared encrypted dispatch |
 | [CommandProcessors/Tests/VictronDeviceRecordDecoderTests.cs](../CommandProcessors/Tests/VictronDeviceRecordDecoderTests.cs) | All 13 record families, direct/product frames, synthetic values, bit packing, signed/NA/clipped values, minimum lengths, unknown records, keys, manufacturer selection |
 | [CommandProcessors/Tests/BleSensorDecoderTests.cs](../CommandProcessors/Tests/BleSensorDecoderTests.cs) | Independent Ruuvi/BTHome vectors, CCM known answer/tampering, events and repeated objects, malformed/unknown packets, protocol keys, both processor entry points |
-| [CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs](../CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs) and [listen equivalent](../CommandProcessors/Tests/BleBroadcastListenCmdProcessorTests.cs) | Compatibility of original Victron packet extraction/recognition fixtures |
+| [CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs](../CommandProcessors/Tests/BleBroadcastCmdProcessorTests.cs) and [listen equivalent](../CommandProcessors/Tests/BleBroadcastListenCmdProcessorTests.cs) | Original Victron packet extraction/recognition fixtures against the decoder |
 | [Tests/BleBroadcastConnectTest.cs](../Tests/BleBroadcastConnectTest.cs) and [listen equivalent](../Tests/BleBroadcastListenConnectTest.cs) | Endpoint argument/status/measurement behavior |
 | [CommandProcessors/Tests/PlatformAwareCmdProcessorTests.cs](../CommandProcessors/Tests/PlatformAwareCmdProcessorTests.cs) | Platform dispatch behavior |
 
@@ -351,10 +351,10 @@ These checks remain outstanding; record actual evidence when performed.
    Record model, firmware, platform/build, payload type, AD bytes, expected units,
    and corresponding displayed readings. Save only public or explicitly designated
    test keys in repository fixtures.
-4. Run listen mode with a small capture limit and a finite timeout. Confirm the
-   reported sender addresses, limit/timeout end reason, and per-capture errors.
-   For encrypted tests, use devices with the supplied key; mixed devices with
-   different keys cannot all decode in one current listen invocation.
+4. Run .NET listen mode over several processor cycles. Confirm the raw sender
+   addresses and payloads, including multiple advertisements per sender, without
+   decryption or repeated packets from protected history. There is no listen
+   timeout or capture-count limit. ESP32 behavior is unchanged by this refactor.
 5. Specifically test BTHome packets containing service data but no separate UUID
    list, plus advertisements with unrelated manufacturer/service blocks first.
 6. Test wrong keys, wrong MAC in encrypted replay, malformed/truncated data,
@@ -364,9 +364,8 @@ These checks remain outstanding; record actual evidence when performed.
 
 Linux supports the `--raw_payload` replay path through its processors but live
 capture is still a `NotSupportedException` stub requiring BlueZ/D-Bus integration.
-The mobile/window scanning code may use active BLE scanning, which requests scan
-responses; absence of a GATT connection does not imply strictly passive radio
-operation. Hardware-free tests do not exercise actual adapter permissions,
+The shared Windows scanner uses passive mode. Android uses the existing
+low-latency platform scan mode; radio behavior is controlled by Android. Hardware-free tests do not exercise actual adapter permissions,
 scan filtering, radio delivery, or platform AES-CCM availability.
 
 ## Adding another manufacturer or updating a record
@@ -386,15 +385,15 @@ scan filtering, radio delivery, or platform AES-CCM availability.
    out of platform callbacks.
 5. Add a public known-answer vector or independently annotated capture. Test
    normal/boundary/unavailable values, truncated data, wrong identifiers, unknown
-   types, repeated measurements, and encryption errors. Exercise targeted and
-   listen command entry points. Unknown lengths must never be guessed.
+   types, repeated measurements, and encryption errors. Exercise the targeted
+   command entry point and verify raw listen output separately. Unknown lengths must never be guessed.
 6. Update help, source links, coverage/limits, and this guide; run the relevant
    regression filter and platform/hardware checks affected by the change.
 
 Numeric monitoring now uses structured readings and explicit metric selection,
-as documented below. Per-device keys, exact product catalogues, persistent
-deduplication/replay checks and a shared platform scanning service remain
-separate future work.
+as documented below. A shared .NET platform scanner now supplies cycle snapshots
+(see the continuous reception section below). Exact product catalogues and
+persistent deduplication/replay checks remain separate future work.
 
 ## Selecting a monitoring metric (.NET and ESP32)
 
@@ -634,7 +633,7 @@ Limits must be positive, finite, strictly increasing and attached only to durati
 measurements in ms. Null disables ratings. These are not operational alert limits.
 Unrated durations use completion-time/status guidance instead of latency ratings.
 Extended .NET duration endpoints use fixed scales matching their timeout
-multipliers: Nmap/Nmap vulnerability scans and BLE listen use 10 ms/sample;
+multipliers: Nmap/Nmap vulnerability scans use 10 ms/sample;
 crawl/daily crawl and HuggingFace keep-alive/wake use 20 ms/sample. Recording
 uses integer elapsed milliseconds / scale; decoding multiplies by the same
 Measurement.Scale. At a base 59000 ms timeout their extended timeout windows
@@ -644,3 +643,84 @@ less than one scale step. Configured timeouts must keep successful samples in
 the representable range. Normal duration endpoints retain direct casts. There
 is no clamping helper. Targeted BLE metric encodings are unchanged; its legacy
 raw receipt fallback remains unclassified raw data.
+
+
+## Continuous .NET BLE reception and cycle snapshots
+
+This section supersedes earlier one-shot .NET scan behavior. It does not change
+ESP32 firmware or the serialized processor/backend contracts.
+
+- `Ble/PlatformBleAdvertisementSource.cs` owns one Windows watcher or Android
+  callback. `Ble/BleAdvertisementListener.cs` owns raw
+  packets grouped by normalized advertiser address. Bytes are copied on ingress
+  and kept private; published packets cannot be mutated by a connect.
+- `CmdProcessorProvider` owns a single listener shared by the targeted and listen
+  command processors. `ConnectFactory` exposes it to `NetConnectCollection`.
+- At processor cycle start, `BeginBleCycle()` refreshes retention rules from
+  **all enabled targeted connects**, including those skipped by scheduling.
+  Each address retains packets for twice its longest `Timeout × multiplier`
+  window. The default BLE timeout is 7,000 ms and the targeted multiplier is 10,
+  giving a 70-second default window and 140-second protected retention. Explicit
+  BLE timeouts remain configurable and are not capped by the ordinary probe timeout. Listen connects reserve no
+  history. The scanner runs when either BLE endpoint type is enabled and stops
+  when neither is enabled or the processor shuts down.
+- Before asynchronous dispatch, `PrepareBleRead()` attaches the published
+  snapshot to the connect. Each execution captures that reference locally.
+  Both BLE connects use the short-running path, with CPU decoding/formatting
+  offloaded rather than blocking the processor loop or occupying the command
+  processor scan queue. The loop does not await BLE operations.
+- As the final processor cycle operation, `CompleteBleCycle()` publishes a
+  read-only snapshot **before** evicting expired protected packets and all
+  unprotected-address packets. Reception, snapshot creation and eviction use
+  the service's short internal lock. Readers require no lock and retain old
+  snapshots safely until they finish. No packet-count/byte/address capacity
+  limits are imposed; cleanup is solely cycle based.
+- There is no initial scan-and-wait: the first cycle reads an empty snapshot,
+  and its end prepares the first real snapshot. Each subsequent cycle reports
+  the preceding snapshot. Snapshot monotonic capture time, not delayed task
+  execution time or wall-clock changes, anchors the measurement window.
+- A targeted read decrypts/decodes each matching advertisement independently.
+  It averages finite, available, unambiguous values of the selected metric in
+  physical units, then the existing connect encodes that average once. Other
+  metric values are not averaged. Diagnostic text is from the latest successfully
+  decoded advertisement; it can therefore differ from the recorded average.
+  If no usable selected metric exists, the reading fails as before. Overlapping
+  windows deliberately reuse advertisements; protocol duplicates are not removed.
+- Listen reads show raw payloads received after that connect's last successful
+  snapshot sequence. They do not decrypt, consume packets, or affect retention.
+  Empty captures succeed. Legacy crypto/format/max_captures arguments are
+  accepted but ignored; explicit payload/manufacturer/service filters still work.
+  Packets already evicted before a listen read are simply unavailable.
+- Packet buffers and listen cursors are memory-only. A restart clears history.
+  Linux live BLE scanning remains unsupported; `--raw_payload` remains usable
+  for replay and decoder tests. Direct command calls read the currently published
+  snapshot; targeted direct calls use the default 70-second window.
+
+### Regression procedure
+
+From `NetworkMonitorLib`:
+
+```sh
+dotnet test NetworkMonitor.csproj --filter 'FullyQualifiedName~Ble|FullyQualifiedName~PlatformAwareCmdProcessorTests|FullyQualifiedName~ConnectFactoryTest|FullyQualifiedName~NetConnectCollectionTest'
+```
+
+From `NetworkMonitorProcessorAgent`:
+
+```sh
+dotnet test NetworkMonitorProcessor-debian12.csproj --filter 'FullyQualifiedName~MonitorPingProcessorTest'
+```
+
+`BleAdvertisementListenerTests` injects a scanner and monotonic clock to verify
+snapshot-before-eviction, immutable delayed reads, longest-window retention,
+address normalization, removal of protection, concurrent receive/cleanup,
+selected-metric averaging before signed encoding, and uncapped raw listen reads
+without repeating protected history. No BLE hardware is required for these tests.
+
+On Windows/Android hardware, configure two metrics for the same advertiser plus
+one listen endpoint. Let at least two processor cycles complete. Compare the
+recorded averages against the advertisements in each lookback window; confirm
+latest-packet text remains unchanged and raw listen shows all retained captures.
+Disable/edit endpoints and confirm protection changes at the next cycle start.
+Verify reception continues through reporting, and shutdown stops the scanner.
+Platform builds and physical reception must be validated on the appropriate host;
+desktop replay tests cannot validate Bluetooth permissions or radio delivery.
