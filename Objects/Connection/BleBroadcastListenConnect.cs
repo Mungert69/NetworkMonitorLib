@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace NetworkMonitor.Connection
 {
-    public class BleBroadcastListenConnect : NetConnect
+    public class BleBroadcastListenConnect : NetConnect, IBleCycleParticipant
     {
         private const int DurationScale = 10;
         public override EndpointMeasurementMetadata Measurement => new(Scale: DurationScale,
@@ -13,7 +13,11 @@ namespace NetworkMonitor.Connection
             AnalysisKind: "discovery", AnalysisGuidance: "Describe raw advertisement capture availability. Do not interpret processing duration as a sensor reading.");
         private long _lastSequence;
         internal BleAdvertisementSnapshot? CycleSnapshot { get; set; }
+        public BleCaptureRequirement? CaptureRequirement => null;
+        public void PrepareSnapshot(BleAdvertisementSnapshot snapshot) => CycleSnapshot = snapshot;
         protected override bool UsesOperationTimeout => false;
+        // Raw listen reads a prepared cycle snapshot and has no timeout/window.
+        public override void ConfigureTimeout(int defaultTimeout, bool clampToDefault = false) { }
         private readonly ICmdProcessor? _cmdProcessor;
 
         public BleBroadcastListenConnect(ICmdProcessorProvider? cmdProcessorProvider)

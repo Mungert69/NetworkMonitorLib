@@ -25,6 +25,8 @@ namespace NetworkMonitor.Connection
         MPIConnect MpiConnect { get; set; }
         MPIStatic MpiStatic { get; set; }
         CancellationTokenSource Cts { get; set; }
+        void ConfigureTimeout(int defaultTimeout, bool clampToDefault = false) =>
+            NetConnect.ApplyTimeoutPolicy(MpiStatic, defaultTimeout, clampToDefault);
         Task Connect();
         void PostConnect();
         void PreConnect();
@@ -76,6 +78,16 @@ namespace NetworkMonitor.Connection
         protected virtual bool UsesOperationTimeout => true;
         protected bool ExtendTimeout { get => _extendTimeout; set => _extendTimeout = value; }
         protected int ExtendTimeoutMultiplier { get => _extendTimeoutMultiplier; set => _extendTimeoutMultiplier = value; }
+
+        /// <summary>Apply this connect's timeout policy after copying configuration.</summary>
+        public virtual void ConfigureTimeout(int defaultTimeout, bool clampToDefault = false) =>
+            ApplyTimeoutPolicy(MpiStatic, defaultTimeout, clampToDefault);
+
+        internal static void ApplyTimeoutPolicy(MPIStatic configuration, int defaultTimeout, bool clampToDefault)
+        {
+            if (configuration.Timeout == 0 || (clampToDefault && configuration.Timeout > defaultTimeout))
+                configuration.Timeout = defaultTimeout;
+        }
 
         public abstract Task Connect();
         public virtual void Init(

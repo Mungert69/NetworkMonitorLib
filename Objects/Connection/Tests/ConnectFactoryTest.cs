@@ -34,19 +34,35 @@ public class ConnectFactoryTest
 
     [Theory]
     [InlineData("blebroadcast", 0, 7000)]
-    [InlineData("blebroadcastlisten", 0, 7000)]
+    [InlineData("blebroadcastlisten", 0, 0)]
     [InlineData("blebroadcast", 9000, 9000)]
-    public void BleTimeoutDefaultsToSevenSecondsAndPreservesExplicitWindows(string endpoint, int timeout, int expected)
+    [InlineData("blebroadcast", 8640000, 8640000)]
+    [InlineData("blebroadcastlisten", 9000, 9000)]
+    public void BleConnectOwnsTimeoutPolicyWithoutChangingMonitorConfiguration(string endpoint, int timeout, int expected)
     {
         var factory = new ConnectFactory(new DummyLogger(), GetConfig());
         var monitor = new MonitorPingInfo { EndPointType = endpoint, Address = "AA:BB:CC:DD:EE:FF", Timeout = timeout };
         var connect = factory.GetNetConnectObj(monitor, new PingParams { Timeout = 1000 });
         Assert.Equal(expected, connect.MpiStatic.Timeout);
+        Assert.Equal(timeout, monitor.Timeout); // Factory leaves supplied metadata unchanged.
         if (connect is BleBroadcastConnect broadcast)
             Assert.Equal(TimeSpan.FromMilliseconds(expected * 10L), broadcast.CollectionWindow);
         monitor.Timeout = 0;
         factory.UpdateNetConnectionInfo(connect, monitor);
-        Assert.Equal(7000, connect.MpiStatic.Timeout);
+        Assert.Equal(endpoint == "blebroadcast" ? 7000 : 0, connect.MpiStatic.Timeout);
+    }
+
+    [Theory]
+    [InlineData(0, 1000)]
+    [InlineData(500, 500)]
+    [InlineData(2000, 1000)]
+    public void StandardConnectRetainsTimeoutPolicyWithoutMutatingInput(int configured, int expected)
+    {
+        var factory = new ConnectFactory(new DummyLogger(), GetConfig());
+        var monitor = new MonitorPingInfo { EndPointType = "icmp", Address = "localhost", Timeout = configured };
+        var connect = factory.GetNetConnectObj(monitor, new PingParams { Timeout = 1000 });
+        Assert.Equal(expected, connect.MpiStatic.Timeout);
+        Assert.Equal(configured, monitor.Timeout);
     }
 
     [Fact]

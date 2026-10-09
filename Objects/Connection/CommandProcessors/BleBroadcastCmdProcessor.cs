@@ -147,7 +147,7 @@ namespace NetworkMonitor.Connection
             };
         }
 
-        public BleAdvertisementListener? Listener { get; set; }
+        public IBleAdvertisementListener? Listener { get; set; }
 
         public override Task<ResultObj> RunCommand(string arguments, CancellationToken cancellationToken,
             ProcessorScanDataObj? processorScanDataObj = null) => Task.FromResult(

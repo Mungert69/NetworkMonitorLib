@@ -18,6 +18,7 @@ internal sealed class GuardedDynamicConnect(NetConnect inner, DynamicConnectStat
     public MPIConnect MpiConnect { get => inner.MpiConnect; set => inner.MpiConnect = value; }
     public MPIStatic MpiStatic { get => inner.MpiStatic; set => inner.MpiStatic = value; }
     public CancellationTokenSource Cts { get => inner.Cts; set => inner.Cts = value; }
+    public void ConfigureTimeout(int defaultTimeout, bool clampToDefault = false) => inner.ConfigureTimeout(defaultTimeout, clampToDefault);
     public void PreConnect() => inner.PreConnect();
     public void PostConnect() => inner.PostConnect();
     public async Task Connect()

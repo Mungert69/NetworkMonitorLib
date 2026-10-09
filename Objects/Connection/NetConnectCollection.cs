@@ -42,22 +42,8 @@ namespace NetworkMonitor.Connection
     //public delegate Task ZeroMonitorPingInfo(MonitorPingInfo monitorPingInfo);
     public class NetConnectCollection : INetConnectCollection
     {
-        public void BeginBleCycle()
-        {
-            var listener = _connectFactory.BleListener;
-            if (listener == null) return;
-            var enabled = _netConnects.Where(c => c.IsEnabled && c.MpiStatic.Enabled).ToArray();
-            listener.Configure(enabled.OfType<BleBroadcastConnect>().Select(c => (c.MpiStatic.Address, c.CollectionWindow)),
-                enabled.Any(c => c is BleBroadcastConnect or BleBroadcastListenConnect));
-        }
-        public void PrepareBleRead(INetConnect connect)
-        {
-            var snapshot = _connectFactory.BleListener?.Snapshot;
-            if (connect is BleBroadcastConnect broadcast) broadcast.CycleSnapshot = snapshot;
-            if (connect is BleBroadcastListenConnect listen) listen.CycleSnapshot = snapshot;
-        }
-        public void CompleteBleCycle() => _connectFactory.BleListener?.CompleteCycle();
-        public void StopBleListener() => _connectFactory.BleListener?.Dispose();
+        // All configured connects, including those skipped by the schedule.
+        public IReadOnlyList<INetConnect> GetConfiguredConnects() => _netConnects.ToArray();
 
         private List<INetConnect> _netConnects;
         public INetConnect this[int index]
@@ -238,7 +224,7 @@ namespace NetworkMonitor.Connection
                 Add(monitorPingInfo);
             else
             {
-                _connectFactory.UpdateNetConnectionInfo(netConnect, monitorPingInfo);
+                _connectFactory.UpdateNetConnectionInfo(netConnect, monitorPingInfo, _pingParams);
             }
         }
         public bool IsNetConnectRunning(int monitorIPID)

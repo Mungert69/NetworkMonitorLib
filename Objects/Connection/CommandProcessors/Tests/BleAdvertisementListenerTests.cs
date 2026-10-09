@@ -15,10 +15,12 @@ public class BleAdvertisementListenerTests
     {
         private Action<string, byte[]>? _receive;
         public int Starts { get; private set; }
+        public int Disposals { get; private set; }
         public void Start(Action<string, byte[]> receive, Action<string> failed) { Starts++; _receive = receive; }
         public void Emit(string address, byte[] bytes) => _receive!(address, bytes);
+        public Action<string, byte[]> CurrentCallback => _receive!;
         public void Stop() { }
-        public void Dispose() { }
+        public void Dispose() { Disposals++; }
     }
     private static byte[] Temperature(short centidegrees) => new byte[]
         { 7, 0x16, 0xd2, 0xfc, 0x40, 2, (byte)(centidegrees & 0xff), (byte)(centidegrees >> 8) };
@@ -28,6 +30,134 @@ public class BleAdvertisementListenerTests
     private static BleBroadcastListenCmdProcessor ListenProcessor() => new(NullLogger.Instance,
         new LocalCmdProcessorStates("ble", "BLE") { IsCmdAvailable = true }, Mock.Of<IRabbitRepo>(),
         new NetConnectConfig(new ConfigurationBuilder().Build(), "TestSection"));
+
+    private sealed class Participant : NetConnect, IBleCycleParticipant
+    {
+        public BleCaptureRequirement? CaptureRequirement { get; set; }
+        public BleAdvertisementSnapshot? Prepared { get; private set; }
+        public void PrepareSnapshot(BleAdvertisementSnapshot snapshot) => Prepared = snapshot;
+        public override Task Connect() => Task.CompletedTask;
+    }
+
+    [Fact]
+    public void CoordinatorUsesCapabilitiesAndPreservesAnInflightSnapshot()
+    {
+        var source = new Source();
+        using var listener = new BleAdvertisementListener(source);
+        var coordinator = new BleCycleCoordinator(listener);
+        var connect = new Participant
+        {
+            CaptureRequirement = new(Address, TimeSpan.FromSeconds(70)),
+            MpiStatic = new MPIStatic { Address = Address, Enabled = true }
+        };
+        coordinator.BeginCycle(new[] { connect });
+        source.Emit(Address, Temperature(1000));
+        coordinator.CompleteCycle();
+        Assert.True(coordinator.TryPrepareConnect(connect));
+        var prepared = connect.Prepared;
+        var token = connect.Cts;
+        connect.IsRunning = true;
+        source.Emit(Address, Temperature(2000));
+        coordinator.CompleteCycle();
+        Assert.False(coordinator.TryPrepareConnect(connect));
+        Assert.Same(prepared, connect.Prepared);
+        Assert.Same(token, connect.Cts);
+        Assert.Single(prepared!.Packets);
+        connect.IsRunning = false;
+        connect.IsQueued = true;
+        Assert.False(coordinator.TryPrepareConnect(connect));
+        Assert.Same(prepared, connect.Prepared);
+        connect.IsQueued = false;
+        Assert.True(coordinator.TryPrepareConnect(connect));
+        Assert.Equal(2, connect.Prepared!.Packets.Count);
+        // Unrelated connects retain their scheduling/token state, even when running.
+        var normal = new Mock<INetConnect>();
+        normal.SetupGet(c => c.IsRunning).Returns(true);
+        Assert.True(coordinator.TryPrepareConnect(normal.Object));
+        normal.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public void StopAllowsRestartWithoutDisposingTheInjectedServiceOrKeepingStalePackets()
+    {
+        var source = new Source();
+        var listener = new BleAdvertisementListener(source);
+        var coordinator = new BleCycleCoordinator(listener);
+        var connect = new BleBroadcastListenConnect(null)
+            { MpiStatic = new MPIStatic { Enabled = true } };
+        coordinator.BeginCycle(new[] { connect });
+        source.Emit(Address, Temperature(1000));
+        coordinator.CompleteCycle();
+        var outstanding = listener.Snapshot;
+        var oldCallback = source.CurrentCallback;
+        coordinator.Stop();
+        source.Emit(Address, Temperature(2000)); // Late callback after stop is ignored.
+        coordinator.CompleteCycle();
+        Assert.Empty(listener.Snapshot.Packets);
+        Assert.Single(outstanding.Packets);
+        Assert.Equal(0, source.Disposals);
+        coordinator.BeginCycle(new[] { connect });
+        Assert.Equal(2, source.Starts);
+        oldCallback(Address, Temperature(2000)); // Old registration cannot write into the restarted service.
+        source.Emit(Address, Temperature(3000));
+        coordinator.CompleteCycle();
+        Assert.Single(listener.Snapshot.Packets);
+        listener.Dispose(); // Only the composition root owns disposal.
+        listener.Dispose();
+        Assert.Equal(1, source.Disposals);
+    }
+
+    [Fact]
+    public async Task ExistingStaticAndRuntimeCompiledProcessorsReceiveTheInjectedListener()
+    {
+        using var listener = new BleAdvertisementListener(new Source());
+        var config = new NetConnectConfig(new ConfigurationBuilder().Build(), "TestSection")
+            { CommandPath = "" };
+        var provider = new CmdProcessorProvider(NullLoggerFactory.Instance, Mock.Of<IRabbitRepo>(),
+            config, Mock.Of<IBrowserHost>(), listener);
+        var compiler = (CmdProcessorCompiler)typeof(CmdProcessorProvider)
+            .GetField("_compiler", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(provider)!;
+        // Runtime deployments supply these through CommandPath/dlls. Keep the
+        // production compiler unchanged and supply host metadata for this test.
+        var paths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Concat(AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location)).Select(a => a.Location))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        typeof(CmdProcessorCompiler).GetField("_cachedReferences", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .SetValue(compiler, paths.Select(path => (Microsoft.CodeAnalysis.MetadataReference)Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path)).ToList());
+        compiler.HandleStaticProcessor("BleBroadcast");
+        compiler.HandleStaticProcessor("BleBroadcastListen");
+        compiler.HandleStaticProcessor("Ping");
+        Assert.Same(listener, Assert.IsAssignableFrom<IBleAdvertisementListenerConsumer>(provider.GetProcessor("BleBroadcast")).Listener);
+        Assert.Same(listener, Assert.IsAssignableFrom<IBleAdvertisementListenerConsumer>(provider.GetProcessor("BleBroadcastListen")).Listener);
+        Assert.IsNotAssignableFrom<IBleAdvertisementListenerConsumer>(provider.GetProcessor("Ping"));
+        const string source = """
+            using Microsoft.Extensions.Logging;
+            using NetworkMonitor.Objects;
+            using NetworkMonitor.Objects.Repository;
+            namespace NetworkMonitor.Connection;
+            public class BleInjectedCmdProcessor : BleBroadcastCmdProcessor
+            {
+                public BleInjectedCmdProcessor(ILogger logger, ILocalCmdProcessorStates states,
+                    IRabbitRepo repo, NetConnectConfig cfg) : base(logger, states, repo, cfg) { }
+            }
+            """;
+        var result = await compiler.HandleDynamicProcessor("BleInjected", processorSourceCode: source);
+        Assert.True(result.Success, result.Message);
+        Assert.Same(listener, Assert.IsAssignableFrom<IBleAdvertisementListenerConsumer>(provider.GetProcessor("BleInjected")).Listener);
+        // Compile the actual BLE processor source with its unchanged 4-argument constructor.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "Objects/Connection/CommandProcessors/BleBroadcastCmdProcessor.cs"))) root = root.Parent;
+        Assert.NotNull(root);
+        foreach (string type in new[] { "BleBroadcast", "BleBroadcastListen" })
+        {
+            var actualSource = File.ReadAllText(Path.Combine(root!.FullName, "Objects/Connection/CommandProcessors", type + "CmdProcessor.cs"));
+            result = await compiler.HandleDynamicProcessor(type, processorSourceCode: actualSource);
+            Assert.True(result.Success, result.Message);
+            Assert.Same(listener, Assert.IsAssignableFrom<IBleAdvertisementListenerConsumer>(provider.GetProcessor(type)).Listener);
+        }
+
+    }
 
     [Fact]
     public void PublicationPrecedesEvictionAndOldSnapshotsStayImmutable()
@@ -197,23 +327,23 @@ public class BleAdvertisementListenerTests
             MpiStatic = new MPIStatic { Address = Address, Timeout = 5000, Enabled = false }
         };
         var factory = new Mock<IConnectFactory>();
-        factory.SetupGet(f => f.BleListener).Returns(listener);
+        var coordinator = new BleCycleCoordinator(listener);
         factory.Setup(f => f.GetNetConnectObj(It.IsAny<MonitorPingInfo>(), It.IsAny<PingParams>())).Returns(connect);
         var collection = new NetConnectCollection(NullLogger.Instance,
             new NetConnectConfig(new ConfigurationBuilder().Build(), "TestSection"), factory.Object);
         collection.Add(new MonitorPingInfo());
-        collection.BeginBleCycle();
+        coordinator.BeginCycle(collection.GetConfiguredConnects());
         Assert.Equal(0, source.Starts);
         connect.MpiStatic.Enabled = true;
-        collection.BeginBleCycle();
+        coordinator.BeginCycle(collection.GetConfiguredConnects());
         source.Emit(Address, Temperature(1000));
-        collection.CompleteBleCycle();
+        coordinator.CompleteCycle();
         now = 90 * Stopwatch.Frequency;
-        collection.CompleteBleCycle(); collection.CompleteBleCycle();
+        coordinator.CompleteCycle(); coordinator.CompleteCycle();
         Assert.Single(listener.Snapshot.Packets); // Protected for 2 * (5000ms * 10).
         connect.MpiStatic.Timeout = 1000;
-        collection.BeginBleCycle();
-        collection.CompleteBleCycle(); collection.CompleteBleCycle();
+        coordinator.BeginCycle(collection.GetConfiguredConnects());
+        coordinator.CompleteCycle(); coordinator.CompleteCycle();
         Assert.Empty(listener.Snapshot.Packets);
         Assert.Equal(1, source.Starts);
     }

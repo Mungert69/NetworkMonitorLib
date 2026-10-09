@@ -45,15 +45,17 @@ public sealed class BleAdvertisementSnapshot
 }
 
 /// <summary>Shared contracts also support command processors compiled from source at runtime.</summary>
-public interface IBleBroadcastSnapshotProcessor
+public interface IBleAdvertisementListenerConsumer
 {
-    BleAdvertisementListener? Listener { get; set; }
+    IBleAdvertisementListener? Listener { get; set; }
+}
+public interface IBleBroadcastSnapshotProcessor : IBleAdvertisementListenerConsumer
+{
     NetworkMonitor.Objects.ResultObj ReadSnapshot(string arguments, BleAdvertisementSnapshot? snapshot,
         TimeSpan window, CancellationToken cancellationToken);
 }
-public interface IBleListenSnapshotProcessor
+public interface IBleListenSnapshotProcessor : IBleAdvertisementListenerConsumer
 {
-    BleAdvertisementListener? Listener { get; set; }
     NetworkMonitor.Objects.ResultObj ReadSnapshot(string arguments, BleAdvertisementSnapshot? snapshot,
         long afterSequence, CancellationToken cancellationToken);
 }
@@ -64,8 +66,16 @@ public interface IBleAdvertisementSource : IDisposable
     void Stop();
 }
 
+/// <summary>One processor instance's capture history. The application owns its lifetime.</summary>
+public interface IBleAdvertisementListener : IDisposable
+{
+    BleAdvertisementSnapshot Snapshot { get; }
+    void Configure(IEnumerable<(string Address, TimeSpan Window)> windows, bool enabled);
+    void CompleteCycle();
+}
+
 /// <summary>Single scanner and live store. Only cycle-end cleanup evicts; there are no capacity limits.</summary>
-public sealed class BleAdvertisementListener : IDisposable
+public sealed class BleAdvertisementListener : IBleAdvertisementListener
 {
     private readonly object _gate = new();
     // Platform start/stop may invoke receive callbacks, so do not hold the packet lock around them.
@@ -77,6 +87,8 @@ public sealed class BleAdvertisementListener : IDisposable
     private BleAdvertisementSnapshot _snapshot;
     private long _sequence;
     private bool _started;
+    private bool _acceptingPackets;
+    private long _sourceGeneration;
     private bool _disposed;
     private bool _restartRequested;
     private string _error = "";
@@ -104,9 +116,16 @@ public sealed class BleAdvertisementListener : IDisposable
         // Called only by the processor lifecycle/cycle, never from receive callbacks.
         if (!enabled)
         {
+            lock (_gate) { _acceptingPackets = false; ++_sourceGeneration; }
             _source.Stop();
             _started = false;
-            lock (_gate) { _packets.Clear(); _error = ""; }
+            lock (_gate)
+            {
+                _packets.Clear();
+                _error = "";
+                Volatile.Write(ref _snapshot, new(_clock(), DateTime.UtcNow, _sequence,
+                    Array.Empty<BleAdvertisement>(), ""));
+            }
             return;
         }
         bool restart;
@@ -115,21 +134,30 @@ public sealed class BleAdvertisementListener : IDisposable
         if (_started) return;
         try
         {
-            lock (_gate) _error = "";
-            _source.Start(Receive, error => { lock (_gate) { _error = error; _restartRequested = true; } });
+            long generation;
+            lock (_gate) { _error = ""; _acceptingPackets = true; generation = ++_sourceGeneration; }
+            _source.Start((address, bytes) => Receive(generation, address, bytes), error =>
+            {
+                lock (_gate)
+                {
+                    if (!_acceptingPackets || generation != _sourceGeneration) return;
+                    _error = error;
+                    _restartRequested = true;
+                }
+            });
             _started = true;
         }
         catch (Exception ex)
         {
             _source.Stop();
-            lock (_gate) _error = ex.Message;
+            lock (_gate) { _error = ex.Message; _acceptingPackets = false; }
         }
     }
-    private void Receive(string address, byte[] bytes)
+    private void Receive(long generation, string address, byte[] bytes)
     {
         lock (_gate)
         {
-            if (_disposed) return;
+            if (_disposed || !_acceptingPackets || generation != _sourceGeneration) return;
             address = NormalizeAddress(address);
             if (!_packets.TryGetValue(address, out var packets)) _packets[address] = packets = new();
             packets.Add(new(address, bytes, _clock(), ++_sequence, DateTime.UtcNow));
@@ -159,7 +187,7 @@ public sealed class BleAdvertisementListener : IDisposable
     {
         lock (_lifecycleGate)
         {
-            lock (_gate) { if (_disposed) return; _disposed = true; _packets.Clear(); }
+            lock (_gate) { if (_disposed) return; _disposed = true; _acceptingPackets = false; _packets.Clear(); }
             _source.Dispose();
         }
     }

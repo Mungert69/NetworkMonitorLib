@@ -24,8 +24,6 @@ namespace NetworkMonitor.Connection
 {
     public interface IConnectFactory
     {
-        BleAdvertisementListener? BleListener => null;
-
         INetConnect GetNetConnectObj(MonitorPingInfo pingInfo, PingParams pingParams);
         //void UpdateNetConnectObj(MonitorPingInfo monitorPingInfo, PingParams pingParams, INetConnect netConnect);
         void UpdateNetConnectionInfo(INetConnect netConnect, MonitorPingInfo monitorPingInfo, PingParams? pingParams = null);
@@ -33,7 +31,6 @@ namespace NetworkMonitor.Connection
     public class ConnectFactory : IConnectFactory
     {
         private readonly ICmdProcessorProvider? _cmdProcessorProvider;
-        public BleAdvertisementListener? BleListener => _cmdProcessorProvider?.BleListener;
         private readonly IConnectProvider? _connectProvider;
         private HttpClient _httpClient;
         private HttpClient _httpsClient;
@@ -197,8 +194,7 @@ namespace NetworkMonitor.Connection
                 netConnect.MpiStatic.Enabled = monitorPingInfo.Enabled;
                 // netConnect.MpiStatic.ID = monitorPingInfo.ID;
                 netConnect.MpiStatic.Port = monitorPingInfo.Port;
-                netConnect.MpiStatic.Timeout = IsBleEndpoint(endPointType) && monitorPingInfo.Timeout == 0
-                    ? BleBroadcastConnect.DefaultTimeoutMilliseconds : monitorPingInfo.Timeout;
+                netConnect.MpiStatic.Timeout = monitorPingInfo.Timeout;
                 netConnect.MpiStatic.SkipCycles = monitorPingInfo.SkipCycles;
                 // netConnect.MpiStatic.UserID = monitorPingInfo.UserID;
                 netConnect.MpiStatic.EndPointType = endPointType;
@@ -206,6 +202,7 @@ namespace NetworkMonitor.Connection
                 netConnect.MpiStatic.Password = monitorPingInfo.Password;
                 netConnect.MpiStatic.Args = monitorPingInfo.Args;
                 netConnect.MpiStatic.SiteHash = monitorPingInfo.SiteHash;
+                netConnect.ConfigureTimeout((pingParams ?? new PingParams()).Timeout);
             }
             //if (pingParams != null) netConnect.PingParams = pingParams;
 
@@ -218,18 +215,8 @@ namespace NetworkMonitor.Connection
             //netConnect.PingParams = pingParams;
         }
         //Method to get the NetConnect object based on what who starts with http or icmp
-        private static bool IsBleEndpoint(string? type) =>
-            string.Equals(type, "blebroadcast", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(type, "blebroadcastlisten", StringComparison.OrdinalIgnoreCase);
-
         public INetConnect GetNetConnectObj(MonitorPingInfo monitorPingInfo, PingParams pingParams)
         {
-            if (IsBleEndpoint(monitorPingInfo.EndPointType))
-            {
-                if (monitorPingInfo.Timeout == 0) monitorPingInfo.Timeout = BleBroadcastConnect.DefaultTimeoutMilliseconds;
-            }
-            else if (monitorPingInfo.Timeout > pingParams.Timeout || monitorPingInfo.Timeout == 0)
-                monitorPingInfo.Timeout = pingParams.Timeout;
             var type = monitorPingInfo.EndPointType;
             if (string.IsNullOrWhiteSpace(type))
             {
@@ -239,6 +226,7 @@ namespace NetworkMonitor.Connection
             INetConnect netConnect = _connectProvider?.CreateConnect(type)
                 ?? EndPointTypeFactory.CreateNetConnect(type, _httpClient, _httpsClient, _algorithmInfoList, netConfig.OqsProviderPath!, netConfig.CommandPath!, _logger, _cmdProcessorProvider, _browserHost, netConfig.NativeLibDir!);
             UpdateNetConnectObj(monitorPingInfo, pingParams, netConnect);
+            netConnect.ConfigureTimeout(pingParams.Timeout, clampToDefault: true);
             return netConnect;
         }
 

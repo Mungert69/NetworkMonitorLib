@@ -7,12 +7,18 @@ using System.Threading.Tasks;
 
 namespace NetworkMonitor.Connection
 {
-    public class BleBroadcastConnect : NetConnect
+    public class BleBroadcastConnect : NetConnect, IBleCycleParticipant
     {
         internal BleAdvertisementSnapshot? CycleSnapshot { get; set; }
+        public BleCaptureRequirement? CaptureRequirement => new(MpiStatic.Address, CollectionWindow);
+        public void PrepareSnapshot(BleAdvertisementSnapshot snapshot) => CycleSnapshot = snapshot;
         protected override bool UsesOperationTimeout => false;
         private readonly ICmdProcessor? _cmdProcessor;
         public const int DefaultTimeoutMilliseconds = 7000;
+        public override void ConfigureTimeout(int defaultTimeout, bool clampToDefault = false)
+        {
+            if (MpiStatic.Timeout == 0) MpiStatic.Timeout = DefaultTimeoutMilliseconds;
+        }
         public TimeSpan CollectionWindow => TimeSpan.FromMilliseconds(
             (long)(MpiStatic.Timeout == 0 ? DefaultTimeoutMilliseconds : MpiStatic.Timeout) * ExtendTimeoutMultiplier);
         private const string DefaultMetric = "pv_power";

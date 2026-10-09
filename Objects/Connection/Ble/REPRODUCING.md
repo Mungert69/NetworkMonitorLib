@@ -654,9 +654,14 @@ ESP32 firmware or the serialized processor/backend contracts.
   callback. `Ble/BleAdvertisementListener.cs` owns raw
   packets grouped by normalized advertiser address. Bytes are copied on ingress
   and kept private; published packets cannot be mutated by a connect.
-- `CmdProcessorProvider` owns a single listener shared by the targeted and listen
-  command processors. `ConnectFactory` exposes it to `NetConnectCollection`.
-- At processor cycle start, `BeginBleCycle()` refreshes retention rules from
+- Linux `Program.cs` creates one `IBleAdvertisementListener` and injects it into
+  `CmdProcessorProvider` and `BleCycleCoordinator`. Each app's `MauiProgram.cs`
+  registers the same services as singletons. The root/container owns disposal;
+  providers, factories, connects and coordinators do not dispose the listener.
+- `MonitorPingProcessor` receives `IConnectCycleLifecycle`. Its generic hooks
+  contain no BLE types or service lookup through the factory. `NetConnectCollection`
+  only provides a snapshot of configured connects; it owns no BLE policy.
+- `BleCycleCoordinator.BeginCycle()` refreshes retention rules from
   **all enabled targeted connects**, including those skipped by scheduling.
   Each address retains packets for twice its longest `Timeout × multiplier`
   window. The default BLE timeout is 7,000 ms and the targeted multiplier is 10,
@@ -664,12 +669,16 @@ ESP32 firmware or the serialized processor/backend contracts.
   BLE timeouts remain configurable and are not capped by the ordinary probe timeout. Listen connects reserve no
   history. The scanner runs when either BLE endpoint type is enabled and stops
   when neither is enabled or the processor shuts down.
-- Before asynchronous dispatch, `PrepareBleRead()` attaches the published
-  snapshot to the connect. Each execution captures that reference locally.
+- Before asynchronous dispatch, the generic `TryPrepareConnect()` hook delegates
+  to the coordinator, which uses `IBleCycleParticipant` to attach the published
+  snapshot to the connect. Running/queued BLE participants are skipped before
+  overwriting their snapshot, token or identifier. Unrelated endpoints pass
+  through without changes to scheduling or state. Each execution captures that reference locally.
   Both BLE connects use the short-running path, with CPU decoding/formatting
   offloaded rather than blocking the processor loop or occupying the command
   processor scan queue. The loop does not await BLE operations.
-- As the final processor cycle operation, `CompleteBleCycle()` publishes a
+- As the final processor cycle operation, the generic `CompleteCycle()` hook
+  delegates to the BLE coordinator/listener and publishes a
   read-only snapshot **before** evicting expired protected packets and all
   unprotected-address packets. Reception, snapshot creation and eviction use
   the service's short internal lock. Readers require no lock and retain old
@@ -724,3 +733,49 @@ Disable/edit endpoints and confirm protection changes at the next cycle start.
 Verify reception continues through reporting, and shutdown stops the scanner.
 Platform builds and physical reception must be validated on the appropriate host;
 desktop replay tests cannot validate Bluetooth permissions or radio delivery.
+
+### Timeout ownership
+
+`MonitorPingCollection.FillPingInfo` preserves the configured timeout, including
+zero. `ConnectFactory` copies configuration and delegates to the connect's
+virtual `ConfigureTimeout` policy; it contains no BLE type checks or BLE default.
+`BleBroadcastConnect` alone supplies its 7000 ms default for zero and leaves
+explicit values unchanged. Its existing 10x multiplier produces the default
+70-second collection window. Raw listen reads a cycle snapshot and has no
+timeout/window policy. The ordinary NetConnect implementation retains its
+existing processor-default/clamping behaviour during creation.
+
+### Injected lifecycle and construction regression checks
+
+The existing `EndPointTypeFactory`, `ConnectCompiler`, and `CmdProcessorCompiler`
+construction routes remain in place. Command-processor constructors are unchanged.
+`CmdProcessorProvider` receives the shared listener and setter-injects it only
+into `IBleAdvertisementListenerConsumer` instances when resolving processors.
+This is the same path for static and runtime-compiled BLE command processors;
+there is no fallback scanner or service locator on the connect factory.
+
+`BleBroadcastConnect` describes its address/window through `CaptureRequirement`;
+raw listen participates without reserving history. Neither supplies eviction
+rules. The coordinator applies the longest-window retention policy via the
+listener. Stop clears live/published history and ignores late callbacks, but
+retained immutable snapshots remain usable. The application-owned service can
+restart on a later mobile background-service start; final disposal happens at
+application/container shutdown.
+
+Regression tests cover capability-based coordination using a custom participant,
+in-flight and queued reader ownership, unrelated running connects remaining
+untouched, stop/restart and single-owner disposal, and actual BLE processor
+source compilation with the existing four-argument constructor. Runtime compiler
+metadata is supplied by the host test; deployment still uses `CommandPath/dlls`.
+Processor tests inject a fake generic lifecycle to check both empty cycles and
+standard ICMP cycles. They require no BLE implementation. Ordinary DNS, HTTP,
+ICMP, socket, Nmap, integrity and base-connect tests guard unaffected behaviour.
+Android builds and physical mobile RF tests are separate deployment checks.
+
+Validation on 9 October 2026: the combined BLE, construction, dynamic-status,
+platform and ordinary-endpoint regression selection passed 262 library tests;
+processor collection/lifecycle/Rabbit listener selections passed 30 tests.
+An isolated Windows scanner compile passed. The actual shared MAUI
+`BackgroundService.cs` compiled in a net10.0 host project using its extracted
+asset-readiness interface; this is not a MAUI/Android application build.
+No Android build, hardware deployment or RF test was run for this refactor.
