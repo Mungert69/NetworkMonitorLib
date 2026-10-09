@@ -39,6 +39,12 @@ namespace NetworkMonitor.Connection
                 return;
             }
 
+            if (snapshot == null)
+            {
+                ProcessException("BLE cycle snapshot was not prepared", "BLE Error");
+                return;
+            }
+
             PreConnect();
             var result = new ResultObj();
             ushort responseTime = 0;
@@ -72,7 +78,6 @@ namespace NetworkMonitor.Connection
                     Arguments = arguments,
                     SendMessage = false
                 };
-                snapshot ??= (_cmdProcessor as IBleListenSnapshotProcessor)?.Listener?.Snapshot;
                 long afterSequence = _lastSequence;
                 var token = Cts.Token;
                 result = _cmdProcessor is IBleListenSnapshotProcessor buffered

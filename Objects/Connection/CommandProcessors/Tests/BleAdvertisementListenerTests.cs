@@ -31,6 +31,30 @@ public class BleAdvertisementListenerTests
         new LocalCmdProcessorStates("ble", "BLE") { IsCmdAvailable = true }, Mock.Of<IRabbitRepo>(),
         new NetConnectConfig(new ConfigurationBuilder().Build(), "TestSection"));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConnectRequiresPreparedSnapshotEvenWithInjectedListener(bool rawListen)
+    {
+        using var listener = new BleAdvertisementListener(new Source());
+        using var broadcastProcessor = Processor();
+        using var listenProcessor = ListenProcessor();
+        broadcastProcessor.Listener = listener;
+        listenProcessor.Listener = listener;
+        var provider = new Mock<ICmdProcessorProvider>();
+        provider.Setup(p => p.GetProcessor("BleBroadcast")).Returns(broadcastProcessor);
+        provider.Setup(p => p.GetProcessor("BleBroadcastListen")).Returns(listenProcessor);
+        NetConnect connect = rawListen
+            ? new BleBroadcastListenConnect(provider.Object)
+            : new BleBroadcastConnect(provider.Object);
+        connect.MpiStatic = new MPIStatic { Address = Address };
+
+        await connect.Connect();
+
+        Assert.False(connect.MpiConnect.IsUp);
+        Assert.Contains("BLE cycle snapshot was not prepared", connect.MpiConnect.Message);
+    }
+
     private sealed class Participant : NetConnect, IBleCycleParticipant
     {
         public BleCaptureRequirement? CaptureRequirement { get; set; }
