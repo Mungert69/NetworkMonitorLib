@@ -14,7 +14,12 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
         {
             var provider = new Mock<ICmdProcessorProvider>();
             provider.Setup(p => p.GetProcessor("BleBroadcast")).Returns(processor);
-            return new BleBroadcastConnect(provider.Object);
+            var connect = new BleBroadcastConnect(provider.Object);
+            // The cycle coordinator prepares this before Connect(). These tests
+            // isolate argument/status handling with a mocked command processor.
+            connect.PrepareSnapshot(new BleAdvertisementSnapshot(0, System.DateTime.UtcNow, 0,
+                System.Array.Empty<BleAdvertisement>(), ""));
+            return connect;
         }
 
         [Fact]

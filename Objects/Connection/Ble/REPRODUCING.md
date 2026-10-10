@@ -694,7 +694,20 @@ ESP32 firmware or the serialized processor/backend contracts.
   metric values are not averaged. Diagnostic text is from the latest successfully
   decoded advertisement; it can therefore differ from the recorded average.
   If no usable selected metric exists, the reading fails as before. Overlapping
-  windows deliberately reuse advertisements; protocol duplicates are not removed.
+  windows deliberately reuse retained advertisements.
+- Before allocating a stored advertisement, the listener suppresses exact-byte
+  repeats for the same normalized address received less than 1,000 ms after
+  that address's last retained reception. Changed payloads (including A/B/A)
+  always pass, and identical payloads at exactly 1,000 ms pass. Suppressed
+  receptions do not advance sequences or refresh the anchor. The comparison
+  uses the injected monotonic clock and existing service lock; no manufacturer
+  decoding, new DI contract or logging is added. This matches ESP32's buffer
+  policy. Unprotected-address cleanup also removes its comparison anchor.
+  Averaging and raw output include retained receptions only. Identical separate
+  events without distinguishing payload bytes inside a second are deliberately
+  indistinguishable under this policy. Platform callback allocations still
+  occur; the listener avoids its own packet/byte-copy allocations and subsequent
+  decoder work for suppressed repeats.
 - Listen reads show raw payloads received after that connect's last successful
   snapshot sequence. They do not decrypt, consume packets, or affect retention.
   Empty captures succeed. Legacy crypto/format/max_captures arguments are
@@ -722,6 +735,8 @@ dotnet test NetworkMonitorProcessor-debian12.csproj --filter 'FullyQualifiedName
 `BleAdvertisementListenerTests` injects a scanner and monotonic clock to verify
 snapshot-before-eviction, immutable delayed reads, longest-window retention,
 address normalization, removal of protection, concurrent receive/cleanup,
+repeat suppression at the exact one-second boundary, last-retained anchoring,
+rapid changes and independent addresses,
 selected-metric averaging before signed encoding, and uncapped raw listen reads
 without repeating protected history. No BLE hardware is required for these tests.
 

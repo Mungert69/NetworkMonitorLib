@@ -184,6 +184,59 @@ public class BleAdvertisementListenerTests
     }
 
     [Fact]
+    public void IdenticalRepeatsUseLastRetainedTimeAndDoNotConsumeSequences()
+    {
+        long now = 0;
+        var source = new Source();
+        using var listener = new BleAdvertisementListener(source, () => now);
+        listener.Configure(new[] { (Address, TimeSpan.FromSeconds(70)) }, true);
+        source.Emit(Address, Temperature(1000));
+        now = Stopwatch.Frequency - 1;
+        source.Emit("aabbccddeeff", Temperature(1000));
+        listener.CompleteCycle();
+        var old = listener.Snapshot;
+        Assert.Single(old.Packets);
+        Assert.Equal(1, old.LastSequence);
+        now = Stopwatch.Frequency; // Exactly one second after the retained sample.
+        source.Emit(Address, Temperature(1000));
+        listener.CompleteCycle();
+        Assert.Equal(2, listener.Snapshot.Packets.Count);
+        Assert.Equal(2, listener.Snapshot.LastSequence);
+        Assert.Equal(now, listener.Snapshot.Packets[1].Timestamp);
+        Assert.Single(old.Packets);
+        now += Stopwatch.Frequency - 1;
+        source.Emit(Address, Temperature(1000));
+        listener.CompleteCycle();
+        Assert.Equal(2, listener.Snapshot.Packets.Count);
+        now++;
+        source.Emit(Address, Temperature(1000));
+        listener.CompleteCycle();
+        Assert.Equal(3, listener.Snapshot.Packets.Count);
+        Assert.Equal(3, listener.Snapshot.LastSequence);
+    }
+
+    [Fact]
+    public void RapidChangesLengthsAndIndependentAddressesAreAlwaysRetained()
+    {
+        var source = new Source();
+        using var listener = new BleAdvertisementListener(source, () => 0);
+        listener.Configure(new[] { (Address, TimeSpan.FromSeconds(70)) }, true);
+        source.Emit(Address, Temperature(1000));
+        source.Emit(Address, Temperature(2000));
+        source.Emit(Address, Temperature(1000)); // A -> B -> A must survive.
+        var longer = Temperature(1000).Concat(new byte[] { 0 }).ToArray();
+        source.Emit(Address, longer);
+        source.Emit("11:22:33:44:55:66", longer);
+        listener.CompleteCycle();
+        Assert.Equal(5, listener.Snapshot.Packets.Count);
+        source.Emit(Address, longer); // Protected anchor survives publication.
+        source.Emit("11:22:33:44:55:66", longer); // Unprotected anchor was evicted.
+        listener.CompleteCycle();
+        Assert.Equal(5, listener.Snapshot.Packets.Count);
+        Assert.Equal(6, listener.Snapshot.LastSequence);
+    }
+
+    [Fact]
     public void PublicationPrecedesEvictionAndOldSnapshotsStayImmutable()
     {
         long now = 0;
@@ -235,6 +288,7 @@ public class BleAdvertisementListenerTests
         using var listener = new BleAdvertisementListener(source, () => now);
         listener.Configure(new[] { (Address, TimeSpan.FromSeconds(50)) }, true);
         source.Emit(Address, Temperature(-1000));
+        source.Emit(Address, Temperature(-1000)); // Suppressed repeat must not skew the mean.
         now = 10 * Stopwatch.Frequency;
         source.Emit(Address, Temperature(3000));
         source.Emit(Address, Convert.FromHexString("0516D2FC4002")); // Decode fails; keep valid samples.
@@ -284,7 +338,7 @@ public class BleAdvertisementListenerTests
         var source = new Source();
         using var listener = new BleAdvertisementListener(source);
         listener.Configure(new[] { (Address, TimeSpan.FromSeconds(50)) }, true);
-        for (int i = 0; i < 25; i++) source.Emit(Address, Temperature(1000));
+        for (int i = 0; i < 25; i++) source.Emit(Address, Temperature((short)(1000 + i)));
         listener.CompleteCycle();
         using var processor = ListenProcessor();
         var first = processor.ReadSnapshot("--format bthome --max_captures 1", listener.Snapshot, 0, CancellationToken.None);
@@ -378,7 +432,7 @@ public class BleAdvertisementListenerTests
         var source = new Source();
         using var listener = new BleAdvertisementListener(source);
         listener.Configure(new[] { (Address, TimeSpan.FromDays(1)) }, true);
-        await Task.WhenAll(Task.Run(() => { for (int i = 0; i < 1000; i++) source.Emit(Address, Temperature(1000)); }),
+        await Task.WhenAll(Task.Run(() => { for (int i = 0; i < 1000; i++) source.Emit(Address, Temperature((short)i)); }),
             Task.Run(() => { for (int i = 0; i < 50; i++) listener.CompleteCycle(); }));
         listener.CompleteCycle();
         Assert.Equal(1000, listener.Snapshot.Packets.Count);

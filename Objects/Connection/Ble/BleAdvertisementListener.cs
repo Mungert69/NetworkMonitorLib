@@ -19,6 +19,7 @@ public sealed class BleAdvertisement
         ReceivedUtc = receivedUtc;
     }
     public byte[] CopyBytes() => _bytes.ToArray();
+    internal bool HasSamePayload(ReadOnlySpan<byte> bytes) => _bytes.AsSpan().SequenceEqual(bytes);
 }
 
 /// <summary>One immutable view, retained safely by asynchronous connects after later publication/eviction.</summary>
@@ -160,7 +161,16 @@ public sealed class BleAdvertisementListener : IBleAdvertisementListener
             if (_disposed || !_acceptingPackets || generation != _sourceGeneration) return;
             address = NormalizeAddress(address);
             if (!_packets.TryGetValue(address, out var packets)) _packets[address] = packets = new();
-            packets.Add(new(address, bytes, _clock(), ++_sequence, DateTime.UtcNow));
+            long timestamp = _clock();
+            // Compare with the last retained reception: suppressed repeats must not
+            // indefinitely postpone an unchanged advertiser's next sample.
+            if (packets.Count > 0)
+            {
+                var last = packets[^1];
+                if (timestamp >= last.Timestamp && timestamp - last.Timestamp < Stopwatch.Frequency
+                    && last.HasSamePayload(bytes)) return;
+            }
+            packets.Add(new(address, bytes, timestamp, ++_sequence, DateTime.UtcNow));
         }
     }
     /// <summary>Snapshot BEFORE cleanup. Receive writes cannot fall between snapshot and eviction.</summary>

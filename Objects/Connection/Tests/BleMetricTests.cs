@@ -138,6 +138,9 @@ public class BleMetricTests
         var provider = new Mock<ICmdProcessorProvider>();
         provider.Setup(p => p.GetProcessor("BleBroadcast")).Returns(processor.Object);
         var connect = new BleBroadcastConnect(provider.Object) { MpiStatic = new MPIStatic { Address = "AA:BB:CC:DD:EE:FF", EndPointType = "blebroadcast", Args = args, Timeout = 2000 } };
+        // Supply the coordinator's prerequisite while isolating structured-result selection.
+        connect.PrepareSnapshot(new BleAdvertisementSnapshot(0, System.DateTime.UtcNow, 0,
+            System.Array.Empty<BleAdvertisement>(), ""));
         await connect.Connect();
         Assert.Equal(success, connect.MpiConnect.IsUp);
         bool automatic = success && !args.Contains("metric_scale") && !args.Contains("metric_offset");
