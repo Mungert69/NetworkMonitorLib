@@ -16,9 +16,6 @@ using Microsoft.Extensions.Logging;
 using NetworkMonitor.Objects;
 using NetworkMonitor.Objects.Repository;
 using NetworkMonitor.Objects.ServiceMessage;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Processing;
 
 namespace NetworkMonitor.Connection
 {
@@ -27,7 +24,6 @@ namespace NetworkMonitor.Connection
         private const int DefaultLongEdge = 1024;
         private const int HighDetailLongEdge = 1280;
         private const int JpegQuality = 4; // ffmpeg scale where lower is better quality
-        private const int JpegEncodeQuality = 80;
 
         public CameraCaptureCmdProcessor(
             ILogger logger,
@@ -101,9 +97,8 @@ namespace NetworkMonitor.Connection
                     protocol,
                     warning = capture.WarningMessage,
                     width_target = longEdge,
-                    jpeg_quality = 80,
                     bytes = imageBytes.Length,
-                    mime_type = "image/jpeg",
+                    mime_type = capture.MimeType,
                     raw_data_encoding = "base64",
                     raw_data_sha256 = sha
                 };
@@ -113,7 +108,7 @@ namespace NetworkMonitor.Connection
                     processorScanDataObj.ScanCommandSuccess = true;
                     processorScanDataObj.ScanCommandOutput = JsonSerializer.Serialize(summary);
                     processorScanDataObj.RawData = imageBytes;
-                    processorScanDataObj.RawDataMimeType = "image/jpeg";
+                    processorScanDataObj.RawDataMimeType = capture.MimeType;
                     processorScanDataObj.RawDataEncoding = "base64";
                     processorScanDataObj.RawDataLength = imageBytes.Length;
                     processorScanDataObj.RawDataSha256 = sha;
@@ -218,6 +213,7 @@ Examples:
             public string? ErrorMessage { get; set; }
             public string? WarningMessage { get; set; }
             public string Source { get; set; } = "";
+            public string MimeType { get; set; } = "image/jpeg";
         }
 
         private async Task<CaptureResult> CaptureImageAsync(
@@ -248,10 +244,10 @@ Examples:
                     return ffmpegResult;
                 }
 
-                var onvifFallbackResult = await CaptureStillFromHttpAsync(snapshotResult.Source, username, password, allowInsecureTls, longEdge, cancellationToken);
+                var onvifFallbackResult = await CaptureStillFromHttpAsync(snapshotResult.Source, username, password, allowInsecureTls, ffmpegPath, longEdge, cancellationToken);
                 if (onvifFallbackResult.Success)
                 {
-                    onvifFallbackResult.WarningMessage = "ffmpeg capture failed; used ONVIF HTTP snapshot fallback.";
+                    onvifFallbackResult.WarningMessage = $"ffmpeg capture failed; used ONVIF HTTP snapshot fallback. {onvifFallbackResult.WarningMessage}".Trim();
                     return onvifFallbackResult;
                 }
 
@@ -276,10 +272,10 @@ Examples:
                 };
             }
 
-            var onvifRtspFallback = await CaptureStillFromHttpAsync(snapshotFallback.Source, username, password, allowInsecureTls, longEdge, cancellationToken);
+            var onvifRtspFallback = await CaptureStillFromHttpAsync(snapshotFallback.Source, username, password, allowInsecureTls, ffmpegPath, longEdge, cancellationToken);
             if (onvifRtspFallback.Success)
             {
-                onvifRtspFallback.WarningMessage = "ffmpeg capture failed; used ONVIF HTTP snapshot fallback.";
+                onvifRtspFallback.WarningMessage = $"ffmpeg capture failed; used ONVIF HTTP snapshot fallback. {onvifRtspFallback.WarningMessage}".Trim();
                 return onvifRtspFallback;
             }
 
@@ -1124,6 +1120,7 @@ Examples:
             string username,
             string password,
             bool allowInsecureTls,
+            string ffmpegPath,
             int longEdge,
             CancellationToken cancellationToken)
         {
@@ -1155,16 +1152,43 @@ Examples:
                     };
                 }
 
-                if (TryNormalizeImageBytes(bytes, longEdge, out var normalizedBytes))
+                var mimeType = DetectImageMimeType(bytes);
+                if (mimeType == null)
                 {
-                    bytes = normalizedBytes;
+                    return new CaptureResult
+                    {
+                        Success = false,
+                        ErrorMessage = "HTTP snapshot did not contain a supported image."
+                    };
+                }
+
+                string tempInput = Path.Combine(Path.GetTempPath(), $"camera-snapshot-{Guid.NewGuid():N}");
+                try
+                {
+                    await File.WriteAllBytesAsync(tempInput, bytes, cancellationToken);
+                    var converted = await CaptureStillWithFfmpegAsync(tempInput, username, password, ffmpegPath, longEdge, cancellationToken, isRtsp: false, rtspPort: null);
+                    if (converted.Success)
+                    {
+                        converted.Source = sourceUrl;
+                        return converted;
+                    }
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Keep the downloaded image if local conversion is unavailable.
+                }
+                finally
+                {
+                    try { File.Delete(tempInput); } catch { }
                 }
 
                 return new CaptureResult
                 {
                     Success = true,
                     ImageBytes = bytes,
-                    Source = sourceUrl
+                    Source = sourceUrl,
+                    MimeType = mimeType,
+                    WarningMessage = "ffmpeg could not resize the HTTP snapshot; returned the original image."
                 };
             }
             catch (Exception ex)
@@ -1177,52 +1201,14 @@ Examples:
             }
         }
 
-        private static bool TryNormalizeImageBytes(byte[] sourceBytes, int longEdge, out byte[] normalizedBytes)
+        private static string? DetectImageMimeType(byte[] bytes)
         {
-            normalizedBytes = sourceBytes;
-            if (sourceBytes.Length == 0 || longEdge <= 0)
-            {
-                return false;
-            }
-
-            try
-            {
-                using var image = Image.Load(sourceBytes);
-                int width = image.Width;
-                int height = image.Height;
-                if (width <= 0 || height <= 0)
-                {
-                    return false;
-                }
-
-                int targetWidth;
-                int targetHeight;
-                if (width >= height)
-                {
-                    targetWidth = longEdge;
-                    targetHeight = Math.Max(1, (int)Math.Round(height * (longEdge / (double)width)));
-                }
-                else
-                {
-                    targetHeight = longEdge;
-                    targetWidth = Math.Max(1, (int)Math.Round(width * (longEdge / (double)height)));
-                }
-
-                if (targetWidth != width || targetHeight != height)
-                {
-                    image.Mutate(x => x.Resize(targetWidth, targetHeight));
-                }
-
-                using var output = new MemoryStream();
-                image.Save(output, new JpegEncoder { Quality = JpegEncodeQuality });
-                normalizedBytes = output.ToArray();
-                return normalizedBytes.Length > 0;
-            }
-            catch
-            {
-                normalizedBytes = sourceBytes;
-                return false;
-            }
+            if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) return "image/jpeg";
+            if (bytes.Length >= 8 && bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })) return "image/png";
+            if (bytes.Length >= 6 && Encoding.ASCII.GetString(bytes, 0, 3) == "GIF") return "image/gif";
+            if (bytes.Length >= 12 && Encoding.ASCII.GetString(bytes, 0, 4) == "RIFF" && Encoding.ASCII.GetString(bytes, 8, 4) == "WEBP") return "image/webp";
+            if (bytes.Length >= 2 && bytes[0] == 'B' && bytes[1] == 'M') return "image/bmp";
+            return null;
         }
 
         private static HttpClientHandler CreateCameraHttpClientHandler(
