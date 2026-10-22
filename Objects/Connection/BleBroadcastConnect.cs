@@ -147,7 +147,7 @@ namespace NetworkMonitor.Connection
                         if (encoding != null) {
                             var values = decoded.Readings.Where(r => r.Metric == BleMetricSelector.Canonical(metric)).ToArray();
                             if(values.Length == 1 && values[0].Value.HasValue && encoding.TryEncode(values[0].Value!.Value,out var encoded))
-                                ProcessStatus(encoding.Status,encoded,result.Message + $"\nAutomatic encoding: scale={encoding.Scale.ToString(CultureInfo.InvariantCulture)}; offset={encoding.Offset.ToString(CultureInfo.InvariantCulture)}");
+                                ProcessStatus(encoding.Status,encoded,SelectedMetricMessage(values[0], encoded, encoding.Scale, encoding.Offset));
                             else ProcessException($"BLE metric '{metric}' is missing, unavailable, ambiguous or outside its published range.\n{result.Message}","BLE Metric Error");
                         }
                         else if (explicitMetric && !scale.HasValue && offset == 0 && format != null)
@@ -155,8 +155,8 @@ namespace NetworkMonitor.Connection
                         else if (BleMetricSelector.TrySelect(decoded.Readings, metric, scale, offset, out var sample, out var label, out var metricError))
                         {
                             var reading = decoded.Readings.Single(r => r.Metric == label);
-                            string encodingDescription = $"Recorded metric: {label}; value={reading.Value!.Value.ToString("0.######", CultureInfo.InvariantCulture)} {reading.Unit}; sample={sample}; scale={(scale ?? BleMetricSelector.DefaultScale(reading)).ToString(CultureInfo.InvariantCulture)}; offset={offset.ToString(CultureInfo.InvariantCulture)}";
-                            ProcessStatus($"BLE {label}", sample, result.Message + "\n" + encodingDescription);
+                            ProcessStatus($"BLE {label}", sample, SelectedMetricMessage(reading, sample,
+                                scale ?? BleMetricSelector.DefaultScale(reading), offset));
                         }
                         else if (explicitMetric || decoded.Readings.Any(r => r.Metric == BleMetricSelector.Canonical(metric)))
                         {
@@ -170,7 +170,8 @@ namespace NetworkMonitor.Connection
                         double defaultScale = metricLabel == "battery_voltage" || metricLabel == "yield_today" ? 100 : metricLabel == "pv_power" ? 1 : 10;
                         var reading = new BleReading(metricLabel, metricValue, "", 1 / defaultScale);
                         if (BleMetricSelector.TrySelect(new[] { reading }, metric, scale, offset, out var sample, out var label, out var metricError))
-                            ProcessStatus($"BLE {label}", sample, result.Message);
+                            ProcessStatus($"BLE {label}", sample, SelectedMetricMessage(reading, sample,
+                                scale ?? BleMetricSelector.DefaultScale(reading), offset));
                         else ProcessException(metricError, "BLE Metric Error");
                     }
                     else if (explicitMetric) ProcessException($"BLE metric '{metric}' is missing or unavailable.\n{result.Message}", "BLE Metric Error");
@@ -210,6 +211,10 @@ namespace NetworkMonitor.Connection
             if (!explicitMetric && (scale.HasValue || offset != 0)) { error = "Specify --metric when using metric scaling or offset."; return false; }
             return true;
         }
+
+        private static string SelectedMetricMessage(BleReading reading, ushort sample, double scale, double offset) =>
+            $"Last observed value for this data set: {reading.Metric}={reading.Value!.Value.ToString("0.######", CultureInfo.InvariantCulture)} {reading.Unit}; " +
+            $"sample={sample}; scale={scale.ToString(CultureInfo.InvariantCulture)}; offset={offset.ToString(CultureInfo.InvariantCulture)}";
 
         private static bool TryExtractMetricValue(string output, string metric, out double value, out string label)
         {

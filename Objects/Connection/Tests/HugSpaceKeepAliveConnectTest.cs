@@ -47,6 +47,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
 
             Assert.True(connect.MpiConnect.IsUp);
             Assert.Equal("Hug Space is Alive", connect.MpiConnect.PingInfo.Status);
+            Assert.Contains("Observations from this run:", connect.MpiConnect.Message);
             Assert.NotNull(captured);
             Assert.Contains("--url https://hf.space:8080/myspace", captured!.Arguments);
             Assert.Contains("--wake", captured.Arguments);

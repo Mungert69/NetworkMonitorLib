@@ -59,6 +59,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
             Assert.True(connect.MpiConnect.IsUp);
             Assert.Equal("BLE listen complete", connect.MpiConnect.PingInfo.Status);
             Assert.Contains("listen ok", connect.MpiConnect.Message);
+            Assert.Contains("Advertisements captured during this scan:", connect.MpiConnect.Message);
             Assert.NotNull(sent);
             Assert.DoesNotContain("--address", sent!.Arguments);
         }

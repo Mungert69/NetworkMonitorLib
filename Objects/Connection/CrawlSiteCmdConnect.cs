@@ -78,8 +78,9 @@ namespace NetworkMonitor.Connection
                 }
 
 
-                if (isUp) ProcessStatus(statusMessage, responseTime, filteredString);
-                else ProcessException(filteredString, statusMessage);
+                string crawlMessage = $"Observations from this run:\n{filteredString}";
+                if (isUp) ProcessStatus(statusMessage, responseTime, crawlMessage);
+                else ProcessException(crawlMessage, statusMessage);
             }
             catch (Exception e)
             {

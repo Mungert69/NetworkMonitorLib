@@ -136,14 +136,16 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
                 EndPointType = "blebroadcast"
             };
 
-            foreach (var (output, value) in new[] { (firstOutput, firstValue), (secondOutput, secondValue) })
+            foreach (var value in new[] { firstValue, secondValue })
             {
                 await connect.Connect();
 
                 Assert.True(connect.MpiConnect.IsUp);
                 Assert.Equal(expectedStatus, connect.MpiConnect.PingInfo.Status);
                 Assert.Equal((ushort)value, connect.MpiConnect.PingInfo.RoundTripTime);
-                Assert.Contains(output, connect.MpiConnect.Message);
+                Assert.Contains($"Last observed value for this data set: {BleMetricSelector.Canonical(metric)}=", connect.MpiConnect.Message);
+                Assert.DoesNotContain("Battery voltage:", connect.MpiConnect.Message);
+                Assert.DoesNotContain("PV power:", connect.MpiConnect.Message);
             }
         }
     }

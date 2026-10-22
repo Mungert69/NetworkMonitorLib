@@ -89,7 +89,8 @@ namespace NetworkMonitor.Connection
                 if (result.Success)
                 {
                     responseTime = (ushort)(Timer.ElapsedMilliseconds / DurationScale);
-                    ProcessStatus("BLE listen complete", responseTime, result.Message);
+                    ProcessStatus("BLE listen complete", responseTime,
+                        "Advertisements captured during this scan:\n" + result.Message);
                 }
                 else
                 {

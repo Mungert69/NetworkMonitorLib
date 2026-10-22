@@ -98,11 +98,11 @@ namespace NetworkMonitor.Connection
                 {
                     // Use max value to indicate failure per your convention
                     responseTime = ushort.MaxValue;
-                    ProcessException(output, hostStatus);
+                    ProcessException($"Observations from this run:\n{output}", hostStatus);
                 }
                 else
                 {
-                    ProcessStatus(hostStatus, responseTime, output);
+                    ProcessStatus(hostStatus, responseTime, $"Observations from this run:\n{output}");
                 }
             }
             catch (Exception e)

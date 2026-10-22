@@ -53,6 +53,7 @@ PORT   STATE SERVICE
 
             Assert.True(connect.MpiConnect.IsUp);
             Assert.Equal("Port/s open", connect.MpiConnect.PingInfo.Status);
+            Assert.Contains("Scan conclusion: Port/s open\nScan details:", connect.MpiConnect.Message);
             Assert.NotNull(sent);
             Assert.Contains("-sV", sent!.Arguments);
             Assert.Contains("--system-dns -p 443 example.com", sent.Arguments);
@@ -79,6 +80,8 @@ VULNERABLE: Known CVE";
 
             Assert.False(connect.MpiConnect.IsUp);
             Assert.Contains("vulnerabilities found", connect.MpiConnect.PingInfo.Status);
+            Assert.Contains("Scan conclusion:", connect.MpiConnect.Message);
+            Assert.Contains("Scan details:", connect.MpiConnect.Message);
             Assert.Equal(ushort.MaxValue, connect.MpiConnect.PingInfo.RoundTripTime);
         }
     }

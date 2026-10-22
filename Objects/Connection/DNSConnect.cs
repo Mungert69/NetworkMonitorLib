@@ -38,7 +38,7 @@ namespace NetworkMonitor.Connection
                     ProcessStatus(
                         "Found IP Addresses",
                         (ushort)Timer.ElapsedMilliseconds,
-                        " : " + sb.ToString().TrimEnd(',', ' '));
+                        "Addresses resolved during this check: " + sb.ToString().TrimEnd(',', ' '));
                 }
                 else
                 {

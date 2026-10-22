@@ -48,6 +48,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
             Assert.True(connect.MpiConnect.IsUp);
             Assert.Equal("Site Crawl Complete", connect.MpiConnect.PingInfo.Status);
             Assert.Contains("Scrolled", connect.MpiConnect.Message);
+            Assert.Contains("Observations from this run:", connect.MpiConnect.Message);
             Assert.NotNull(captured);
             Assert.Contains("--url https://example.com:8080", captured!.Arguments);
             Assert.Contains("--base", captured.Arguments);

@@ -89,8 +89,9 @@ namespace NetworkMonitor.Connection
                     }
                 }
 
-                if (isUp) ProcessStatus(statusMessage, responseTime, filteredString);
-                else ProcessException(filteredString, statusMessage);
+                string scanMessage = $"Scan conclusion: {statusMessage}\nScan details:\n{filteredString}";
+                if (isUp) ProcessStatus(statusMessage, responseTime, scanMessage);
+                else ProcessException(scanMessage, statusMessage);
             }
             catch (Exception e)
             {

@@ -36,6 +36,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
             Assert.True(sut.MpiConnect.IsUp);
             Assert.Equal("Found IP Addresses", sut.MpiConnect.PingInfo.Status);
             Assert.Contains("1.2.3.4", sut.MpiConnect.Message);
+            Assert.Contains("Addresses resolved during this check:", sut.MpiConnect.Message);
         }
 
         [Fact]
