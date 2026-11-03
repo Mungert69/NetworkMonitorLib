@@ -47,7 +47,8 @@ $filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "Res
 # Windows DLL final destinations
 $workspaceRoot = Split-Path -Path $PSScriptRoot -Parent
 $windowsDestinations = @(
-    (Join-Path $workspaceRoot 'NetworkMonitorAgent\Resources\Raw\windowsdlls')
+    (Join-Path $workspaceRoot 'NetworkMonitorAgent\Resources\Raw\windowsdlls'),
+    (Join-Path $workspaceRoot 'NetworkMonitorMaui\Resources\Raw\windowsdlls')
 )
 
 # Copy Windows DLLs directly to their final destinations
