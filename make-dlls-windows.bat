@@ -1,2 +1,7 @@
-powershell -ExecutionPolicy Bypass -File .\make_dlls_windows.ps1
-echo "Complete double check the dlls in the two maui projects before publishing"
+@echo off
+setlocal
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0make_dlls_windows.ps1"
+set "exitCode=%ERRORLEVEL%"
+if not "%exitCode%"=="0" exit /b %exitCode%
+echo Complete. Check the DLLs in the MAUI projects before publishing.
+exit /b 0

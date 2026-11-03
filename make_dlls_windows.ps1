@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
 # Log file for debugging
-$LOG_FILE = "script_debug.log"
+$LOG_FILE = Join-Path $PSScriptRoot 'script_debug.log'
 "Script started at $(Get-Date)" | Out-File -FilePath $LOG_FILE -Encoding utf8
 
 # Function to log messages
@@ -35,7 +35,7 @@ if ($LASTEXITCODE -ne 0) {
 Log "Publish completed with output: $publishOutput"
 
 # Define source path
-$windowsSourcePath = "C:\code\NetworkMonitorLib\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish"
+$windowsSourcePath = Join-Path $PSScriptRoot 'bin\Release\net10.0-windows10.0.19041.0\win-x64\publish'
 if (!(Test-Path $windowsSourcePath)) {
     Log "ERROR: Source path '$windowsSourcePath' does not exist!"
     exit 1
@@ -45,9 +45,9 @@ if (!(Test-Path $windowsSourcePath)) {
 $filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "RestSharp.dll", "Nito*.dll", "Nanoid.dll", "mscorlib.dll", "netstandard.dll", "HtmlAgilityPack.dll", "FluentFTP.dll", "Betalgo.Ranul.OpenAI.dll", "BouncyCastle.Cryptography.dll", "Microsoft.Extensions*.dll", "Microsoft.IdentityModel*.dll", "Microsoft.Bcl.AsyncInterfaces.dll", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Microsoft.CSharp.dll", "Markdig.dll", "MessagePack*.dll")
 
 # Windows DLL final destinations
+$workspaceRoot = Split-Path -Path $PSScriptRoot -Parent
 $windowsDestinations = @(
-    "C:\code\QuantumSecure\Resources\Raw\windowsdlls",
-    "C:\code\NetworkMonitorAgent\Resources\Raw\windowsdlls"
+    (Join-Path $workspaceRoot 'NetworkMonitorAgent\Resources\Raw\windowsdlls')
 )
 
 # Copy Windows DLLs directly to their final destinations
@@ -84,25 +84,25 @@ foreach ($dest in $windowsDestinations) {
 }
 }
 
-# Run the manifest generator from each destination so the manifest describes its DLLs
-foreach ($dest in $windowsDestinations) {
-    $script = Join-Path -Path $dest -ChildPath 'create-manifest-windows.ps1'
-    if (!(Test-Path $script)) {
-        Log "ERROR: Manifest script not found: $script"
-        continue
-    }
+# Run the available manifest generator from each destination so the manifest describes its DLLs
+$manifestScript = Join-Path -Path $windowsDestinations[0] -ChildPath 'create-manifest-windows.ps1'
+if (!(Test-Path $manifestScript)) {
+    Log "ERROR: Manifest script not found: $manifestScript"
+    exit 1
+}
 
-    Log "Running create-manifest: $script"
+foreach ($dest in $windowsDestinations) {
+    Log "Running create-manifest for $dest using $manifestScript"
     Push-Location $dest
-    $manifestOutput = powershell -ExecutionPolicy Bypass -File $script 2>&1
+    $manifestOutput = powershell -ExecutionPolicy Bypass -File $manifestScript 2>&1
     $manifestExitCode = $LASTEXITCODE
     Pop-Location
     $manifestOutput | Out-File -Append $LOG_FILE
-    Log "Manifest script output: $manifestOutput"
     if ($manifestExitCode -ne 0) {
         Log "ERROR: Manifest generation failed for '$dest' with exit code $manifestExitCode"
         exit 1
     }
+    Log "Manifest generated for $dest"
 }
 
 Log "Script completed successfully"
