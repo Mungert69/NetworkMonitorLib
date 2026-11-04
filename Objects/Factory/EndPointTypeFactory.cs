@@ -39,40 +39,44 @@ namespace NetworkMonitor.Objects.Factory
                 "HashIcon",
                 "SiteHash (Website Content Hash Check)",
                 "Load full website content using Puppeteer, hash the rendered HTML, and compare to a stored value for change detection.",
-                "loads and hashes rendered website content to detect changes"
+                "loads and hashes rendered website content to detect changes",
+                isSuitableForPrediction: false
             ),
             new EndpointType(
                 "configintegrity",
                 "HashIcon",
                 "Configuration Integrity (local Debian)",
                 "Read the root-published Debian configuration-integrity status for this local monitoring agent.",
-                "checks the local Debian configuration-integrity result"
+                "checks the local Debian configuration-integrity result",
+                isSuitableForPrediction: false
             ),
-            new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups", "DNS lookup"),
+            new EndpointType("dns", "DnsIcon", "DNS (Domain Lookup)", "Perform DNS lookups", "DNS lookup", isSuitableForPrediction: false),
             new EndpointType("smtp", "EmailIcon", "SMTP (Email Ping)", "Ping email via SMTP", "email server HELO message confirmation"),
-            new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test"),
-            new EndpointType("quantumcert", "QuantumIcon", "Quantum Cert (Certificate PQC Check)", "Quantum certificate checks", "a quantum-safe certificate test"),
+            new EndpointType("quantum", "QuantumIcon", "Quantum (Quantum Ready Check)", "Quantum readiness checks", "a quantum-safe encryption test", isSuitableForPrediction: false),
+            new EndpointType("quantumcert", "QuantumIcon", "Quantum Cert (Certificate PQC Check)", "Quantum certificate checks", "a quantum-safe certificate test", isSuitableForPrediction: false),
             new EndpointType("rawconnect", "LinkIcon", "Raw Connect (Socket Connection)", "Establish raw socket connections", "low-level raw socket connection"),
             new EndpointType(
                 "blebroadcast",
                 "BluetoothIcon",
                 "BLE Broadcast",
                 "Listen for BLE broadcasts from a specific address and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format raw|aesgcm|aesctr|victron --nonce_len 12 --tag_len 16 --nonce_at start --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
-                "BLE broadcast (targeted). Password=key, Args=cmd flags"
+                "BLE broadcast (targeted). Password=key, Args=cmd flags",
+                isSuitableForPrediction: false
             ),
             new EndpointType(
                 "blebroadcastlisten",
                 "BluetoothIcon",
                 "BLE Broadcast Listen",
                 "Listen for any BLE broadcasts within the timeout window and return a capped list of payloads. Password is optional (used as the key). Extra flags go in Args, e.g. --format raw|aesgcm|aesctr|victron --nonce_len 12 --tag_len 16 --nonce_at start --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --max_captures <int>.",
-                "BLE broadcast (listen mode, no address required)"
+                "BLE broadcast (listen mode, no address required)",
+                isSuitableForPrediction: false
             ),
-            new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap"),
-            new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans", "vulnerability scan using Nmap scripts"),
-            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites", "traffic generator that crawls a site"),
-            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites", "once-daily low-traffic site crawl"),
-            new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Keep Alive {Traffic Generator}", "Generate once daily traffic to keep alive  a huggingface space", "once-daily traffic generator for a Hugging Face space to keep it alive"),
-            new EndpointType("hugwake", "HugIcon", "Hourly HuggingFace Wake Up {Click Restart}", "Searches for and clicks restart on a huggingface space", "wake up a Hugging Face space by clicking the restart button if the space is sleeping")
+            new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap", isSuitableForPrediction: false),
+            new EndpointType("nmapvuln", "NmapVulnIcon", "NmapVuln (Vulnerability Scan)", "Perform Nmap vulnerability scans", "vulnerability scan using Nmap scripts", isSuitableForPrediction: false),
+            new EndpointType("crawlsite", "CrawlSiteIcon", "CrawlSite (Traffic Generator)", "Generate traffic by crawling sites", "traffic generator that crawls a site", isSuitableForPrediction: false),
+            new EndpointType("dailycrawl", "CrawlSiteIcon", "Daily CrawlSite {Low Traffic Generator}", "Generate once daily traffic by crawling sites", "once-daily low-traffic site crawl", isSuitableForPrediction: false),
+            new EndpointType("dailyhugkeepalive", "HugIcon", "Daily HuggingFace Keep Alive {Traffic Generator}", "Generate once daily traffic to keep alive  a huggingface space", "once-daily traffic generator for a Hugging Face space to keep it alive", isSuitableForPrediction: false),
+            new EndpointType("hugwake", "HugIcon", "Hourly HuggingFace Wake Up {Click Restart}", "Searches for and clicks restart on a huggingface space", "wake up a Hugging Face space by clicking the restart button if the space is sleeping", isSuitableForPrediction: false)
 
 
         };
