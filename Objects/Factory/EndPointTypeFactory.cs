@@ -59,16 +59,16 @@ namespace NetworkMonitor.Objects.Factory
                 "blebroadcast",
                 "BluetoothIcon",
                 "BLE Broadcast",
-                "Listen for BLE broadcasts from a specific address and optionally decrypt payloads. Uses Password as the key. Extra flags go in Args, e.g. --format raw|aesgcm|aesctr|victron --nonce_len 12 --tag_len 16 --nonce_at start --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --raw_payload <hex> --metric pv_power|battery_voltage|battery_current|yield_today|load_current. Example: address=CE:65:1B:7B:C0:C8 password=<key> args=\"--format victron --metric pv_power\".",
-                "BLE broadcast (targeted). Password=key, Args=cmd flags",
+                "Monitor one decoded BLE metric from a specific address. Put the encryption key in Password and flags in Args: --format victron|ruuvi|bthome|raw|aesgcm|aesctr --metric <metric>. Supported metrics depend on protocol and device record. Use endpoint discovery for format-specific arguments, metrics and examples.",
+                "BLE broadcast (targeted). Password=key; Args=--format <format> --metric <metric>. Discover supported formats and metrics with get_available_endpoints",
                 isSuitableForPrediction: false
             ),
             new EndpointType(
                 "blebroadcastlisten",
                 "BluetoothIcon",
                 "BLE Broadcast Listen",
-                "Listen for any BLE broadcasts within the timeout window and return a capped list of payloads. Password is optional (used as the key). Extra flags go in Args, e.g. --format raw|aesgcm|aesctr|victron --nonce_len 12 --tag_len 16 --nonce_at start --payload manufacturer|service|raw --manufacturer_id <int> --service_uuid <uuid> --max_captures <int>.",
-                "BLE broadcast (listen mode, no address required)",
+                "Discover raw BLE advertisements within the timeout window. No address or key required; does not decrypt or produce physical readings. Args supports --payload manufacturer|service|raw --manufacturer_id <integer> --service_uuid <uuid> --max_captures <integer>.",
+                "BLE advertisement discovery (raw captures, no address required); use blebroadcast for decoded metrics",
                 isSuitableForPrediction: false
             ),
             new EndpointType("nmap", "NmapIcon", "NmapScan (Service Scan)", "Perform Nmap service scans", "service scan using Nmap", isSuitableForPrediction: false),

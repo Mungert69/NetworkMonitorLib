@@ -203,6 +203,20 @@ public class PrintPropertiesAsJsonTests
     }
 
     [Fact]
+    public void DetailedBleHostListIncludesSelectedMetricAndUnitOnlyWhenRequested()
+    {
+        var host = new MonitorIP { EndPointType = "blebroadcast", Address = "AA:BB:CC:DD:EE:FF",
+            Args = "--format victron --metric yield_today", Password = "secret" };
+        using var detailed = JsonDocument.Parse(PrintPropertiesAsJson.PrintMonitorIPProperties(host, true));
+        Assert.Equal("yield_today", detailed.RootElement.GetProperty("metric").GetString());
+        Assert.Equal("kWh", detailed.RootElement.GetProperty("unit").GetString());
+        Assert.Equal("****", detailed.RootElement.GetProperty("password").GetString());
+        using var compact = JsonDocument.Parse(PrintPropertiesAsJson.PrintMonitorIPProperties(host, false));
+        Assert.False(compact.RootElement.TryGetProperty("metric", out _));
+        Assert.False(compact.RootElement.TryGetProperty("unit", out _));
+    }
+
+    [Fact]
     public void PrintAgentProperties_IncludesAvailableFunctions()
     {
         var processor = new ProcessorObj

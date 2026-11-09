@@ -133,46 +133,9 @@ public class PrintPropertiesAsJson
 
         return output.ToString();
     }
-    public static string PrintMonitorPingInfoProperties(MonitorPingInfo monitorPingInfo, bool detail)
-    {
-        // This projection is for LLM consumption. Never mutate encoded API/storage fields.
-        double? Convert(double sample) => monitorPingInfo.PacketsRecieved > 0
-            ? MeasurementConversion.Value(sample, monitorPingInfo.Scale, monitorPingInfo.Offset) : null;
-        var fields = new System.Collections.Generic.Dictionary<string, object?>
-        {
-            ["status_message"] = monitorPingInfo.MessageForUser,
-            ["id"] = monitorPingInfo.ID,
-            ["address"] = monitorPingInfo.Address,
-            ["endpoint"] = monitorPingInfo.EndPointType,
-            ["agent_location"] = monitorPingInfo.AgentLocation,
-            ["unit"] = monitorPingInfo.Unit,
-            ["low_threshold"] = monitorPingInfo.LowThreshold,
-            ["high_threshold"] = monitorPingInfo.HighThreshold,
-            ["measurement_average"] = Convert(monitorPingInfo.RoundTripTimeAverage),
-            ["measurement_minimum"] = Convert(monitorPingInfo.RoundTripTimeMinimum),
-            ["measurement_maximum"] = Convert(monitorPingInfo.RoundTripTimeMaximum)
-        };
-        if (monitorPingInfo.MeasurementBreach != null) fields["measurement_breach"] = monitorPingInfo.MeasurementBreach;
-        var args = string.IsNullOrWhiteSpace(monitorPingInfo.Args) ? monitorPingInfo.Username : monitorPingInfo.Args;
-        var metric = NetworkMonitor.Connection.BleMetricCatalogue.MetricFromArgs(args);
-        if (monitorPingInfo.EndPointType == "blebroadcast" && metric != null) fields["metric"] = metric;
-        if (monitorPingInfo.Port != 0) fields["port"] = monitorPingInfo.Port;
-        if (detail)
-        {
-            fields["dataset_id"] = monitorPingInfo.DataSetID;
-            fields["status"] = monitorPingInfo.MonitorStatus?.Message;
-            fields["packets_sent"] = monitorPingInfo.PacketsSent;
-            fields["packets_received"] = monitorPingInfo.PacketsRecieved;
-            fields["packets_lost"] = monitorPingInfo.PacketsLost;
-            fields["packets_lost_percentage"] = monitorPingInfo.PacketsLostPercentage;
-            fields["alert_sent"] = monitorPingInfo.MonitorStatus?.AlertSent;
-            fields["alert_flag"] = monitorPingInfo.MonitorStatus?.AlertFlag;
-            // Retain existing keys for function consumers, now in the declared physical unit.
-            fields["round_trip_time_maximum"] = Convert(monitorPingInfo.RoundTripTimeMaximum);
-            fields["round_trip_time_average"] = Convert(monitorPingInfo.RoundTripTimeAverage);
-        }
-        return JsonSerializer.Serialize(fields);
-    }
+    public static string PrintMonitorPingInfoProperties(MonitorPingInfo monitorPingInfo, bool detail) =>
+        JsonSerializer.Serialize(LlmMeasurementRowProjector.Project(monitorPingInfo, detail));
+
     public static string PrintMonitorIPProperties(MonitorIP monitorIP, bool detail)
     {
         StringBuilder output = new StringBuilder();
@@ -194,6 +157,14 @@ public class PrintPropertiesAsJson
             output.Append("\"agent_location\" : \"").Append(monitorIP.AgentLocation).Append("\", ");
             if (!string.IsNullOrEmpty(monitorIP.Username)) output.Append("\"username\" : \"").Append(monitorIP.Username).Append("\", ");
             if (!string.IsNullOrEmpty(monitorIP.Password)) output.Append("\"password\" : \"").Append(MaskSecret(monitorIP.Password)).Append("\", ");
+            var selectedArgs = string.IsNullOrWhiteSpace(monitorIP.Args) ? monitorIP.Username : monitorIP.Args;
+            if (monitorIP.EndPointType == "blebroadcast")
+            {
+                var selectedMetric = NetworkMonitor.Connection.BleMetricCatalogue.MetricFromArgs(selectedArgs);
+                if (selectedMetric != null) output.Append("\"metric\" : ").Append(JsonSerializer.Serialize(selectedMetric)).Append(", ");
+                var definition = NetworkMonitor.Connection.EndpointMeasurementDefaults.Get(monitorIP.EndPointType, selectedArgs);
+                output.Append("\"unit\" : ").Append(JsonSerializer.Serialize(definition.Unit)).Append(", ");
+            }
             if (!string.IsNullOrEmpty(monitorIP.Args)) output.Append("\"args\" : \"").Append(monitorIP.Args).Append("\", ");
 
         }

@@ -7,6 +7,7 @@ namespace NetworkMonitor.Connection;
 public interface IVictronRecordDecoder
 {
     byte RecordType { get; }
+    string RecordName => $"record_{RecordType:x2}";
     IReadOnlyList<BleMetricRange> Metrics => Array.Empty<BleMetricRange>();
     bool TryAppend(byte[] plaintext, StringBuilder output, out string error);
     bool TryAppend(byte[] plaintext, StringBuilder output, ICollection<BleReading> readings, out string error)
@@ -16,6 +17,7 @@ public interface IVictronRecordDecoder
 public sealed class VictronSolarChargerRecordDecoder : IVictronRecordDecoder
 {
     public byte RecordType => 0x01;
+    public string RecordName => "solar_charger";
     public IReadOnlyList<BleMetricRange> Metrics => new[] {
         BleMetricRange.Field("Battery voltage","V",16,true,.01,na:0x7fff),
         BleMetricRange.Field("Battery current","A",16,true,.1,na:0x7fff),

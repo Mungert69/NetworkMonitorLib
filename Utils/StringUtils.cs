@@ -63,17 +63,16 @@ public static class StringUtils
         if (string.IsNullOrEmpty(variable)) return variable;
         return variable.Length <= Length ? variable : variable.Substring(0, Length);
     }
+    public static string FormatDateTime(DateTime date, TimeZoneInfo clientTimeZone)
+    {
+        var clientDate = clientTimeZone.Id != "UTC" ? TimeZoneInfo.ConvertTime(date, clientTimeZone) : date;
+        return clientDate.ToString("yyyy-MM-ddTHH:mm:ss");
+    }
+
     public static void AppendFormattedDateTime(StringBuilder output, DateTime? dateToFormat, TimeZoneInfo clientTimeZone, string fieldName)
     {
         if (dateToFormat == null) return;
-        DateTime date = (DateTime)dateToFormat;
-        // Convert the date only if the time zone is not UTC, otherwise use the date as is.
-        DateTime dateStartedClientTime = (clientTimeZone.Id != "UTC")
-            ? TimeZoneInfo.ConvertTime(date, clientTimeZone)
-            : date;
-
-        // Format the DateTime to an ISO 8601 string without timezone information.
-        string iso8601Date = dateStartedClientTime.ToString("yyyy-MM-ddTHH:mm:ss");
+        string iso8601Date = FormatDateTime(dateToFormat.Value, clientTimeZone);
 
         // Append the formatted string to the output StringBuilder.
         output.Append($"\"{fieldName}\" : \"{iso8601Date}\", ");

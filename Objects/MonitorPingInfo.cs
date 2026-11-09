@@ -23,6 +23,9 @@ namespace NetworkMonitor.Objects
         [NotMapped] public double? LowThreshold { get; set; }
         [NotMapped] public double? HighThreshold { get; set; }
         [NotMapped] public MeasurementBreach? MeasurementBreach { get; set; }
+        // Internal response metadata; excluded from storage and ordinary API serialization.
+        [NotMapped, System.Text.Json.Serialization.JsonIgnore, System.Runtime.Serialization.IgnoreDataMember]
+        public NetworkMonitor.Connection.EndpointMeasurementMetadata? MeasurementContext { get; set; }
         // Empty constructor for EF
         public MonitorPingInfo()
         {
@@ -31,6 +34,7 @@ namespace NetworkMonitor.Objects
         // Copy constructor
         public MonitorPingInfo(MonitorPingInfo copy)
         {
+            MeasurementContext = copy.MeasurementContext;
             Unit = copy.Unit;
             Scale = copy.Scale;
             Offset = copy.Offset;
@@ -76,6 +80,7 @@ namespace NetworkMonitor.Objects
 
         public MonitorPingInfo(MonitorPingInfo copy, bool copyAll)
         {
+            MeasurementContext = copy.MeasurementContext;
             Unit = copy.Unit;
             Scale = copy.Scale;
             Offset = copy.Offset;
@@ -158,6 +163,7 @@ namespace NetworkMonitor.Objects
         }
         public void CopyMonitorPingInfo(MonitorPingInfo copy)
         {
+            MeasurementContext = copy.MeasurementContext;
             Unit = copy.Unit;
             Scale = copy.Scale;
             Offset = copy.Offset;

@@ -142,6 +142,7 @@ internal sealed class VictronLayoutRecordDecoder(byte recordType, string name, i
 {
     private readonly VictronField[] _fields = fields.ToArray();
     public byte RecordType => recordType;
+    public string RecordName => BleReading.MetricName(name);
     public IReadOnlyList<BleMetricRange> Metrics => _fields.Select(f => f.CellVoltage
         ? new BleMetricRange(BleReading.MetricName(f.Label), f.Unit, 2.61, 3.85, .01)
         : BleMetricRange.Field(f.Label, f.Unit, f.Width, f.Signed, f.Scale, f.Offset, f.Na)).Select((range, i) => range with { Meaning = _fields[i].Meaning })
