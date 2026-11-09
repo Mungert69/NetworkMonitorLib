@@ -281,7 +281,7 @@ public class BleAdvertisementListenerTests
     }
 
     [Fact]
-    public async Task AveragesSelectedPhysicalMetricBeforeEncodingAndKeepsLatestText()
+    public async Task AveragesSelectedPhysicalMetricBeforeEncodingAndDisplaysRecordedReading()
     {
         long now = 0;
         var source = new Source();
@@ -307,8 +307,10 @@ public class BleAdvertisementListenerTests
         var encoding = BleMetricCatalogue.Find("bthome", "temperature")!;
         Assert.True(encoding.TryEncode(10, out var expected));
         Assert.Equal(expected, connect.MpiConnect.PingInfo.RoundTripTime);
-        Assert.Contains("Temperature: 30 °C", connect.MpiConnect.Message);
-        Assert.DoesNotContain("Temperature: 10 °C", connect.MpiConnect.Message);
+        Assert.Contains("Temperature: 10 °C", connect.MpiConnect.Message);
+        Assert.DoesNotContain("Temperature: 30 °C", connect.MpiConnect.Message);
+        Assert.DoesNotContain("Last observed", connect.MpiConnect.Message);
+        Assert.DoesNotContain("BTHome", connect.MpiConnect.Message);
     }
 
     [Fact]

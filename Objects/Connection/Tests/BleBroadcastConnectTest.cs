@@ -143,7 +143,7 @@ namespace NetworkMonitorLib.Tests.Objects.Connection
                 Assert.True(connect.MpiConnect.IsUp);
                 Assert.Equal(expectedStatus, connect.MpiConnect.PingInfo.Status);
                 Assert.Equal((ushort)value, connect.MpiConnect.PingInfo.RoundTripTime);
-                Assert.Contains($"Last observed value for this data set: {BleMetricSelector.Canonical(metric)}=", connect.MpiConnect.Message);
+                Assert.Contains($"{System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(BleMetricSelector.Canonical(metric).Replace('_', ' '))}: ", connect.MpiConnect.Message);
                 Assert.DoesNotContain("Battery voltage:", connect.MpiConnect.Message);
                 Assert.DoesNotContain("PV power:", connect.MpiConnect.Message);
             }

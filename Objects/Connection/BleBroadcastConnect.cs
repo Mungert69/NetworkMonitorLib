@@ -213,7 +213,7 @@ namespace NetworkMonitor.Connection
         }
 
         private static string SelectedMetricMessage(BleReading reading, ushort sample, double scale, double offset) =>
-            $"Last observed value for this data set: {reading.Metric}={reading.Value!.Value.ToString("0.######", CultureInfo.InvariantCulture)} {reading.Unit}; " +
+            $"{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(reading.Metric.Replace('_', ' '))}: {reading.Value!.Value.ToString("0.######", CultureInfo.InvariantCulture)} {reading.Unit}; " +
             $"sample={sample}; scale={scale.ToString(CultureInfo.InvariantCulture)}; offset={offset.ToString(CultureInfo.InvariantCulture)}";
 
         private static bool TryExtractMetricValue(string output, string metric, out double value, out string label)

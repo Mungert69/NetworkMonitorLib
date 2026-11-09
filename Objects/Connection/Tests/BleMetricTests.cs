@@ -152,7 +152,7 @@ public class BleMetricTests
         if (success) Assert.Equal((ushort)expected, connect.MpiConnect.PingInfo.RoundTripTime);
         if (success)
         {
-            Assert.Contains("Last observed value for this data set: temperature=25 °C", connect.MpiConnect.Message);
+            Assert.Contains("Temperature: 25 °C", connect.MpiConnect.Message);
             Assert.DoesNotContain("Temperature: 999 °C", connect.MpiConnect.Message);
             Assert.DoesNotContain("diagnostics", connect.MpiConnect.Message);
         }
