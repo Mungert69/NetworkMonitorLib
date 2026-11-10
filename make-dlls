@@ -39,6 +39,16 @@ log() {
 
 log "Build mode: $BUILD_MODE"
 
+# Resolve output paths from each project's current target framework.
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LINUX_TFM="$(dotnet msbuild "$PROJECT_DIR/NetworkMonitor.csproj" -getProperty:TargetFramework)"
+ANDROID_TFM="$(dotnet msbuild "$PROJECT_DIR/NetworkMonitor-Maui-Android.csproj" -getProperty:TargetFramework)"
+LINUX_X64_PUBLISH="$PROJECT_DIR/bin/Release/$LINUX_TFM/linux-x64/publish"
+LINUX_ARM64_PUBLISH="$PROJECT_DIR/bin/Release/$LINUX_TFM/linux-arm64/publish"
+ANDROID_PUBLISH="$PROJECT_DIR/bin/Release/$ANDROID_TFM/android/publish"
+X64_DLL_STAGE="$PROJECT_DIR/bin/Release/$ANDROID_TFM/android/publish-x64-dlls"
+ARM64_DLL_STAGE="$PROJECT_DIR/bin/Release/$ANDROID_TFM/android/publish-arm64-dlls"
+
 # Publish NetworkMonitor for linux-x64
 log "Publishing NetworkMonitor for linux-x64"
 dotnet publish NetworkMonitor.csproj -c Release -r linux-x64 --self-contained true >> $LOG_FILE 2>&1
@@ -70,11 +80,6 @@ else
     log "Skipping android publish due to --no-android"
 fi
 
-LINUX_X64_PUBLISH=~/code/NetworkMonitorLib/bin/Release/net10.0/linux-x64/publish
-LINUX_ARM64_PUBLISH=~/code/NetworkMonitorLib/bin/Release/net10.0/linux-arm64/publish
-ANDROID_PUBLISH=~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish
-X64_DLL_STAGE=~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish-x64-dlls
-ARM64_DLL_STAGE=~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/publish-arm64-dlls
 
 copy_linux_publish_dependencies() {
     local SRC_PUBLISH="$1"
@@ -115,7 +120,7 @@ if [ "$BUILD_MODE" != "no-android" ]; then
     log "Copying files from linux-x64 to android publish directory"
     copy_linux_publish_dependencies "$LINUX_X64_PUBLISH" "$ANDROID_PUBLISH"
     # difference here use the android NetworkMonitor.dll later overwritten for linux kept for andoid.
-    cp ~/code/NetworkMonitorLib/bin/Release/net10.0-android/android/NetworkMonitor.dll "$ANDROID_PUBLISH" >> $LOG_FILE 2>&1
+    cp "$PROJECT_DIR/bin/Release/$ANDROID_TFM/android/NetworkMonitor.dll" "$ANDROID_PUBLISH" >> $LOG_FILE 2>&1
 
     rm -f "$ANDROID_PUBLISH"/_Microsoft.Android.Resource.Designer.dll
     log "Successfully copied files to android publish directory"
