@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-    <TargetFramework>net11.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
         <AssemblyName>NetworkMonitor</AssemblyName>
     <RootNamespace>NetworkMonitor</RootNamespace>
       <TargetName>NetworkMonitor</TargetName>
@@ -12,19 +12,19 @@
     <ItemGroup>
         <PackageReference Include="DotNetEnv" Version="3.2.0" />
         <PackageReference Include="FluentFTP" Version="55.1.0" />
-        <PackageReference Include="Markdig" Version="1.5.1" />
+        <PackageReference Include="Markdig" Version="1.6.0" />
 
         <PackageReference Include="HtmlAgilityPack" Version="1.13.1" />
         <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.2.6" />
         <PackageReference Include="MessagePack" Version="3.1.12" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="11.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.14" />
         <PackageReference Include="Nanoid" Version="3.1.0" />
         <PackageReference Include="PuppeteerSharp" Version="25.15.0" />
-        <PackageReference Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="11.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="11.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="11.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.14" />
         <PackageReference Include="bouncycastle.cryptography" Version="2.7.0" />
         <PackageReference Include="MetroLog.Net6" Version="2.1.0" />
         <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.23.0" />
