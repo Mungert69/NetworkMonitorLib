@@ -71,56 +71,61 @@ Log "Using publish source path: $windowsSourcePath"
 # Files to copy
 $filesToCopy = @( "NetworkMonitor.dll","System*.dll", "PuppeteerSharp.dll", "RestSharp.dll", "Nito*.dll", "Nanoid.dll", "mscorlib.dll", "netstandard.dll", "HtmlAgilityPack.dll", "FluentFTP.dll", "Betalgo.Ranul.OpenAI.dll", "BouncyCastle.Cryptography.dll", "Microsoft.Extensions*.dll", "Microsoft.IdentityModel*.dll", "Microsoft.Bcl.AsyncInterfaces.dll", "Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Microsoft.CSharp.dll", "Markdig.dll", "MessagePack*.dll")
 
-# Windows DLL destination
+# Windows DLL destinations
 $workspaceRoot = Split-Path -Path $PSScriptRoot -Parent
-$windowsDestination = Join-Path $workspaceRoot 'NetworkMonitorAgent\Resources\Raw\windowsdlls'
+$windowsDestinations = @(
+    (Join-Path $workspaceRoot 'NetworkMonitorAgent\Resources\Raw\windowsdlls'),
+    (Join-Path $workspaceRoot 'QuantumSecure\Resources\Raw\windowsdlls')
+)
 
-# Copy Windows DLLs directly to the app's resource folder
-$dest = $windowsDestination
+# Copy Windows DLLs directly to both apps' resource folders
+foreach ($dest in $windowsDestinations) {
+    if (!(Test-Path $dest)) {
+        Log "WARNING: Destination path '$dest' does not exist. Creating it."
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    }
 
-if (!(Test-Path $dest)) {
-    Log "WARNING: Destination path '$dest' does not exist. Creating it."
-    New-Item -ItemType Directory -Path $dest -Force | Out-Null
-}
-
-Log "Copying files to $dest"
-foreach ($file in $filesToCopy) {
-    $matches = Get-ChildItem -Path $windowsSourcePath -Filter $file -File -ErrorAction SilentlyContinue
-    if ($matches) {
-        foreach ($match in $matches) {
-            Copy-Item -Path $match.FullName -Destination $dest -Force -ErrorAction Stop
-            Log "Copied: $($match.Name) to $dest"
+    Log "Copying files to $dest"
+    foreach ($file in $filesToCopy) {
+        $matches = Get-ChildItem -Path $windowsSourcePath -Filter $file -File -ErrorAction SilentlyContinue
+        if ($matches) {
+            foreach ($match in $matches) {
+                Copy-Item -Path $match.FullName -Destination $dest -Force -ErrorAction Stop
+                Log "Copied: $($match.Name) to $dest"
+            }
+        } else {
+            Log "WARNING: File pattern not found: $file"
         }
-    } else {
-        Log "WARNING: File pattern not found: $file"
+    }
+
+    $targetFile = "System.IO.Compression.Native.dll"
+    $filePath = Join-Path -Path $dest -ChildPath $targetFile
+    if (Test-Path $filePath) {
+        Remove-Item -Path $filePath -Force -ErrorAction Stop
+        Log "Deleted: $filePath"
     }
 }
 
-$targetFile = "System.IO.Compression.Native.dll"
-$filePath = Join-Path -Path $dest -ChildPath $targetFile
-if (Test-Path $filePath) {
-    Remove-Item -Path $filePath -Force -ErrorAction Stop
-    Log "Deleted: $filePath"
-}
-
-# Run the manifest generator so the manifest describes the copied DLLs
-$manifestScript = Join-Path -Path $dest -ChildPath 'create-manifest-windows.ps1'
+# Use the Agent manifest generator for both destinations; it writes the current folder's manifest
+$manifestScript = Join-Path -Path $windowsDestinations[0] -ChildPath 'create-manifest-windows.ps1'
 if (!(Test-Path $manifestScript)) {
     Log "ERROR: Manifest script not found: $manifestScript"
     exit 1
 }
 
-Log "Running create-manifest for $dest using $manifestScript"
-Push-Location $dest
-$manifestOutput = powershell -ExecutionPolicy Bypass -File $manifestScript 2>&1
-$manifestExitCode = $LASTEXITCODE
-Pop-Location
-$manifestOutput | Out-File -Append $LOG_FILE
-if ($manifestExitCode -ne 0) {
-    Log "ERROR: Manifest generation failed for '$dest' with exit code $manifestExitCode"
-    exit 1
+foreach ($dest in $windowsDestinations) {
+    Log "Running create-manifest for $dest using $manifestScript"
+    Push-Location $dest
+    $manifestOutput = powershell -ExecutionPolicy Bypass -File $manifestScript 2>&1
+    $manifestExitCode = $LASTEXITCODE
+    Pop-Location
+    $manifestOutput | Out-File -Append $LOG_FILE
+    if ($manifestExitCode -ne 0) {
+        Log "ERROR: Manifest generation failed for '$dest' with exit code $manifestExitCode"
+        exit 1
+    }
+    Log "Manifest generated for $dest"
 }
-Log "Manifest generated for $dest"
 
 Log "Script completed successfully"
 "Script completed successfully. Check $LOG_FILE for details." | Out-File -Append $LOG_FILE
