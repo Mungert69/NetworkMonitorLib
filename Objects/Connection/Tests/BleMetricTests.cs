@@ -104,6 +104,8 @@ public class BleMetricTests
     [InlineData(70000, 1, 0, false, 0)]
     [InlineData(70000, 0.1, 0, true, 7000)]
     [InlineData(1.005, 100, 0, true, 101)]
+    [InlineData(2.675, 100, 0, true, 268)]
+    [InlineData(1.004999999999, 100, 0, true, 100)]
     public void ScaledSamplesUseOffsetsAndRejectOutOfRange(double number, double scale, double offset, bool success, int expected)
     {
         Assert.Equal(success, BleMetricSelector.TrySelect(new[] { new BleReading("reading", number, "") }, "reading", scale, offset, out var sample, out _, out _));

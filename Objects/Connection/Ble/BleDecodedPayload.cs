@@ -33,6 +33,11 @@ public static class BleMetricSelector
         "pressure" => reading.Unit == "Pa" ? 0.1 : 10,
         _ => 1 / reading.Resolution
     };
+    // Preserve the 15 significant digits used by double-to-decimal conversion before
+    // .NET 11, so binary representation noise does not change metric midpoint rounding.
+    private static decimal ToMetricDecimal(double value) => decimal.Parse(
+        value.ToString("G15", CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture);
+
     public static bool TrySelect(IReadOnlyList<BleReading> readings, string metric, double? scale,
         double offset, out ushort sample, out string label, out string error)
     {
@@ -49,7 +54,7 @@ public static class BleMetricSelector
         decimal encoded = -1;
         if (double.IsFinite(factor) && factor > 0 && double.IsFinite(offset) && double.IsFinite(reading.Value!.Value))
         {
-            try { encoded = Math.Round(((decimal)reading.Value.Value + (decimal)offset) * (decimal)factor, 0, MidpointRounding.AwayFromZero); }
+            try { encoded = Math.Round((ToMetricDecimal(reading.Value.Value) + ToMetricDecimal(offset)) * ToMetricDecimal(factor), 0, MidpointRounding.AwayFromZero); }
             catch (OverflowException) { }
         }
         if (!double.IsFinite(factor) || factor <= 0 || !double.IsFinite(offset) || encoded < 0 || encoded > BleMetricCatalogue.MaxSample)
