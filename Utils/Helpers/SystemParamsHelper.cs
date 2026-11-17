@@ -442,6 +442,7 @@ namespace NetworkMonitor.Utils.Helpers
             mlParams.HFToken = GetConfigHelper.GetConfigValue(_logger, _config, "HF_TOKEN");
             mlParams.OpenAIApiKey = GetConfigHelper.GetConfigValue(_logger, _config, "OpenAIApiKey");
             mlParams.LlmHFUrl = _config.GetValue<string>("LlmHFUrl") ?? "";
+            mlParams.LlmHfProvider = _config.GetValue<string>("LlmHfProvider") ?? "";
             mlParams.LlmOpenAIUrl = _config.GetValue<string>("LlmOpenAIUrl") ?? "";
             mlParams.LlmSystemPrompt = _config.GetValue<string>("LlmSystemPrompt") ?? "";
             mlParams.LlmThreads = int.TryParse(_config["LlmThreads"], out int llmThreads) ? llmThreads : 2;

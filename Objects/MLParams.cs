@@ -54,6 +54,7 @@ public class MLParams
     private bool _llmUseHF;
     private bool _isStream;
     private bool _llmHfSupportsFunctionCalling = false;
+    private string _llmHfProvider = "";
     private bool _llmUseToolRoleForFunctionResponses = true;
     private string _llmHFModelVersion;
     private bool _llmReportProcess = false;
@@ -153,6 +154,11 @@ public class MLParams
     public string LlmOpenAIUrl { get => _llmOpenAIUrl; set => _llmOpenAIUrl = value; }
     public bool LlmUseHF { get => _llmUseHF; set => _llmUseHF = value; }
     public bool LlmHfSupportsFunctionCalling { get => _llmHfSupportsFunctionCalling; set => _llmHfSupportsFunctionCalling = value; }
+    /// <summary>
+    /// Upstream provider used by the HuggingFace style API: Auto (default, detected from LlmHFUrl),
+    /// OpenRouter, Novita or HuggingFace. Controls provider specific request fields.
+    /// </summary>
+    public string LlmHfProvider { get => _llmHfProvider; set => _llmHfProvider = value ?? ""; }
     public bool LlmUseToolRoleForFunctionResponses { get => _llmUseToolRoleForFunctionResponses; set => _llmUseToolRoleForFunctionResponses = value; }
     public string LlmHFModelVersion { get => _llmHFModelVersion; set => _llmHFModelVersion = value; }
     public int LlmCtxRatio { get => _llmCtxRatio; set => _llmCtxRatio = value; }
