@@ -27,8 +27,8 @@ namespace NetworkMonitor.Connection
         private const int DefaultMicroTimeoutMs = 10_000;
         private const int DefaultMacroTimeoutMs = 120_000;
 
-        private int _microTimeout = DefaultMicroTimeoutMs;
-        private int _macroTimeout = DefaultMacroTimeoutMs;
+        private const int ResultPageBudgetMs = 15_000;
+        private const int MaxResultPages = 3;
 
         private readonly IBrowserHost _browserHost;
         private readonly List<ArgSpec> _schema;
@@ -107,98 +107,107 @@ namespace NetworkMonitor.Connection
 
                 var searchTerm = parse.GetString("search_term");
                 var returnOnlyUrls = parse.GetBool("return_only_urls", false);
-                _microTimeout = parse.GetInt("micro_timeout", DefaultMicroTimeoutMs);
-                _macroTimeout = parse.GetInt("macro_timeout", DefaultMacroTimeoutMs);
-
-                cancellationToken.ThrowIfCancellationRequested();
+                var microTimeout = parse.GetInt("micro_timeout", DefaultMicroTimeoutMs);
+                var macroTimeout = parse.GetInt("macro_timeout", DefaultMacroTimeoutMs);
 
                 using var opCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                opCts.CancelAfter(_macroTimeout);
+                opCts.CancelAfter(macroTimeout);
 
-                // Run the entire flow on a single shared, queued page
-                var (ok, msg) = await _browserHost.RunWithPage(async page =>
+                TResultObj<List<string>> resultUrls;
+                try
                 {
-                    var helper = new SearchWebHelper(_logger, _netConfig, _microTimeout, _macroTimeout);
-
-                    // Phase 1: Fetch URLs on the same page
-                    await helper.StealthAsync(page);
-
-                    var fetchUrlsTask = helper.FetchGoogleSearchUrlsAsync(page, searchTerm, opCts.Token);
-                    var fetchTimeout = Task.Delay(_macroTimeout, opCts.Token);
-                    var fetchWinner = await Task.WhenAny(fetchUrlsTask, fetchTimeout);
-
-                    if (fetchWinner == fetchTimeout)
+                    resultUrls = await _browserHost.RunWithPage(async page =>
                     {
-                        const string timeoutMsg = "FetchUrls operation timed out.";
-                        _logger.LogWarning(timeoutMsg);
-                        return (false, timeoutMsg);
-                    }
-
-                    var resultUrls = await fetchUrlsTask;
-                    if (!resultUrls.Success || resultUrls.Data == null || resultUrls.Data.Count == 0)
-                    {
-                        var notFoundMsg = resultUrls.Message ?? "No search results found.";
-                        return (false, notFoundMsg);
-                    }
-
-                    if (returnOnlyUrls)
-                    {
-                        return (true, string.Join("\n", resultUrls.Data));
-                    }
-
-                    // Phase 2: Visit each URL sequentially on the same page and extract content
-                    var outputBuilder = new StringBuilder();
-
-                    foreach (var url in resultUrls.Data)
-                    {
-                        opCts.Token.ThrowIfCancellationRequested();
-
-                        try
-                        {
-                            var extractTask = CrawlHelper.ExtractContentFromUrl(page, url, _netConfig, _logger, _microTimeout);
-                            var urlTimeout = Task.Delay(_macroTimeout, opCts.Token);
-                            var winner = await Task.WhenAny(extractTask, urlTimeout);
-
-                            if (winner == urlTimeout)
-                            {
-                                _logger.LogWarning("ExtractContentFromUrl timed out for URL: {url}", url);
-                                outputBuilder.Append($"Timeout occurred while extracting content from {url}\n\n");
-                                continue;
-                            }
-
-                            var contentResult = await extractTask;
-
-                            if (contentResult.Success)
-                            {
-                                outputBuilder.Append($"Content from page {url}\nStart Content =>\n{contentResult.Data}\n<= End Content\n\n");
-                            }
-                            else
-                            {
-                                var m = string.IsNullOrWhiteSpace(contentResult.Message)
-                                    ? "No content"
-                                    : contentResult.Message;
-                                outputBuilder.Append($"{m} for page {url}\n\n");
-                            }
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error extracting content from {url}", url);
-                            outputBuilder.Append($"Error extracting content from {url}: {ex.Message}\n\n");
-                        }
-                    }
-
-                    return (true, outputBuilder.ToString());
-                }, opCts.Token);
-
-                return new ResultObj
+                        var helper = new SearchWebHelper(_logger, _netConfig, microTimeout, macroTimeout);
+                        await helper.StealthAsync(page).WaitAsync(opCts.Token);
+                        return await helper.FetchGoogleSearchUrlsAsync(page, searchTerm, opCts.Token)
+                            .WaitAsync(opCts.Token);
+                    }, opCts.Token);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    Success = ok,
-                    Message = await SendMessage(msg, processorScanDataObj)
-                };
+                    return new ResultObj
+                    {
+                        Success = false,
+                        Message = await SendMessage("Search timed out before finding any URLs.", processorScanDataObj)
+                    };
+                }
+
+                if (!resultUrls.Success || resultUrls.Data == null || resultUrls.Data.Count == 0)
+                {
+                    return new ResultObj
+                    {
+                        Success = false,
+                        Message = await SendMessage(resultUrls.Message ?? "No search results found.", processorScanDataObj)
+                    };
+                }
+
+                var urls = resultUrls.Data;
+                if (returnOnlyUrls)
+                {
+                    return new ResultObj
+                    {
+                        Success = true,
+                        Message = await SendMessage(string.Join("\n", urls), processorScanDataObj)
+                    };
+                }
+
+                var output = new StringBuilder();
+                output.AppendLine("Search result URLs:");
+                foreach (var url in urls)
+                {
+                    output.AppendLine(url);
+                }
+
+                var extractedCount = 0;
+                foreach (var url in urls.Take(MaxResultPages))
+                {
+                    try
+                    {
+                        var content = await _browserHost.RunWithPage(async page =>
+                        {
+                            using var pageCts = CancellationTokenSource.CreateLinkedTokenSource(opCts.Token);
+                            pageCts.CancelAfter(ResultPageBudgetMs);
+                            return await CrawlHelper.ExtractContentFromUrl(page, url, _netConfig, _logger, microTimeout)
+                                .WaitAsync(pageCts.Token);
+                        }, opCts.Token);
+
+                        if (content.Success)
+                        {
+                            extractedCount++;
+                            output.AppendLine($"\nContent from page {url}\nStart Content =>\n{content.Data}\n<= End Content");
+                        }
+                        else
+                        {
+                            output.AppendLine($"\nCould not extract {url}: {content.Message}");
+                        }
+                    }
+                    catch (OperationCanceledException) when (opCts.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        output.AppendLine($"\nPage extraction timed out for {url}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not extract search result {Url}", url);
+                        output.AppendLine($"\nCould not extract {url}.");
+                    }
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (opCts.IsCancellationRequested)
+                {
+                    output.AppendLine("\nThe overall search time budget expired. Increase macro_timeout (milliseconds) if you need more time within this search.");
+                }
+                if (extractedCount < urls.Count)
+                {
+                    output.AppendLine("For more detail, use run_crawl_page with a relevant URL above.");
+                }
+
+                return new ResultObj { Success = true, Message = await SendMessage(output.ToString(), processorScanDataObj) };
             }
             catch (OperationCanceledException)
             {
@@ -234,7 +243,8 @@ Examples:
   --search_term ""best cybersecurity practices"" --macro_timeout 180000
 
 Notes:
-  • When --return_only_urls is absent/false, each URL is visited and content is extracted.
+  • When --return_only_urls is absent/false, up to three URLs are visited for content extraction.
+  • Each page extraction gets up to 15 seconds. Results include URLs and any completed extracts.
   • Uses stealth & realistic delays via SearchWebHelper to reduce bot detection.";
 
         // (Optional) Keep for debugging unexpected pages while iterating locally
